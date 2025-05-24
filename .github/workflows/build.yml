@@ -1,0 +1,59 @@
+name: Build
+
+on:
+  push:
+    paths:
+      - 'src/**'
+  pull_request:
+    branches: [ master ]
+    paths:
+      - 'src/**'
+  workflow_dispatch:
+
+jobs:
+  dotnet:
+    name: .NET Build and Test
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: 8.0.x
+
+    - name: Restore dependencies
+      run: dotnet restore src/SubscriptionTracker.sln
+
+    - name: Build
+      run: dotnet build src/SubscriptionTracker.sln --no-restore --configuration Release
+
+    - name: Test
+      run: dotnet test src/SubscriptionTracker.Tests/SubscriptionTracker.Tests.csproj --no-build --configuration Release --verbosity normal
+
+  vue:
+    name: Vue.js Build
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: 'src/subscription-tracker-client/package-lock.json'
+
+    - name: Install dependencies
+      working-directory: ./src/subscription-tracker-client
+      run: npm ci
+
+    - name: Lint
+      working-directory: ./src/subscription-tracker-client
+      run: npm run lint
+
+    - name: Build
+      working-directory: ./src/subscription-tracker-client
+      run: npm run build

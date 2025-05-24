@@ -1,0 +1,117 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - '*'  # Trigger on any tag
+  workflow_dispatch:
+
+
+jobs:
+  build-and-deploy:
+    name: Build and Deploy Applications
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Extract tag version
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      # Setup .NET for backend build
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: 8.0.x
+
+      # Setup Node.js for frontend build
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: 'src/subscription-tracker-client/package-lock.json'
+
+      # Build backend
+      - name: Build backend
+        run: |
+          dotnet restore src/SubscriptionTracker.sln
+          dotnet build src/SubscriptionTracker.sln --configuration Release --no-restore
+          dotnet publish src/SubscriptionTracker.Api/SubscriptionTracker.Api.csproj -c Release -o ./publish/api
+
+      # Build frontend
+      - name: Build frontend
+        env:
+          API_URL: ${{ vars.API_URL }}
+        run: |
+          cd src/subscription-tracker-client
+          # Replace baseUrl in config.js with API_URL
+          cat > src/config.js << EOF
+          export const config = {
+            baseUrl: "${API_URL}"
+          }
+          EOF
+          npm ci
+          npm run build
+
+      # Login to Azure
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # Set environment variables
+      - name: Set environment variables
+        id: set_variables
+        run: |
+          echo "RESOURCE_GROUP=SubTracker" >> $GITHUB_OUTPUT
+          echo "WEBAPP_NAME=subtracker-app-backend" >> $GITHUB_OUTPUT
+          echo "FRONTEND_WEBAPP_NAME=subtracker-app-frontend" >> $GITHUB_OUTPUT
+
+      # Deploy backend to Azure Web App
+      - name: Deploy backend to Azure Web App
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ steps.set_variables.outputs.WEBAPP_NAME }}
+          package: ./publish/api
+
+      # Prepare frontend for deployment
+      - name: Prepare frontend for deployment
+        run: |
+          # Copy necessary files to the dist folder
+          cp src/subscription-tracker-client/public/web.config src/subscription-tracker-client/dist/
+          cp src/subscription-tracker-client/public/.deployment src/subscription-tracker-client/dist/
+          cp src/subscription-tracker-client/public/server.js src/subscription-tracker-client/dist/
+          cp src/subscription-tracker-client/public/package.json src/subscription-tracker-client/dist/
+
+      # Configure Azure Web App settings for frontend
+      - name: Configure Azure Web App settings
+        run: |
+          az webapp config set --resource-group ${{ steps.set_variables.outputs.RESOURCE_GROUP }} \
+            --name ${{ steps.set_variables.outputs.FRONTEND_WEBAPP_NAME }} \
+            --linux-fx-version "NODE|22-lts" \
+            --startup-file "server.js" \
+            --ftps-state Disabled
+
+          # Configure app settings
+          az webapp config appsettings set --resource-group ${{ steps.set_variables.outputs.RESOURCE_GROUP }} \
+            --name ${{ steps.set_variables.outputs.FRONTEND_WEBAPP_NAME }} \
+            --settings SCM_DO_BUILD_DURING_DEPLOYMENT=true
+
+      # Deploy frontend to Azure Web App
+      - name: Deploy frontend to Azure Web App
+        id: deploy_frontend
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ steps.set_variables.outputs.FRONTEND_WEBAPP_NAME }}
+          package: ./src/subscription-tracker-client/dist
+
+      # Post-deployment verification
+      - name: Post-deployment verification
+        run: |
+          echo "Deployment completed successfully!"
+          echo "Version deployed: ${{ steps.get_version.outputs.VERSION }}"
+          echo "Backend deployed to: ${{ steps.set_variables.outputs.WEBAPP_NAME }}"
+          echo "Frontend deployed to: ${{ steps.set_variables.outputs.FRONTEND_WEBAPP_NAME }}"
