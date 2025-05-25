@@ -90,10 +90,36 @@ $maxRetries = 3
 $retryCount = 0
 $azuriteRunning = $false
 
+# Function to test TCP connection without using Test-NetConnection
+function Test-TcpPort {
+    param (
+        [string]$ComputerName,
+        [int]$Port,
+        [int]$Timeout = 1000
+    )
+    
+    try {
+        $tcpClient = New-Object System.Net.Sockets.TcpClient
+        $connection = $tcpClient.BeginConnect($ComputerName, $Port, $null, $null)
+        $wait = $connection.AsyncWaitHandle.WaitOne($Timeout, $false)
+        
+        if (!$wait) {
+            $tcpClient.Close()
+            return $false
+        }
+        
+        $tcpClient.EndConnect($connection)
+        $tcpClient.Close()
+        return $true
+    } catch {
+        return $false
+    }
+}
+
 while ($retryCount -lt $maxRetries -and -not $azuriteRunning) {
-    $blobEndpoint = Test-NetConnection -ComputerName 127.0.0.1 -Port 10000 -InformationLevel Quiet -ErrorAction SilentlyContinue
-    $queueEndpoint = Test-NetConnection -ComputerName 127.0.0.1 -Port 10001 -InformationLevel Quiet -ErrorAction SilentlyContinue
-    $tableEndpoint = Test-NetConnection -ComputerName 127.0.0.1 -Port 10002 -InformationLevel Quiet -ErrorAction SilentlyContinue
+    $blobEndpoint = Test-TcpPort -ComputerName "127.0.0.1" -Port 10000
+    $queueEndpoint = Test-TcpPort -ComputerName "127.0.0.1" -Port 10001
+    $tableEndpoint = Test-TcpPort -ComputerName "127.0.0.1" -Port 10002
     
     if ($blobEndpoint -and $queueEndpoint -and $tableEndpoint) {
         $azuriteRunning = $true
