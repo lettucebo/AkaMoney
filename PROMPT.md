@@ -63,3 +63,6 @@
   - API 使用 Swagger UI 來顯示 API 文件
 - 說明前後端將要使用的套件以及對應版本
 - 方案的主要名稱為 AkaMoney。
+- Github 專案已預先建立好: https://github.com/lettucebo/AkaMoney
+- 原始碼放在 src 資料夾下。
+- IaC 放在 infra 資料夾下。

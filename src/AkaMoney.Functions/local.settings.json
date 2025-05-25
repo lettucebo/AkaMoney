@@ -1,0 +1,22 @@
+{
+    "IsEncrypted": false,
+    "Values": {
+        "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+        "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
+        "TableStorageConnection": "UseDevelopmentStorage=true",
+        "DefaultRedirectUrl": "http://localhost:8080"
+    },
+    "Host": {
+        "LocalHttpPort": 7071,
+        "CORS": "*",
+        "CORSCredentials": false
+    },
+    "AzureAd": {
+        "Instance": "https://login.microsoftonline.com/",
+        "Domain": "yourtenant.onmicrosoft.com",
+        "TenantId": "your-tenant-id",
+        "ClientId": "your-client-id",
+        "CallbackPath": "/signin-oidc",
+        "SignedOutCallbackPath": "/signout-callback-oidc"
+    }
+}
