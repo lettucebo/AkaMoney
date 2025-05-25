@@ -18,7 +18,6 @@ function Write-ColorOutput {
 # Define project paths
 $rootPath = $PSScriptRoot
 $functionsPath = Join-Path -Path $rootPath -ChildPath "src\AkaMoney.Functions"
-$redirectPath = Join-Path -Path $rootPath -ChildPath "src\AkaMoney.Redirect"
 $frontendPath = Join-Path -Path $rootPath -ChildPath "src\akamoney-frontend"
 
 # Display welcome message
@@ -58,7 +57,7 @@ if (-not $funcPath) {
 }
 
 # Check if required ports are available
-$portsToCheck = @(7071, 7072, 8080, 10000, 10001, 10002)
+$portsToCheck = @(7071, 8080, 10000, 10001, 10002)
 foreach ($port in $portsToCheck) {
     $portInUse = Get-NetTCPConnection -ErrorAction SilentlyContinue | Where-Object { $_.LocalPort -eq $port }
     if ($portInUse) {
@@ -122,49 +121,15 @@ if (-not $azuriteRunning) {
 $functionsJob = Start-Process pwsh -ArgumentList "-NoExit", "-Command", "Set-Location '$functionsPath'; func start --port 7071" -PassThru
 Write-ColorOutput "Starting AkaMoney.Functions on port 7071..." "Green"
 
-# Start AkaMoney.Redirect in a new window
-$redirectJob = Start-Process pwsh -ArgumentList "-NoExit", "-Command", "Set-Location '$redirectPath'; func start --port 7072" -PassThru
-Write-ColorOutput "Starting AkaMoney.Redirect on port 7072..." "Green"
+# Start frontend in a new window
+Start-Process pwsh -ArgumentList "-NoExit", "-Command", "Set-Location '$frontendPath'; npm run serve" -PassThru
+Write-ColorOutput "Starting frontend application on port 8080..." "Green"
 
-# Check if frontend application exists
-if (Test-Path $frontendPath) {
-    # Check for node_modules directory and install packages if needed
-    $nodeModulesPath = Join-Path -Path $frontendPath -ChildPath "node_modules"
-    
-    if (-not (Test-Path $nodeModulesPath)) {
-        Write-ColorOutput "Node modules not found in frontend application. Installing npm packages..." "Yellow"
-        
-        # Start a new process to run npm install
-        $npmInstallProcess = Start-Process -FilePath "npm" -ArgumentList "install" -WorkingDirectory $frontendPath -PassThru -NoNewWindow -Wait
-        
-        if ($npmInstallProcess.ExitCode -eq 0) {
-            Write-ColorOutput "NPM packages installed successfully!" "Green"
-        }
-        else {
-            Write-ColorOutput "Failed to install NPM packages. Please check npm install output for errors." "Red"
-            $continuePrompt = Read-Host -Prompt "Continue script execution? (Y/N)"
-            if ($continuePrompt -ne "Y") {
-                exit 1
-            }
-        }
-    }
-    else {
-        Write-ColorOutput "Frontend node_modules found." "Green"
-    }
-
-    # Start frontend in a new window
-    Start-Process pwsh -ArgumentList "-NoExit", "-Command", "Set-Location '$frontendPath'; npm run serve" -PassThru
-    Write-ColorOutput "Starting frontend application on port 8080..." "Green"
-}
-else {
-    Write-ColorOutput "Frontend application directory not found. Skipping frontend startup." "Yellow"
-}
 
 Write-ColorOutput "==================================================" "Cyan"
 Write-ColorOutput "All services started!" "Green"
 Write-ColorOutput " - Azurite Storage Emulator: http://127.0.0.1:10000 (Blob), 10001 (Queue), 10002 (Table)" "White"
 Write-ColorOutput " - AkaMoney.Functions API: http://localhost:7071" "White"
-Write-ColorOutput " - AkaMoney.Redirect Service: http://localhost:7072" "White"
 Write-ColorOutput " - Frontend Application: http://localhost:8080" "White"
 Write-ColorOutput "==================================================" "Cyan"
 Write-ColorOutput "Press Ctrl+C to end this script (you'll need to manually close the started windows)" "Yellow"
