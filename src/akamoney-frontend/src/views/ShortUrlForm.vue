@@ -154,12 +154,10 @@ export default {
     const isEdit = computed(() => !!props.code);
     const baseUrl = computed(() => process.env.VUE_APP_REDIRECT_URL);
     
-    // Toggle social metadata section
     const toggleSocialMeta = () => {
       showSocialMeta.value = !showSocialMeta.value;
     };
     
-    // Load existing short URL for editing
     const loadShortUrl = async () => {
       if (!props.code) return;
       
@@ -188,7 +186,6 @@ export default {
       }
     };
     
-    // Generate a random code
     const generateRandomCode = async () => {
       try {
         const code = await shortUrlService.generateRandomCode();
@@ -199,7 +196,6 @@ export default {
       }
     };
     
-    // Submit form
     const submitForm = async () => {
       try {
         submitting.value = true;
@@ -213,12 +209,10 @@ export default {
           expirationDate: form.expirationDate || null
         };
         
-        // Add code only if not editing and code is provided
         if (!isEdit.value && form.code) {
           data.code = form.code;
         }
         
-        // 直接呼叫服務，不使用 result 變數
         if (isEdit.value) {
           await shortUrlService.updateShortUrl(props.code, data);
         } else {
@@ -234,7 +228,6 @@ export default {
       }
     };
     
-    // Go back to dashboard
     const goBack = () => {
       router.push('/dashboard');
     };
@@ -267,6 +260,7 @@ export default {
   max-width: 800px;
   margin: 0 auto;
   padding: 2rem 1rem;
+  color: var(--text-color);
 }
 
 .form-header {
@@ -276,24 +270,32 @@ export default {
   margin-bottom: 2rem;
 }
 
+.form-header h1 {
+  color: var(--text-color);
+}
+
 .url-form {
-  background-color: white;
+  background-color: var(--bg-color);
   border-radius: 8px;
   padding: 2rem;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 8px var(--header-shadow);
+  border: 1px solid var(--border-color);
+  transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .social-meta-collapse {
-  border: 1px solid #dee2e6;
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   margin-bottom: 1rem;
   overflow: hidden;
+  transition: border-color 0.3s ease;
 }
 
 .social-meta-header {
   padding: 0.75rem 1rem;
-  background-color: #f8f9fa;
+  background-color: var(--footer-bg);
   cursor: pointer;
+  transition: background-color 0.3s ease;
 }
 
 .social-meta-header h3 {
@@ -302,11 +304,13 @@ export default {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  color: var(--text-color);
 }
 
 .social-meta-content {
   padding: 1rem;
-  border-top: 1px solid #dee2e6;
+  border-top: 1px solid var(--border-color);
+  transition: border-color 0.3s ease;
 }
 
 .form-actions {
@@ -314,5 +318,38 @@ export default {
   justify-content: flex-end;
   gap: 1rem;
   margin-top: 2rem;
+}
+
+/* Form control styles for dark mode */
+.form-control, .input-group-text {
+  background-color: var(--bg-color);
+  border-color: var(--border-color);
+  color: var(--text-color);
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+}
+
+.form-control:focus {
+  background-color: var(--bg-color);
+  border-color: var(--primary-color);
+  color: var(--text-color);
+}
+
+.form-control::placeholder {
+  color: var(--footer-text);
+}
+
+.form-control:disabled {
+  background-color: var(--footer-bg);
+  color: var(--footer-text);
+}
+
+.form-text {
+  color: var(--footer-text);
+}
+
+/* Dark mode button hover states */
+.btn-outline-secondary:hover,
+.btn-outline-primary:hover {
+  color: var(--text-color);
 }
 </style>

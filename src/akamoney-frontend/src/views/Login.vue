@@ -30,17 +30,20 @@ export default {
   align-items: center;
   justify-content: center;
   height: 100vh;
-  background-color: #f8f9fa;
+  background-color: var(--bg-color);
+  transition: background-color 0.3s ease;
 }
 
 .login-card {
-  background: white;
+  background: var(--bg-color);
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px var(--header-shadow);
   padding: 2rem;
   text-align: center;
   width: 100%;
   max-width: 400px;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+  border: 1px solid var(--border-color);
 }
 
 .logo {
@@ -55,12 +58,12 @@ export default {
 }
 
 h1 {
-  color: #007bff;
+  color: var(--primary-color);
   margin-bottom: 1rem;
 }
 
 p {
-  color: #6c757d;
+  color: var(--text-color);
   margin-bottom: 1.5rem;
 }
 </style>

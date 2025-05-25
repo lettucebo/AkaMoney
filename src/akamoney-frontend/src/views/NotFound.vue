@@ -34,30 +34,42 @@ export default {
   align-items: center;
   justify-content: center;
   height: 100vh;
-  background-color: #f8f9fa;
+  background-color: var(--bg-color);
+  transition: background-color 0.3s ease;
 }
 
 .not-found-content {
   max-width: 500px;
   padding: 2rem;
   text-align: center;
-  background-color: white;
+  background-color: var(--bg-color);
   border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px var(--header-shadow);
+  border: 1px solid var(--border-color);
+  transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 i {
-  color: #ffc107;
+  color: var(--warning-color);
   margin-bottom: 1.5rem;
+  transition: color 0.3s ease;
 }
 
 h1 {
   font-size: 2rem;
   margin-bottom: 1rem;
+  color: var(--text-color);
+  transition: color 0.3s ease;
 }
 
 p {
-  color: #6c757d;
+  color: var(--footer-text);
   margin-bottom: 2rem;
+  transition: color 0.3s ease;
+}
+
+/* Button hover states for dark mode */
+.btn-primary:hover {
+  border-color: var(--primary-color);
 }
 </style>

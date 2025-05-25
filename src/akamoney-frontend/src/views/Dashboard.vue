@@ -75,7 +75,6 @@ export default {
     const error = ref(null);
     const router = useRouter();
 
-    // Load all short URLs
     const loadShortUrls = async () => {
       try {
         loading.value = true;
@@ -89,51 +88,43 @@ export default {
       }
     };
 
-    // Format date for display
     const formatDate = (dateString) => {
       const date = new Date(dateString);
       return new Intl.DateTimeFormat('en-US').format(date);
     };
 
-    // Truncate long URLs for display
     const truncateUrl = (url, maxLength = 50) => {
       if (url.length <= maxLength) return url;
       return url.substring(0, maxLength) + '...';
     };
 
-    // Navigate to create page
     const navigateToCreate = () => {
       router.push('/create');
     };
 
-    // Navigate to edit page
     const editUrl = (code) => {
       router.push(`/edit/${code}`);
     };
 
-    // Navigate to details page
     const viewDetails = (code) => {
       router.push(`/detail/${code}`);
     };
 
-    // Copy short URL to clipboard
     const copyToClipboard = (code) => {
       const fullUrl = getFullShortUrl(code);
       navigator.clipboard.writeText(fullUrl);
       alert('Short URL copied to clipboard');
     };
 
-    // Get full short URL including domain
     const getFullShortUrl = (code) => {
       return `${process.env.VUE_APP_REDIRECT_URL}/${code}`;
     };
 
-    // Confirm and archive a short URL
     const confirmArchive = async (code) => {
       if (confirm('Are you sure you want to archive this short URL? Once archived, the link will no longer work.')) {
         try {
           await shortUrlService.archiveShortUrl(code);
-          loadShortUrls(); // Reload the list
+          loadShortUrls();
         } catch (err) {
           error.value = err.message || 'Error archiving short URL';
           console.error('Error archiving short URL:', err);
@@ -165,6 +156,7 @@ export default {
   max-width: 1200px;
   margin: 0 auto;
   padding: 2rem 1rem;
+  color: var(--text-color);
 }
 
 .dashboard-header {
@@ -174,15 +166,19 @@ export default {
   margin-bottom: 2rem;
 }
 
+.dashboard-header h1 {
+  color: var(--text-color);
+}
+
 .empty-state {
   text-align: center;
   padding: 4rem 0;
-  color: #6c757d;
+  color: var(--footer-text);
 }
 
 .empty-state i {
   margin-bottom: 1rem;
-  color: #adb5bd;
+  color: var(--secondary-color);
 }
 
 .url-cards {
@@ -192,14 +188,15 @@ export default {
 }
 
 .url-card {
-  border: 1px solid #dee2e6;
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 1.25rem;
-  background-color: white;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  background-color: var(--bg-color);
+  box-shadow: 0 2px 4px var(--header-shadow);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .url-info {
@@ -209,7 +206,7 @@ export default {
 .url-info h3 {
   font-size: 1.2rem;
   margin-bottom: 0.5rem;
-  color: #212529;
+  color: var(--text-color);
 }
 
 .url-meta {
@@ -224,16 +221,17 @@ export default {
 
 .code {
   font-family: monospace;
-  background-color: #f8f9fa;
+  background-color: var(--footer-bg);
   padding: 0.25rem 0.5rem;
   border-radius: 4px;
   margin-right: 0.5rem;
   font-weight: bold;
-  color: #007bff;
+  color: var(--primary-color);
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .target-url {
-  color: #6c757d;
+  color: var(--footer-text);
   font-size: 0.85rem;
   word-break: break-all;
 }
@@ -243,7 +241,7 @@ export default {
   flex-wrap: wrap;
   gap: 0.75rem;
   font-size: 0.85rem;
-  color: #6c757d;
+  color: var(--footer-text);
 }
 
 .url-actions {
@@ -253,14 +251,22 @@ export default {
 }
 
 .clicks {
-  color: #28a745;
+  color: var(--success-color);
 }
 
 .expiry {
-  color: #ffc107;
+  color: var(--warning-color);
 }
 
 .archived {
-  color: #dc3545;
+  color: var(--danger-color);
+}
+
+/* Button hover states for dark mode */
+.btn-outline-secondary:hover,
+.btn-outline-info:hover,
+.btn-outline-primary:hover,
+.btn-outline-danger:hover {
+  color: var(--text-color);
 }
 </style>

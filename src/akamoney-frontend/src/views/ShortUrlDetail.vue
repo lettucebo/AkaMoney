@@ -146,12 +146,10 @@ export default {
     const loadingClicks = ref(true);
     const error = ref(null);
 
-    // Computed property for full short URL
     const fullShortUrl = computed(() => {
       return `${process.env.VUE_APP_REDIRECT_URL}/${props.code}`;
     });
 
-    // Load short URL data
     const loadShortUrl = async () => {
       try {
         loading.value = true;
@@ -165,15 +163,10 @@ export default {
       }
     };
 
-    // Load click data
     const loadClickData = async () => {
       try {
         loadingClicks.value = true;
-        
-        // Get click count
         clickCount.value = await clickTrackingService.getClickCount(props.code);
-        
-        // Get click details
         clicks.value = await clickTrackingService.getClicksForShortUrl(props.code);
       } catch (err) {
         console.error('Error loading click data:', err);
@@ -182,14 +175,12 @@ export default {
       }
     };
 
-    // Format date for display
     const formatDate = (dateString) => {
       if (!dateString) return '-';
       const date = new Date(dateString);
       return new Intl.DateTimeFormat('zh-TW').format(date);
     };
 
-    // Format date and time for display
     const formatDateTime = (dateString) => {
       if (!dateString) return '-';
       const date = new Date(dateString);
@@ -203,18 +194,15 @@ export default {
       }).format(date);
     };
 
-    // Copy text to clipboard
     const copyToClipboard = (text) => {
       navigator.clipboard.writeText(text);
       alert('Copied to clipboard');
     };
 
-    // Navigate to edit page
     const editUrl = () => {
       router.push(`/edit/${props.code}`);
     };
 
-    // Go back to dashboard
     const goBack = () => {
       router.push('/dashboard');
     };
@@ -247,6 +235,7 @@ export default {
   max-width: 1000px;
   margin: 0 auto;
   padding: 2rem 1rem;
+  color: var(--text-color);
 }
 
 .detail-header {
@@ -256,6 +245,10 @@ export default {
   margin-bottom: 2rem;
 }
 
+.detail-header h1 {
+  color: var(--text-color);
+}
+
 .detail-content {
   display: flex;
   flex-direction: column;
@@ -263,10 +256,12 @@ export default {
 }
 
 .url-summary-card {
-  background-color: white;
+  background-color: var(--bg-color);
   border-radius: 8px;
   padding: 1.5rem;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 8px var(--header-shadow);
+  border: 1px solid var(--border-color);
+  transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .url-title {
@@ -279,6 +274,7 @@ export default {
 .url-title h2 {
   margin: 0;
   font-size: 1.5rem;
+  color: var(--text-color);
 }
 
 .url-links {
@@ -297,10 +293,12 @@ export default {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  background-color: #f8f9fa;
+  background-color: var(--footer-bg);
   padding: 0.5rem;
   border-radius: 4px;
   overflow: hidden;
+  border: 1px solid var(--border-color);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .url-value {
@@ -309,11 +307,12 @@ export default {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-family: monospace;
+  color: var(--text-color);
 }
 
 label {
   font-size: 0.8rem;
-  color: #6c757d;
+  color: var(--footer-text);
   margin-bottom: 0.25rem;
   font-weight: 500;
 }
@@ -333,29 +332,33 @@ label {
 .meta-value {
   font-size: 1.25rem;
   font-weight: 500;
+  color: var(--text-color);
 }
 
 .meta-value.highlight {
-  color: #007bff;
+  color: var(--primary-color);
   font-size: 1.5rem;
 }
 
 .social-preview {
   margin-top: 1rem;
-  border-top: 1px solid #dee2e6;
+  border-top: 1px solid var(--border-color);
   padding-top: 1rem;
 }
 
 .social-preview h3 {
   font-size: 1rem;
   margin-bottom: 1rem;
+  color: var(--text-color);
 }
 
 .social-card {
-  border: 1px solid #dee2e6;
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   overflow: hidden;
   max-width: 500px;
+  background-color: var(--bg-color);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .social-image img {
@@ -372,35 +375,39 @@ label {
 .social-content h4 {
   margin: 0 0 0.5rem 0;
   font-size: 1rem;
+  color: var(--text-color);
 }
 
 .social-content p {
   margin: 0 0 0.5rem 0;
   font-size: 0.9rem;
-  color: #6c757d;
+  color: var(--footer-text);
 }
 
 .social-content small {
-  color: #adb5bd;
+  color: var(--footer-text);
   font-size: 0.8rem;
 }
 
 .click-data {
-  background-color: white;
+  background-color: var(--bg-color);
   border-radius: 8px;
   padding: 1.5rem;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 8px var(--header-shadow);
+  border: 1px solid var(--border-color);
+  transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .click-data h3 {
   margin-bottom: 1rem;
   font-size: 1.2rem;
+  color: var(--text-color);
 }
 
 .empty-clicks {
   text-align: center;
   padding: 2rem 0;
-  color: #adb5bd;
+  color: var(--footer-text);
 }
 
 .user-agent {
@@ -408,5 +415,24 @@ label {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: var(--text-color);
+}
+
+/* Table styles for dark mode */
+.table {
+  color: var(--text-color);
+}
+
+.table th {
+  color: var(--text-color);
+  border-color: var(--border-color);
+}
+
+.table td {
+  border-color: var(--border-color);
+}
+
+.table-hover tbody tr:hover {
+  background-color: var(--footer-bg);
 }
 </style>
