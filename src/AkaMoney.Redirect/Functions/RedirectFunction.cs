@@ -75,12 +75,10 @@ namespace AkaMoney.Redirect.Functions
                 {
                     _logger.LogInformation("Short URL {Code} has expired, redirecting to default URL", code);
                     return new RedirectResult(_defaultRedirectUrl);
-                }
-
-                // Record the click
-                string userAgent = req.Headers.Contains("User-Agent") ? req.Headers.GetValues("User-Agent").First() : null;
-                string referer = req.Headers.Contains("Referer") ? req.Headers.GetValues("Referer").First() : null;
-                string ipAddress = req.Headers.Contains("X-Forwarded-For") ? req.Headers.GetValues("X-Forwarded-For").First() : null;
+                }                // Record the click
+                string? userAgent = req.Headers.Contains("User-Agent") ? req.Headers.GetValues("User-Agent").First() : null;
+                string? referer = req.Headers.Contains("Referer") ? req.Headers.GetValues("Referer").First() : null;
+                string? ipAddress = req.Headers.Contains("X-Forwarded-For") ? req.Headers.GetValues("X-Forwarded-For").First() : null;
 
                 await _clickTrackingService.RecordClickAsync(code, userAgent, referer, ipAddress);
 

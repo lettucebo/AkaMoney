@@ -16,7 +16,7 @@ namespace AkaMoney.Services.Interfaces
         /// <param name="referrer">The referrer URL.</param>
         /// <param name="ipAddress">The IP address.</param>
         /// <returns>The recorded click information.</returns>
-        Task<ClickInfo> RecordClickAsync(string shortUrlCode, string userAgent, string referrer, string ipAddress);
+        Task<ClickInfo> RecordClickAsync(string shortUrlCode, string? userAgent, string? referrer, string? ipAddress);
 
         /// <summary>
         /// Gets all clicks for a short URL.

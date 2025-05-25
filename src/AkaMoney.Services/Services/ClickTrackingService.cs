@@ -17,16 +17,22 @@ namespace AkaMoney.Services.Services
         private readonly TableClient _clickInfoTable;
         private readonly TableClient _shortUrlTable;
         private const string ClickInfoTableName = "clickinfo";
-        private const string ShortUrlTableName = "shorturls";
-
-        /// <summary>
+        private const string ShortUrlTableName = "shorturls";        /// <summary>
         /// Initializes a new instance of the ClickTrackingService class.
         /// </summary>
         /// <param name="configuration">The configuration object.</param>
         public ClickTrackingService(IConfiguration configuration)
         {
-            // Get the connection string from configuration
-            string connectionString = configuration["TableStorageConnection"];
+            if (configuration == null)
+            {
+                throw new ArgumentNullException(nameof(configuration));
+            }            // Get the connection string from configuration
+            string? connectionString = configuration["TableStorageConnection"];
+            
+            if (string.IsNullOrEmpty(connectionString))
+            {
+                throw new InvalidOperationException("TableStorageConnection configuration is missing or empty.");
+            }
             
             // Create the table clients
             _clickInfoTable = new TableClient(connectionString, ClickInfoTableName);
@@ -45,7 +51,7 @@ namespace AkaMoney.Services.Services
         /// <param name="referrer">The referrer URL.</param>
         /// <param name="ipAddress">The IP address.</param>
         /// <returns>The recorded click information.</returns>
-        public async Task<ClickInfo> RecordClickAsync(string shortUrlCode, string userAgent, string referrer, string ipAddress)
+        public async Task<ClickInfo> RecordClickAsync(string shortUrlCode, string? userAgent, string? referrer, string? ipAddress)
         {
             if (string.IsNullOrEmpty(shortUrlCode))
             {
