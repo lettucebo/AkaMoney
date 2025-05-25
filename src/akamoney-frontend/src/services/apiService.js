@@ -48,6 +48,16 @@ export const shortUrlService = {
   },
 
   /**
+   * Generate a random short URL code
+   * @param {number} length - Optional length of the code
+   * @returns {Promise} Promise resolving to the generated code
+   */
+  generateRandomCode: async (length = 6) => {
+    const response = await api.get(`/shorturl/generate-code${length !== 6 ? `?length=${length}` : ''}`);
+    return response.data;
+  },
+
+  /**
    * Create a new short URL
    * @param {Object} shortUrl - Short URL data
    * @returns {Promise} Promise resolving to created short URL

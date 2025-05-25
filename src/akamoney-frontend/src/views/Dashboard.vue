@@ -68,7 +68,7 @@ import { useRouter } from 'vue-router';
 import { shortUrlService } from '../services/apiService';
 
 export default {
-  name: 'Dashboard',
+  name: 'DashboardView',
   setup() {
     const shortUrls = ref([]);
     const loading = ref(true);

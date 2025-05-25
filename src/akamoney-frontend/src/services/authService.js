@@ -24,8 +24,12 @@ const loginRequest = {
 
 // Store for development mock authentication
 let developmentAuthState = {
-  isAuthenticated: false,
-  user: null
+  isAuthenticated: true, // 設為 true 讓本地開發時自動模擬已登入
+  user: {
+    name: 'Development User',
+    username: 'dev@example.com',
+    localAccountId: 'dev-user-id'
+  }
 };
 
 // Initialize MSAL instance only if not in development

@@ -15,7 +15,7 @@
 import authService from '../services/authService';
 
 export default {
-  name: 'Login',
+  name: 'LoginView',
   methods: {
     login() {
       authService.login();

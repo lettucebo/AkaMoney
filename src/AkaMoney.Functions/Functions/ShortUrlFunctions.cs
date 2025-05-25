@@ -226,5 +226,42 @@ namespace AkaMoney.Functions.Functions
                 return new StatusCodeResult(StatusCodes.Status500InternalServerError);
             }
         }
+
+        /// <summary>
+        /// Generates a random short URL code.
+        /// </summary>
+        /// <param name="req">The HTTP request.</param>
+        /// <returns>An HTTP response containing the generated code.</returns>
+        [Function("GenerateRandomCode")]
+        [OpenApiOperation(operationId: "GenerateRandomCode", tags: new[] { "ShortUrl" })]
+        [OpenApiParameter(name: "length", In = ParameterLocation.Query, Required = false, Type = typeof(int), Description = "The length of the code. Defaults to 6.")]
+        [OpenApiResponseWithBody(statusCode: HttpStatusCode.OK, contentType: "application/json", bodyType: typeof(string), Description = "The generated code.")]
+        public async Task<IActionResult> GenerateRandomCode(
+            [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "shorturl/generate-code")] HttpRequestData req)
+        {
+            _logger.LogInformation("Generating random short URL code");
+
+            try
+            {                // Get the length from query parameter if provided
+                int length = 6; // Default length
+                if (req.Url.Query.Contains("length="))
+                {
+                    string lengthStr = req.Url.Query.Split("length=")[1].Split("&")[0];
+                    if (int.TryParse(lengthStr, out int parsedLength))
+                    {
+                        length = parsedLength;
+                    }
+                }
+
+                // Generate the random code
+                string code = await _shortUrlService.GenerateRandomCodeAsync(length);
+                return new OkObjectResult(code);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generating random short URL code");
+                return new StatusCodeResult(StatusCodes.Status500InternalServerError);
+            }
+        }
     }
 }

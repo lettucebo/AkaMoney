@@ -124,11 +124,11 @@
 
 <script>
 import { ref, computed, onMounted, reactive } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
+import { useRouter } from 'vue-router';
 import { shortUrlService } from '../services/apiService';
 
 export default {
-  name: 'ShortUrlForm',
+  name: 'ShortUrlFormView',
   props: {
     code: {
       type: String,
@@ -137,7 +137,6 @@ export default {
   },
   setup(props) {
     const router = useRouter();
-    const route = useRoute();
     
     const loading = ref(false);
     const submitting = ref(false);
@@ -220,11 +219,11 @@ export default {
           data.code = form.code;
         }
         
-        let result;
+        // 直接呼叫服務，不使用 result 變數
         if (isEdit.value) {
-          result = await shortUrlService.updateShortUrl(props.code, data);
+          await shortUrlService.updateShortUrl(props.code, data);
         } else {
-          result = await shortUrlService.createShortUrl(data);
+          await shortUrlService.createShortUrl(data);
         }
         
         router.push('/dashboard');
