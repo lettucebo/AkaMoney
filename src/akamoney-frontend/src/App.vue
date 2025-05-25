@@ -24,13 +24,11 @@
                   <i class="fas fa-plus"></i> Create Short URL
                 </router-link>
               </li>
-              <li class="nav-item">
-                <button @click="toggleTheme" class="nav-link btn btn-link">
-                  <i class="fas" :class="theme.icon"></i> {{ theme.text }}
-                </button>
-              </li>
             </ul>
-            <div class="d-flex">
+            <div class="d-flex align-items-center">
+              <button @click="toggleTheme" class="theme-toggle-btn me-3" :title="theme.text">
+                <i class="fas" :class="theme.icon"></i>
+              </button>
               <div class="user-info me-2">
                 <span v-if="userInfo">{{ userInfo.name }}</span>
               </div>
@@ -69,12 +67,11 @@ export default {
     const theme = reactive({
       isDark: localStorage.getItem('theme') === 'dark',
       icon: localStorage.getItem('theme') === 'dark' ? 'fa-sun' : 'fa-moon',
-      text: localStorage.getItem('theme') === 'dark' ? 'Light Mode' : 'Dark Mode'
+      text: localStorage.getItem('theme') === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'
     });
     
     const updateTheme = (isDark) => {
       document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
-      // Force body background update
       document.body.style.backgroundColor = getComputedStyle(document.documentElement)
         .getPropertyValue('--bg-color');
     };
@@ -85,7 +82,7 @@ export default {
     const toggleTheme = () => {
       theme.isDark = !theme.isDark;
       theme.icon = theme.isDark ? 'fa-sun' : 'fa-moon';
-      theme.text = theme.isDark ? 'Light Mode' : 'Dark Mode';
+      theme.text = theme.isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode';
       localStorage.setItem('theme', theme.isDark ? 'dark' : 'light');
       updateTheme(theme.isDark);
     };
@@ -127,7 +124,6 @@ export default {
 <style>
 /* Global Styles */
 :root {
-  /* Light Theme Variables */
   --primary-color: #007bff;
   --secondary-color: #6c757d;
   --success-color: #28a745;
@@ -147,7 +143,6 @@ export default {
   --table-hover-bg: #f8f9fa;
 }
 
-/* Dark Theme Variables */
 [data-theme="dark"] {
   --bg-color: #1a1a1a;
   --text-color: #e0e0e0;
@@ -220,7 +215,31 @@ main {
   transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
 }
 
-/* Theme Toggle Button */
+.theme-toggle-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 1.2rem;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  padding: 0;
+}
+
+.theme-toggle-btn:hover {
+  color: white;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.theme-toggle-btn:focus {
+  outline: none;
+}
+
 .nav-link.btn-link {
   color: rgba(255, 255, 255, 0.85);
   padding: 0.5rem 1rem;
@@ -232,7 +251,6 @@ main {
   color: white;
 }
 
-/* Utility classes */
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.3s;
@@ -242,7 +260,6 @@ main {
   opacity: 0;
 }
 
-/* Bootstrap overrides for dark mode */
 [data-theme="dark"] .card,
 [data-theme="dark"] .modal-content,
 [data-theme="dark"] .dropdown-menu {
@@ -263,7 +280,6 @@ main {
   color: var(--text-color);
 }
 
-/* Table dark mode styles */
 [data-theme="dark"] .table {
   color: var(--text-color) !important;
   background-color: var(--table-bg) !important;
@@ -290,7 +306,6 @@ main {
   color: var(--text-color) !important;
 }
 
-/* Date input dark mode styles */
 [data-theme="dark"] input[type="date"] {
   background-color: var(--footer-bg) !important;
   color: var(--text-color) !important;
