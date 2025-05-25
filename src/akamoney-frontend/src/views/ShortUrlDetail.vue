@@ -3,38 +3,38 @@
     <div class="detail-header">
       <h1>
         <i class="fas fa-chart-bar"></i>
-        短網址統計資料
+        Short URL Statistics
       </h1>
       <div>
         <button class="btn btn-outline-primary me-2" @click="editUrl">
-          <i class="fas fa-edit"></i> 編輯
+          <i class="fas fa-edit"></i> Edit
         </button>
         <button class="btn btn-outline-secondary" @click="goBack">
-          <i class="fas fa-arrow-left"></i> 返回
+          <i class="fas fa-arrow-left"></i> Back
         </button>
       </div>
     </div>
 
     <div v-if="loading" class="text-center my-5">
       <div class="spinner-border text-primary" role="status">
-        <span class="visually-hidden">讀取中...</span>
+        <span class="visually-hidden">Loading...</span>
       </div>
     </div>
 
     <div v-else-if="error" class="alert alert-danger" role="alert">
-      <i class="fas fa-exclamation-circle"></i> 發生錯誤: {{ error }}
+      <i class="fas fa-exclamation-circle"></i> Error: {{ error }}
     </div>
 
     <div v-else class="detail-content">
       <div class="url-summary-card">
         <div class="url-title">
-          <h2>{{ shortUrl.title || '未命名連結' }}</h2>
-          <span v-if="shortUrl.isArchived" class="badge bg-danger">已封存</span>
+          <h2>{{ shortUrl.title || 'Untitled Link' }}</h2>
+          <span v-if="shortUrl.isArchived" class="badge bg-danger">Archived</span>
         </div>
 
         <div class="url-links">
           <div class="short-url-display">
-            <label>短網址</label>
+            <label>Short URL</label>
             <div class="url-copy-container">
               <span class="url-value">{{ fullShortUrl }}</span>
               <button class="btn btn-sm btn-outline-secondary" @click="copyToClipboard(fullShortUrl)">
@@ -43,7 +43,7 @@
             </div>
           </div>
           <div class="target-url-display">
-            <label>目標網址</label>
+            <label>Target URL</label>
             <div class="url-copy-container">
               <span class="url-value">{{ shortUrl.targetUrl }}</span>
               <button class="btn btn-sm btn-outline-secondary" @click="copyToClipboard(shortUrl.targetUrl)">
@@ -55,21 +55,21 @@
 
         <div class="url-meta-grid">
           <div class="meta-item">
-            <label><i class="fas fa-mouse-pointer"></i> 點擊次數</label>
+            <label><i class="fas fa-mouse-pointer"></i> Click Count</label>
             <span class="meta-value highlight">{{ clickCount }}</span>
           </div>
           <div v-if="shortUrl.expirationDate" class="meta-item">
-            <label><i class="fas fa-clock"></i> 到期日</label>
+            <label><i class="fas fa-clock"></i> Expiration Date</label>
             <span class="meta-value">{{ formatDate(shortUrl.expirationDate) }}</span>
           </div>
           <div class="meta-item">
-            <label><i class="fas fa-calendar-plus"></i> 建立日期</label>
+            <label><i class="fas fa-calendar-plus"></i> Created On</label>
             <span class="meta-value">{{ formatDate(shortUrl.createdAt) }}</span>
           </div>
         </div>
 
         <div v-if="shortUrl.description || shortUrl.imageUrl" class="social-preview">
-          <h3>社交媒體預覽</h3>
+          <h3>Social Media Preview</h3>
           <div class="social-card">
             <div v-if="shortUrl.imageUrl" class="social-image">
               <img :src="shortUrl.imageUrl" alt="Social Preview">
@@ -84,17 +84,17 @@
       </div>
 
       <div class="click-data">
-        <h3><i class="fas fa-chart-line"></i> 點擊數據</h3>
+        <h3><i class="fas fa-chart-line"></i> Click Data</h3>
         
         <div v-if="loadingClicks" class="text-center my-3">
           <div class="spinner-border spinner-border-sm text-primary" role="status">
-            <span class="visually-hidden">讀取中...</span>
+            <span class="visually-hidden">Loading...</span>
           </div>
         </div>
         
         <div v-else-if="clicks.length === 0" class="empty-clicks">
           <i class="fas fa-mouse-pointer fa-2x"></i>
-          <p>尚無點擊數據</p>
+          <p>No click data available</p>
         </div>
         
         <div v-else>
@@ -102,10 +102,10 @@
             <table class="table table-hover">
               <thead>
                 <tr>
-                  <th>時間</th>
-                  <th>使用者代理</th>
-                  <th>參照來源</th>
-                  <th>IP 地址</th>
+                  <th>Time</th>
+                  <th>User Agent</th>
+                  <th>Referrer</th>
+                  <th>IP Address</th>
                 </tr>
               </thead>
               <tbody>
@@ -193,7 +193,7 @@ export default {
     const formatDateTime = (dateString) => {
       if (!dateString) return '-';
       const date = new Date(dateString);
-      return new Intl.DateTimeFormat('zh-TW', {
+      return new Intl.DateTimeFormat('en-US', {
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
@@ -203,20 +203,10 @@ export default {
       }).format(date);
     };
 
-    // Extract domain from URL
-    const getDomain = (url) => {
-      try {
-        const domain = new URL(url).hostname;
-        return domain;
-      } catch (e) {
-        return url;
-      }
-    };
-
     // Copy text to clipboard
     const copyToClipboard = (text) => {
       navigator.clipboard.writeText(text);
-      alert('已複製到剪貼簿');
+      alert('Copied to clipboard');
     };
 
     // Navigate to edit page
@@ -244,7 +234,6 @@ export default {
       fullShortUrl,
       formatDate,
       formatDateTime,
-      getDomain,
       copyToClipboard,
       editUrl,
       goBack

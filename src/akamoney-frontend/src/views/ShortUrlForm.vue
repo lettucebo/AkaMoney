@@ -3,39 +3,38 @@
     <div class="form-header">
       <h1>
         <i class="fas" :class="isEdit ? 'fa-edit' : 'fa-plus'"></i>
-        {{ isEdit ? '編輯短網址' : '建立短網址' }}
+        {{ isEdit ? 'Edit Short URL' : 'Create Short URL' }}
       </h1>
       <button class="btn btn-outline-secondary" @click="goBack">
-        <i class="fas fa-arrow-left"></i> 返回
+        <i class="fas fa-arrow-left"></i> Back
       </button>
     </div>
 
     <div v-if="loading" class="text-center my-5">
       <div class="spinner-border text-primary" role="status">
-        <span class="visually-hidden">讀取中...</span>
+        <span class="visually-hidden">Loading...</span>
       </div>
     </div>
 
     <div v-else-if="error" class="alert alert-danger" role="alert">
-      <i class="fas fa-exclamation-circle"></i> 發生錯誤: {{ error }}
+      <i class="fas fa-exclamation-circle"></i> {{ error }}
     </div>
 
     <form v-else @submit.prevent="submitForm" class="url-form">
       <div class="mb-3">
-        <label for="targetUrl" class="form-label">目標網址 *</label>
+        <label for="targetUrl" class="form-label">Target URL*</label>
         <input
           type="url"
           class="form-control"
           id="targetUrl"
           v-model="form.targetUrl"
-          placeholder="https://example.com"
+          placeholder="https://example.com/your-page"
           required
         >
-        <div class="form-text">此為短網址將轉址至的最終網址。</div>
       </div>
 
       <div class="mb-3">
-        <label for="code" class="form-label">自訂短網址代碼</label>
+        <label for="code" class="form-label">Custom Short Code</label>
         <div class="input-group">
           <span class="input-group-text">{{ baseUrl }}/</span>
           <input
@@ -43,51 +42,51 @@
             class="form-control"
             id="code"
             v-model="form.code"
-            placeholder="留空以自動生成"
+            placeholder="Leave empty for auto-generation"
             :disabled="isEdit"
             pattern="[a-zA-Z0-9-_]+"
           >
           <button v-if="!isEdit" type="button" class="btn btn-outline-secondary" @click="generateRandomCode">
-            <i class="fas fa-dice"></i> 隨機生成
+            <i class="fas fa-dice"></i> Generate Random
           </button>
         </div>
-        <div class="form-text">如果留空，系統將自動生成短網址代碼。代碼只能包含字母、數字、連字符和底線。</div>
+        <div class="form-text">If left empty, the system will automatically generate a short code. Code can only contain letters, numbers, hyphens, and underscores.</div>
       </div>
 
       <div class="mb-3">
-        <label for="title" class="form-label">標題</label>
+        <label for="title" class="form-label">Title</label>
         <input
           type="text"
           class="form-control"
           id="title"
           v-model="form.title"
-          placeholder="短網址標題"
+          placeholder="Short URL Title"
         >
-        <div class="form-text">此標題用於識別短網址，僅顯示在管理介面。</div>
+        <div class="form-text">This title is used to identify the short URL in the management interface.</div>
       </div>
 
       <div class="social-meta-collapse">
         <div class="social-meta-header" @click="toggleSocialMeta">
           <h3>
             <i class="fas" :class="showSocialMeta ? 'fa-chevron-down' : 'fa-chevron-right'"></i>
-            社交媒體元資料（選填）
+            Social Media Metadata (Optional)
           </h3>
         </div>
         
         <div v-show="showSocialMeta" class="social-meta-content">
           <div class="mb-3">
-            <label for="description" class="form-label">描述</label>
+            <label for="description" class="form-label">Description</label>
             <textarea
               class="form-control"
               id="description"
               v-model="form.description"
               rows="3"
-              placeholder="當短網址在社交媒體上分享時顯示的描述"
+              placeholder="Description shown when the short URL is shared on social media"
             ></textarea>
           </div>
           
           <div class="mb-3">
-            <label for="imageUrl" class="form-label">圖片 URL</label>
+            <label for="imageUrl" class="form-label">Image URL</label>
             <input
               type="url"
               class="form-control"
@@ -95,27 +94,27 @@
               v-model="form.imageUrl"
               placeholder="https://example.com/image.jpg"
             >
-            <div class="form-text">當短網址在社交媒體上分享時顯示的圖片。</div>
+            <div class="form-text">The image shown when the short URL is shared on social media.</div>
           </div>
         </div>
       </div>
 
       <div class="mb-3">
-        <label for="expirationDate" class="form-label">到期日</label>
+        <label for="expirationDate" class="form-label">Expiration Date</label>
         <input
           type="date"
           class="form-control"
           id="expirationDate"
           v-model="form.expirationDate"
         >
-        <div class="form-text">短網址到期後將不再有效。留空表示永不過期。</div>
+        <div class="form-text">The short URL will no longer work after expiration. Leave empty for no expiration.</div>
       </div>
 
       <div class="form-actions">
-        <button type="button" class="btn btn-outline-secondary" @click="goBack">取消</button>
+        <button type="button" class="btn btn-outline-secondary" @click="goBack">Cancel</button>
         <button type="submit" class="btn btn-primary" :disabled="submitting">
           <i class="fas" :class="isEdit ? 'fa-save' : 'fa-plus-circle'"></i>
-          {{ isEdit ? '更新短網址' : '建立短網址' }}
+          {{ isEdit ? 'Update Short URL' : 'Create Short URL' }}
         </button>
       </div>
     </form>

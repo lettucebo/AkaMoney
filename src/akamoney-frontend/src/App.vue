@@ -16,12 +16,12 @@
             <ul class="navbar-nav me-auto mb-2 mb-lg-0">
               <li class="nav-item">
                 <router-link class="nav-link" to="/dashboard">
-                  <i class="fas fa-tachometer-alt"></i> 儀表板
+                  <i class="fas fa-tachometer-alt"></i> Dashboard
                 </router-link>
               </li>
               <li class="nav-item">
                 <router-link class="nav-link" to="/create">
-                  <i class="fas fa-plus"></i> 建立短網址
+                  <i class="fas fa-plus"></i> Create Short URL
                 </router-link>
               </li>
             </ul>
@@ -30,7 +30,7 @@
                 <span v-if="userInfo">{{ userInfo.name }}</span>
               </div>
               <button class="btn btn-outline-light" @click="logout">
-                <i class="fas fa-sign-out-alt"></i> 登出
+                <i class="fas fa-sign-out-alt"></i> Sign Out
               </button>
             </div>
           </div>
@@ -44,7 +44,7 @@
     
     <footer v-if="isAuthenticated && !isLoginPage" class="app-footer">
       <div class="container text-center">
-        <p>&copy; 2025 AkaMoney 短網址服務</p>
+        <p>&copy; 2025 AkaMoney URL Shortener Service</p>
       </div>
     </footer>
   </div>

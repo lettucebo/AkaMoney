@@ -2,10 +2,10 @@
   <div class="not-found-container">
     <div class="not-found-content">
       <i class="fas fa-exclamation-triangle fa-4x"></i>
-      <h1>404 - 頁面不存在</h1>
-      <p>您訪問的頁面不存在或已被移除。</p>
+      <h1>404 - Page Not Found</h1>
+      <p>The page you are looking for does not exist or has been removed.</p>
       <button class="btn btn-primary" @click="goHome">
-        <i class="fas fa-home"></i> 返回首頁
+        <i class="fas fa-home"></i> Return to Home
       </button>
     </div>
   </div>

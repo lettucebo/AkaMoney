@@ -2,10 +2,10 @@
   <div class="login-container">
     <div class="login-card">
       <img src="../assets/logo.png" alt="AkaMoney Logo" class="logo">
-      <h1>AkaMoney 短網址服務</h1>
-      <p>請登入以管理您的短網址</p>
+      <h1>AkaMoney URL Shortener Service</h1>
+      <p>Please sign in to manage your short URLs</p>
       <button class="btn btn-primary login-btn" @click="login">
-        <i class="fas fa-sign-in-alt"></i> 使用 Microsoft 帳號登入
+        <i class="fas fa-sign-in-alt"></i> Sign in with Microsoft Account
       </button>
     </div>
   </div>

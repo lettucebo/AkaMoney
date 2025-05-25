@@ -1,32 +1,32 @@
 <template>
   <div class="dashboard-container">
     <div class="dashboard-header">
-      <h1><i class="fas fa-link"></i> 短網址管理</h1>
+      <h1><i class="fas fa-link"></i> Short URL Management</h1>
       <button class="btn btn-primary" @click="navigateToCreate">
-        <i class="fas fa-plus"></i> 建立新短網址
+        <i class="fas fa-plus"></i> Create New Short URL
       </button>
     </div>
 
     <div v-if="loading" class="text-center my-5">
       <div class="spinner-border text-primary" role="status">
-        <span class="visually-hidden">讀取中...</span>
+        <span class="visually-hidden">Loading...</span>
       </div>
     </div>
 
     <div v-else-if="error" class="alert alert-danger" role="alert">
-      <i class="fas fa-exclamation-circle"></i> 發生錯誤: {{ error }}
+      <i class="fas fa-exclamation-circle"></i> Error: {{ error }}
     </div>
 
     <div v-else-if="shortUrls.length === 0" class="empty-state">
       <i class="fas fa-link fa-4x"></i>
-      <p>您還沒有建立任何短網址</p>
-      <button class="btn btn-primary" @click="navigateToCreate">建立第一個短網址</button>
+      <p>You haven't created any short URLs yet</p>
+      <button class="btn btn-primary" @click="navigateToCreate">Create Your First Short URL</button>
     </div>
 
     <div v-else class="url-cards">
       <div v-for="url in shortUrls" :key="url.code" class="url-card">
         <div class="url-info">
-          <h3>{{ url.title || '未命名連結' }}</h3>
+          <h3>{{ url.title || 'Untitled Link' }}</h3>
           <div class="url-meta">
             <div class="short-url">
               <span class="code">{{ getFullShortUrl(url.code) }}</span>
@@ -37,24 +37,24 @@
             <div class="target-url">{{ truncateUrl(url.targetUrl) }}</div>
           </div>
           <div class="url-stats">
-            <span class="clicks"><i class="fas fa-mouse-pointer"></i> {{ url.clickCount }} 次點擊</span>
+            <span class="clicks"><i class="fas fa-mouse-pointer"></i> {{ url.clickCount }} clicks</span>
             <span v-if="url.expirationDate" class="expiry">
-              <i class="fas fa-clock"></i> 到期日: {{ formatDate(url.expirationDate) }}
+              <i class="fas fa-clock"></i> Expires: {{ formatDate(url.expirationDate) }}
             </span>
             <span v-if="url.isArchived" class="archived">
-              <i class="fas fa-archive"></i> 已封存
+              <i class="fas fa-archive"></i> Archived
             </span>
           </div>
         </div>
         <div class="url-actions">
           <button class="btn btn-sm btn-outline-info" @click="viewDetails(url.code)">
-            <i class="fas fa-chart-bar"></i> 統計
+            <i class="fas fa-chart-bar"></i> Statistics
           </button>
           <button class="btn btn-sm btn-outline-primary" @click="editUrl(url.code)">
-            <i class="fas fa-edit"></i> 編輯
+            <i class="fas fa-edit"></i> Edit
           </button>
           <button class="btn btn-sm btn-outline-danger" @click="confirmArchive(url.code)">
-            <i class="fas fa-archive"></i> 封存
+            <i class="fas fa-archive"></i> Archive
           </button>
         </div>
       </div>
@@ -82,7 +82,7 @@ export default {
         error.value = null;
         shortUrls.value = await shortUrlService.getAllShortUrls();
       } catch (err) {
-        error.value = err.message || '無法載入短網址';
+        error.value = err.message || 'Could not load short URLs';
         console.error('Error loading short URLs:', err);
       } finally {
         loading.value = false;
@@ -92,7 +92,7 @@ export default {
     // Format date for display
     const formatDate = (dateString) => {
       const date = new Date(dateString);
-      return new Intl.DateTimeFormat('zh-TW').format(date);
+      return new Intl.DateTimeFormat('en-US').format(date);
     };
 
     // Truncate long URLs for display
@@ -120,7 +120,7 @@ export default {
     const copyToClipboard = (code) => {
       const fullUrl = getFullShortUrl(code);
       navigator.clipboard.writeText(fullUrl);
-      alert('短網址已複製到剪貼簿');
+      alert('Short URL copied to clipboard');
     };
 
     // Get full short URL including domain
@@ -130,12 +130,12 @@ export default {
 
     // Confirm and archive a short URL
     const confirmArchive = async (code) => {
-      if (confirm('您確定要封存此短網址嗎？封存後，此連結將不再生效。')) {
+      if (confirm('Are you sure you want to archive this short URL? Once archived, the link will no longer work.')) {
         try {
           await shortUrlService.archiveShortUrl(code);
           loadShortUrls(); // Reload the list
         } catch (err) {
-          error.value = err.message || '封存短網址時發生錯誤';
+          error.value = err.message || 'Error archiving short URL';
           console.error('Error archiving short URL:', err);
         }
       }
