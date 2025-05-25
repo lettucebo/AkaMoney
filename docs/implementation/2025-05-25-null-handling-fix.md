@@ -1,47 +1,47 @@
-# 空值處理修復實作
+# Null Handling Fix Implementation
 
-日期: 2025-05-25
+Date: 2025-05-25
 
-## 問題描述
+## Problem Description
 
-在 `AkaMoney.Redirect` 專案的 Azure Function 中，`RedirectFunction.cs` 檔案包含多個與空值處理相關的警告：
+In the Azure Function of the `AkaMoney.Redirect` project, the `RedirectFunction.cs` file contains several warnings related to null handling:
 
-1. 警告 CS8600: 轉換 null 值或可能為 null 的值至不可為 null 的型別。
-2. 警告 CS8604: 可能存在 null 參考引數。
+1. Warning CS8600: Converting null literal or possible null value to non-nullable type.
+2. Warning CS8604: Possible null reference argument.
 
-這些警告出現在 HTTP 標頭處理和 `RecordClickAsync` 方法呼叫的地方。
+These warnings appear in HTTP header handling and the `RecordClickAsync` method calls.
 
-## 解決方案
+## Solution
 
-我們實施了以下更改：
+We implemented the following changes:
 
-1. 更新了 `IClickTrackingService` 介面，將 `RecordClickAsync` 方法的參數宣告為可為空：
+1. Updated the `IClickTrackingService` interface, declaring the parameters of the `RecordClickAsync` method as nullable:
    ```csharp
    Task<ClickInfo> RecordClickAsync(string shortUrlCode, string? userAgent, string? referrer, string? ipAddress);
    ```
 
-2. 更新了 `ClickTrackingService` 實作以符合修改後的介面。
+2. Updated the `ClickTrackingService` implementation to match the modified interface.
 
-3. 在 `RedirectFunction.cs` 中，將從 HTTP 標頭讀取的變數宣告為可為空型別：
+3. In `RedirectFunction.cs`, declared variables reading from HTTP headers as nullable types:
    ```csharp
    string? userAgent = req.Headers.Contains("User-Agent") ? req.Headers.GetValues("User-Agent").First() : null;
    string? referer = req.Headers.Contains("Referer") ? req.Headers.GetValues("Referer").First() : null;
    string? ipAddress = req.Headers.Contains("X-Forwarded-For") ? req.Headers.GetValues("X-Forwarded-For").First() : null;
    ```
 
-4. 改善 `ClickTrackingService` 建構函式中的空值處理，增加了防禦性程式設計。
+4. Improved null handling in the `ClickTrackingService` constructor, adding defensive programming.
 
-## 修改檔案
+## Modified Files
 
 - `c:\Users\tzyu\Source\Repos\AkaMoney\src\AkaMoney.Services\Interfaces\IClickTrackingService.cs`
 - `c:\Users\tzyu\Source\Repos\AkaMoney\src\AkaMoney.Services\Services\ClickTrackingService.cs`
 - `c:\Users\tzyu\Source\Repos\AkaMoney\src\AkaMoney.Redirect\Functions\RedirectFunction.cs`
 
-## 測試結果
+## Test Results
 
-修改後，所有關於空值處理的編譯器警告都已解決。
+After the modifications, all compiler warnings related to null handling have been resolved.
 
-## 參考資料
+## References
 
-- [C# 可為空參考型別](https://docs.microsoft.com/zh-tw/dotnet/csharp/nullable-references)
-- [防禦性程式設計](https://en.wikipedia.org/wiki/Defensive_programming)
+- [C# Nullable Reference Types](https://docs.microsoft.com/en-us/dotnet/csharp/nullable-references)
+- [Defensive Programming](https://en.wikipedia.org/wiki/Defensive_programming)

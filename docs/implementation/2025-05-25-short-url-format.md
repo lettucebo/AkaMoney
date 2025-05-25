@@ -1,43 +1,43 @@
-# 短網址格式變更實作計畫
+# Short URL Format Change Implementation Plan
 
-## 目標
+## Objective
 
-將短網址格式從 `aka.money/redirect/{code}` 變更為直接使用根路徑的 `aka.money/{code}`，使短網址更簡潔易記。
+Change the short URL format from `aka.money/redirect/{code}` to directly using the root path `aka.money/{code}`, making the short URLs more concise and memorable.
 
-## 背景
+## Background
 
-目前短網址使用 `redirect` 路徑前綴，使得網址較長且不夠直觀。移除這個前綴可以讓短網址更加簡潔。
+Currently, short URLs use the `redirect` path prefix, making the URLs longer and less intuitive. Removing this prefix will make the short URLs more concise.
 
-## 實作步驟
+## Implementation Steps
 
-1. 修改 RedirectFunction.cs 中的路由配置，將 `Route = "redirect/{code?}"` 改為 `Route = "{code?}"`。
-2. 確認路由變更不會與現有其他 API 路由衝突。
-3. 更新相關文檔，包括 README.md。
-4. 測試新的路由是否正常運作。
+1. Modify the route configuration in RedirectFunction.cs, changing `Route = "redirect/{code?}"` to `Route = "{code?}"`.
+2. Ensure that the route change does not conflict with other existing API routes.
+3. Update relevant documentation, including README.md.
+4. Test if the new route works properly.
 
-## 風險與注意事項
+## Risks and Considerations
 
-- 需要確保根路徑不被其他功能佔用。
-- 變更路由可能會影響已發布的短網址，需要考慮向後相容性。
-- 可能需要設置 URL 重寫規則，將原有的 `/redirect/{code}` 路徑重定向到 `/{code}`。
+- Need to ensure the root path is not occupied by other features.
+- Route changes may affect already published short URLs, need to consider backward compatibility.
+- May need to set up URL rewriting rules to redirect the original `/redirect/{code}` path to `/{code}`.
 
-## 影響範圍
+## Impact Scope
 
 - RedirectFunction.cs
-- 可能需要更新前端程式碼中的 API 呼叫路徑
-- 相關文檔
+- May need to update API call paths in frontend code
+- Related documentation
 
-## 測試計畫
+## Testing Plan
 
-1. 測試新的短網址格式是否正常重定向
-2. 測試舊的 `/redirect/{code}` 路徑是否仍然可用（如果需要保持向後相容）
+1. Test if the new short URL format redirects properly
+2. Test if the old `/redirect/{code}` path is still available (if backward compatibility is needed)
 
-## 回滾計劃
+## Rollback Plan
 
-如果實作後發現問題，可以通過恢復原始路由配置回滾變更。
+If issues are found after implementation, changes can be rolled back by restoring the original route configuration.
 
-## 完成標準
+## Completion Criteria
 
-- 短網址可以使用 `aka.money/{code}` 格式訪問並正確重定向
-- 所有測試通過
-- 相關文檔已更新
+- Short URLs can be accessed using the `aka.money/{code}` format and correctly redirect
+- All tests pass
+- Related documentation has been updated

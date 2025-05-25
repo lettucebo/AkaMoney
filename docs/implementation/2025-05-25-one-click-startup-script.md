@@ -1,69 +1,69 @@
-# 2025-05-25-一鍵啟動腳本實作
+# 2025-05-25-One-Click Startup Script Implementation
 
-## 摘要
-本文件記錄了 AkaMoney 專案一鍵啟動腳本的實作方式。此腳本可以同時啟動所有必要的服務，包括 Azurite 儲存模擬器、Azure Functions 和前端應用程式，以便開發人員能夠快速啟動整個系統進行開發和測試。
+## Summary
+This document records the implementation method of the AkaMoney project's one-click startup script. This script can start all necessary services simultaneously, including the Azurite storage emulator, Azure Functions, and the frontend application, allowing developers to quickly start the entire system for development and testing.
 
-## 動機
-在進行開發時，需要啟動多個服務才能完整運行 AkaMoney 系統，包括：
-- Azurite 儲存模擬器 (用於本地 Azure Storage 模擬)
-- AkaMoney.Functions (主要 API 服務)
-- AkaMoney.Redirect (用於短網址重定向的服務)
-- 前端應用程式 (Vue.js)
+## Motivation
+When developing, multiple services need to be started to run the AkaMoney system completely, including:
+- Azurite storage emulator (for local Azure Storage simulation)
+- AkaMoney.Functions (main API service)
+- AkaMoney.Redirect (service for short URL redirection)
+- Frontend application (Vue.js)
 
-手動啟動這些服務既耗時又容易出錯，特別是對於新加入團隊的開發人員。一鍵啟動腳本可以簡化這個過程，提高開發效率。
+Starting these services manually is both time-consuming and error-prone, especially for developers new to the team. A one-click startup script can simplify this process and improve development efficiency.
 
-## 實作細節
+## Implementation Details
 
-### 腳本位置
-腳本位於專案根目錄：`start-akamoney.ps1`
+### Script Location
+The script is located in the project root directory: `start-akamoney.ps1`
 
-### 功能特點
-1. **自動檢查必要工具**：確認是否已安裝 VS Code、Azurite 擴充功能、Node.js、NPM 和 Azure Functions Core Tools
-2. **檢查端口衝突**：檢查所需端口是否已被佔用
-3. **自動安裝前端套件**：檢查並安裝前端應用所需的 NPM 套件
-4. **並行啟動服務**：
-   - Azurite 儲存模擬器 (端口 10000, 10001, 10002)
-   - AkaMoney.Functions (端口 7071)
-   - AkaMoney.Redirect (端口 7072)
-   - 前端應用程式 (端口 8080)
-5. **彩色輸出**：使用不同顏色進行狀態輸出，提高可讀性
-6. **錯誤處理**：捕獲並顯示啟動過程中的錯誤
+### Features
+1. **Automatic check for necessary tools**: Confirms if VS Code, Azurite extension, Node.js, NPM, and Azure Functions Core Tools are installed
+2. **Port conflict check**: Checks if required ports are already occupied
+3. **Automatic frontend package installation**: Checks and installs NPM packages required for the frontend application
+4. **Parallel service startup**:
+   - Azurite storage emulator (ports 10000, 10001, 10002)
+   - AkaMoney.Functions (port 7071)
+   - AkaMoney.Redirect (port 7072)
+   - Frontend application (port 8080)
+5. **Colored output**: Uses different colors for status output to improve readability
+6. **Error handling**: Captures and displays errors during the startup process
 
-### 使用的端口
+### Ports Used
 - Azurite Blob: 10000
 - Azurite Queue: 10001
 - Azurite Table: 10002
 - AkaMoney.Functions: 7071
 - AkaMoney.Redirect: 7072
-- 前端應用程式: 8080
+- Frontend application: 8080
 
-### 腳本執行方式
-從 PowerShell 終端機執行：
+### Script Execution Method
+Execute from PowerShell terminal:
 ```powershell
 .\start-akamoney.ps1
 ```
 
-## 考慮因素
+## Considerations
 
-### 優點
-1. **簡化開發流程**：一個命令即可啟動所有服務
-2. **一致性**：確保所有開發人員使用相同的設置
-3. **可視性**：清晰顯示所有服務的狀態和端口
-4. **可擴展性**：易於添加新服務或修改現有設置
+### Advantages
+1. **Simplified development workflow**: Start all services with one command
+2. **Consistency**: Ensures all developers use the same setup
+3. **Visibility**: Clearly displays the status and ports of all services
+4. **Scalability**: Easy to add new services or modify existing settings
 
-### 限制
-1. **必須手動關閉**：目前需要手動關閉啟動的視窗
-2. **僅支援 Windows PowerShell**：目前主要針對 Windows 開發環境
-3. **部分健康檢查**：雖然檢查 Azurite 服務是否成功啟動，但尚未針對 Functions 和前端應用程式實現完整的健康檢查
+### Limitations
+1. **Manual closure required**: Currently requires manually closing the started windows
+2. **Only supports Windows PowerShell**: Currently mainly targeted at Windows development environments
+3. **Partial health checks**: Although it checks if Azurite services started successfully, it hasn't implemented complete health checks for Functions and frontend applications
 
-## 未來改進
-1. 添加對 Linux/macOS 的支援
-2. 實現優雅的關閉機制
-3. 添加服務健康檢查
-4. 添加服務日誌集中顯示功能
-5. 考慮使用 Docker Compose 作為替代方案
+## Future Improvements
+1. Add support for Linux/macOS
+2. Implement graceful shutdown mechanism
+3. Add service health checks
+4. Add centralized service log display functionality
+5. Consider using Docker Compose as an alternative
 
-## 相關文件
-- [Azure Functions Core Tools 文檔](https://docs.microsoft.com/zh-tw/azure/azure-functions/functions-run-local)
-- [Azurite 儲存模擬器文檔](https://docs.microsoft.com/zh-tw/azure/storage/common/storage-use-azurite)
-- [Vue CLI 服務文檔](https://cli.vuejs.org/guide/cli-service.html)
+## Related Documents
+- [Azure Functions Core Tools Documentation](https://docs.microsoft.com/en-us/azure/azure-functions/functions-run-local)
+- [Azurite Storage Emulator Documentation](https://docs.microsoft.com/en-us/azure/storage/common/storage-use-azurite)
+- [Vue CLI Service Documentation](https://cli.vuejs.org/guide/cli-service.html)
