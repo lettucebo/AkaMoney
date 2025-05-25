@@ -45,7 +45,7 @@ namespace AkaMoney.Functions.Functions
         /// <param name="code">The short URL code.</param>        /// <returns>A redirect response.</returns>
         [Function("Redirect")]
         public async Task<IActionResult> Run(
-            [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "redirect/{code?}")] HttpRequestData req,
+            [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "{code?}")] HttpRequestData req,
             string code)
         {
             _logger.LogInformation("Redirect request received for code: {Code}", code);
@@ -75,7 +75,7 @@ namespace AkaMoney.Functions.Functions
                     _logger.LogInformation("Short URL {Code} has expired, redirecting to default URL", code);
                     return new RedirectResult(_defaultRedirectUrl);
                 }
-                
+
                 // Record the click
                 string? userAgent = req.Headers.Contains("User-Agent") ? req.Headers.GetValues("User-Agent").First() : null;
                 string? referer = req.Headers.Contains("Referer") ? req.Headers.GetValues("Referer").First() : null;
