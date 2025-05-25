@@ -1,9 +1,0 @@
-{
-  "profiles": {
-    "AkaMoney.Redirect": {
-      "commandName": "Project",
-      "commandLineArgs": "--port 7072",
-      "launchBrowser": false
-    }
-  }
-}
