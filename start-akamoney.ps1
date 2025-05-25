@@ -128,6 +128,30 @@ Write-ColorOutput "Starting AkaMoney.Redirect on port 7072..." "Green"
 
 # Check if frontend application exists
 if (Test-Path $frontendPath) {
+    # Check for node_modules directory and install packages if needed
+    $nodeModulesPath = Join-Path -Path $frontendPath -ChildPath "node_modules"
+    
+    if (-not (Test-Path $nodeModulesPath)) {
+        Write-ColorOutput "Node modules not found in frontend application. Installing npm packages..." "Yellow"
+        
+        # Start a new process to run npm install
+        $npmInstallProcess = Start-Process -FilePath "npm" -ArgumentList "install" -WorkingDirectory $frontendPath -PassThru -NoNewWindow -Wait
+        
+        if ($npmInstallProcess.ExitCode -eq 0) {
+            Write-ColorOutput "NPM packages installed successfully!" "Green"
+        }
+        else {
+            Write-ColorOutput "Failed to install NPM packages. Please check npm install output for errors." "Red"
+            $continuePrompt = Read-Host -Prompt "Continue script execution? (Y/N)"
+            if ($continuePrompt -ne "Y") {
+                exit 1
+            }
+        }
+    }
+    else {
+        Write-ColorOutput "Frontend node_modules found." "Green"
+    }
+
     # Start frontend in a new window
     Start-Process pwsh -ArgumentList "-NoExit", "-Command", "Set-Location '$frontendPath'; npm run serve" -PassThru
     Write-ColorOutput "Starting frontend application on port 8080..." "Green"

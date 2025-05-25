@@ -37,7 +37,37 @@ AkaMoney 採用三元件架構:
 
 ### 本地開發設定
 
-#### 後端 API
+#### 方法一：使用一鍵啟動腳本 (建議)
+
+我們提供了一鍵啟動腳本，可以自動啟動所有必要的服務：
+
+1. 複製儲存庫
+```bash
+git clone https://github.com/lettucebo/AkaMoney.git
+cd AkaMoney
+```
+
+2. 確保已安裝以下必要工具：
+   - Visual Studio Code 及其 Azurite 擴充功能
+   - Node.js 和 NPM
+   - Azure Functions Core Tools
+
+3. 設定 `local.settings.json` (在 `src/AkaMoney.Functions` 和 `src/AkaMoney.Redirect`)，如下方法二所示
+
+4. 執行啟動腳本
+```powershell
+.\start-akamoney.ps1
+```
+
+5. 腳本將自動檢查相依性、安裝必要的前端套件，並啟動所有服務：
+   - Azurite Storage Emulator (端口 10000, 10001, 10002)
+   - AkaMoney.Functions API (端口 7071)
+   - AkaMoney.Redirect 服務 (端口 7072)
+   - 前端應用程式 (端口 8080)
+
+#### 方法二：手動啟動各服務
+
+如果您想手動控制每個服務的啟動，請參考以下步驟：
 
 1. 複製儲存庫
 ```bash
@@ -64,21 +94,22 @@ cd AkaMoney
 }
 ```
 
-4. 啟動 API 專案
+4. 啟動 VS Code 的 Azurite 擴充功能
+   - 在 VS Code 中，按 F1，輸入 "Azurite: Start"，並執行此命令
+
+5. 啟動 API 專案
 ```bash
 cd src/AkaMoney.Functions
 func start
 ```
 
-5. 在另一個終端機窗口中，啟動轉址服務
+6. 在另一個終端機窗口中，啟動轉址服務
 ```bash
 cd src/AkaMoney.Redirect
 func start
 ```
 
-#### 前端
-
-1. 設定環境變數 (`.env.local` 在 `src/akamoney-frontend`)
+7. 設定前端環境變數 (`.env.local` 在 `src/akamoney-frontend`)
 ```
 VUE_APP_API_URL=http://localhost:7071/api
 VUE_APP_REDIRECT_URL=http://localhost:7072
@@ -86,14 +117,14 @@ VUE_APP_AUTH_CLIENT_ID=your-client-id
 VUE_APP_AUTH_AUTHORITY=https://login.microsoftonline.com/your-tenant-id
 ```
 
-2. 安裝相依套件並啟動開發伺服器
+8. 安裝相依套件並啟動開發伺服器
 ```bash
 cd src/akamoney-frontend
 npm install
 npm run serve
 ```
 
-3. 前端將在 http://localhost:8080 運行
+9. 前端將在 http://localhost:8080 運行
 
 ## 🚢 部署到 Azure
 
