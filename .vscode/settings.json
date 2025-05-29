@@ -33,7 +33,7 @@
 
     // GitHub Copilot Chat
     "github.copilot.chat.followUps": "always",
-    "github.copilot.chat.localeOverride": "zh-TW",
+    "github.copilot.chat.localeOverride": "en",
     "github.copilot.chat.useProjectTemplates": true,
     "github.copilot.chat.scopeSelection": true,
     "chat.detectParticipant.enabled": true,

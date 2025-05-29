@@ -5,7 +5,7 @@ on:
     paths:
       - 'src/**'
   pull_request:
-    branches: [ master ]
+    branches: [ master, main ]
     paths:
       - 'src/**'
   workflow_dispatch:
@@ -24,14 +24,10 @@ jobs:
         dotnet-version: 8.0.x
 
     - name: Restore dependencies
-      run: dotnet restore src/SubscriptionTracker.sln
+      run: dotnet restore src/AkaMoney.sln
 
     - name: Build
-      run: dotnet build src/SubscriptionTracker.sln --no-restore --configuration Release
-
-    - name: Test
-      run: dotnet test src/SubscriptionTracker.Tests/SubscriptionTracker.Tests.csproj --no-build --configuration Release --verbosity normal
-
+      run: dotnet build src/AkaMoney.sln --no-restore --configuration Release
   vue:
     name: Vue.js Build
     runs-on: ubuntu-latest
@@ -42,18 +38,18 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v3
       with:
-        node-version: '18'
+        node-version: '20.x'
         cache: 'npm'
-        cache-dependency-path: 'src/subscription-tracker-client/package-lock.json'
+        cache-dependency-path: 'src/akamoney-frontend/package-lock.json'
 
     - name: Install dependencies
-      working-directory: ./src/subscription-tracker-client
+      working-directory: ./src/akamoney-frontend
       run: npm ci
 
     - name: Lint
-      working-directory: ./src/subscription-tracker-client
+      working-directory: ./src/akamoney-frontend
       run: npm run lint
 
     - name: Build
-      working-directory: ./src/subscription-tracker-client
+      working-directory: ./src/akamoney-frontend
       run: npm run build
