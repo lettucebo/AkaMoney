@@ -14,12 +14,18 @@ param skuName string = 'Standard_LRS'
 @description('是否建立表格')
 param createTables bool = true
 
+@description('是否建立部署容器')
+param createDeploymentContainer bool = false
+
+@description('部署容器名稱')
+param deploymentContainerName string = 'functiondeployment'
+
 var tableNames = [
   'shorturls'
   'clickinfo'
 ]
 
-resource storageAccount 'Microsoft.Storage/storageAccounts@2022-09-01' = {
+resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   name: name
   location: location
   kind: 'StorageV2'
@@ -33,16 +39,33 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2022-09-01' = {
   }
 }
 
-resource tableService 'Microsoft.Storage/storageAccounts/tableServices@2022-09-01' = {
+resource tableService 'Microsoft.Storage/storageAccounts/tableServices@2023-01-01' = {
   parent: storageAccount
   name: 'default'
 }
 
-resource tables 'Microsoft.Storage/storageAccounts/tableServices/tables@2022-09-01' = [for tableName in tableNames: if (createTables) {
+resource tables 'Microsoft.Storage/storageAccounts/tableServices/tables@2023-01-01' = [for tableName in tableNames: if (createTables) {
   parent: tableService
   name: tableName
 }]
 
+// Blob 服務
+resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-01-01' = {
+  parent: storageAccount
+  name: 'default'
+}
+
+// 部署容器
+resource deploymentContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = if (createDeploymentContainer) {
+  parent: blobService
+  name: deploymentContainerName
+  properties: {
+    publicAccess: 'None'
+  }
+}
+
 output name string = storageAccount.name
 output id string = storageAccount.id
-output primaryKey string = listKeys(storageAccount.id, storageAccount.apiVersion).keys[0].value
+@secure()
+output primaryKey string = storageAccount.listKeys().keys[0].value
+output blobEndpoint string = storageAccount.properties.primaryEndpoints.blob

@@ -1,12 +1,21 @@
 /*
   Static Web App 模組
+  使用接近 East Asia 的區域
 */
 
 @description('Static Web App 名稱')
 param name string
 
-@description('位置')
-param location string = resourceGroup().location
+@description('位置，選擇接近 East Asia 的區域')
+@allowed([
+  'eastasia'
+  'southeastasia'
+  'centralus'
+  'eastus2'
+  'westeurope'
+  'westus2'
+])
+param location string = 'eastasia'
 
 @description('API URL')
 param apiUrl string
@@ -14,16 +23,29 @@ param apiUrl string
 @description('重定向 URL')
 param redirectUrl string
 
+@allowed([
+  'Free'
+  'Standard'
+])
+@description('SKU 名稱')
+param skuName string = 'Free'
+
+@description('SKU 層級')
+param skuTier string = skuName
+
 resource staticWebApp 'Microsoft.Web/staticSites@2022-09-01' = {
   name: name
   location: location
   properties: {
     stagingEnvironmentPolicy: 'Enabled'
     allowConfigFileUpdates: true
+    buildProperties: {
+      skipGithubActionWorkflowGeneration: true
+    }
   }
   sku: {
-    name: 'Free'
-    tier: 'Free'
+    name: skuName
+    tier: skuTier
   }
 
   resource appSettings 'config' = {
