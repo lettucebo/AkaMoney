@@ -1,117 +1,144 @@
-name: Release
+name: Build and Deploy AkaMoney
 
 on:
   push:
-    tags:
-      - '*'  # Trigger on any tag
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
 
+env:
+  DOTNET_VERSION: '8.0.x'
+  NODE_VERSION: '20.x'
+  AZURE_FUNCTIONAPP_NAME: akamoney-dev-api
+  AZURE_FUNCTIONAPP_PATH: ./src/AkaMoney.Functions
+  FRONTEND_PATH: ./src/akamoney-frontend
 
 jobs:
-  build-and-deploy:
-    name: Build and Deploy Applications
+  build-and-test:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+    - name: Checkout code
+      uses: actions/checkout@v3
 
-      - name: Extract tag version
-        id: get_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
 
-      # Setup .NET for backend build
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v3
-        with:
-          dotnet-version: 8.0.x
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ env.NODE_VERSION }}
 
-      # Setup Node.js for frontend build
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: 'src/subscription-tracker-client/package-lock.json'
+    - name: Restore .NET dependencies
+      run: dotnet restore ./src/AkaMoney.sln
 
-      # Build backend
-      - name: Build backend
-        run: |
-          dotnet restore src/SubscriptionTracker.sln
-          dotnet build src/SubscriptionTracker.sln --configuration Release --no-restore
-          dotnet publish src/SubscriptionTracker.Api/SubscriptionTracker.Api.csproj -c Release -o ./publish/api
+    - name: Build .NET projects
+      run: dotnet build ./src/AkaMoney.sln --configuration Release --no-restore
 
-      # Build frontend
-      - name: Build frontend
-        env:
-          API_URL: ${{ vars.API_URL }}
-        run: |
-          cd src/subscription-tracker-client
-          # Replace baseUrl in config.js with API_URL
-          cat > src/config.js << EOF
-          export const config = {
-            baseUrl: "${API_URL}"
-          }
-          EOF
-          npm ci
-          npm run build
+    - name: Test .NET projects
+      run: dotnet test ./src/AkaMoney.sln --configuration Release --no-build
 
-      # Login to Azure
-      - name: Login to Azure
-        uses: azure/login@v1
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+    - name: Install Frontend dependencies
+      run: npm ci
+      working-directory: ${{ env.FRONTEND_PATH }}
 
-      # Set environment variables
-      - name: Set environment variables
-        id: set_variables
-        run: |
-          echo "RESOURCE_GROUP=SubTracker" >> $GITHUB_OUTPUT
-          echo "WEBAPP_NAME=subtracker-app-backend" >> $GITHUB_OUTPUT
-          echo "FRONTEND_WEBAPP_NAME=subtracker-app-frontend" >> $GITHUB_OUTPUT
+    - name: Lint Frontend
+      run: npm run lint
+      working-directory: ${{ env.FRONTEND_PATH }}
+      
+    - name: Build Frontend
+      run: npm run build
+      working-directory: ${{ env.FRONTEND_PATH }}
+      env:
+        VUE_APP_API_URL: https://${{ env.AZURE_FUNCTIONAPP_NAME }}.azurewebsites.net
+        VUE_APP_REDIRECT_URL: https://${{ env.AZURE_FUNCTIONAPP_NAME }}.azurewebsites.net
 
-      # Deploy backend to Azure Web App
-      - name: Deploy backend to Azure Web App
-        uses: azure/webapps-deploy@v2
-        with:
-          app-name: ${{ steps.set_variables.outputs.WEBAPP_NAME }}
-          package: ./publish/api
+  deploy-infrastructure:
+    needs: build-and-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+        
+    - name: Deploy Bicep template
+      uses: azure/arm-deploy@v1
+      with:
+        subscriptionId: ${{ secrets.AZURE_SUBSCRIPTION }}
+        resourceGroupName: ${{ secrets.AZURE_RG }}
+        template: ./infra/main.bicep
+        parameters: ./infra/environments/dev.parameters.json
 
-      # Prepare frontend for deployment
-      - name: Prepare frontend for deployment
-        run: |
-          # Copy necessary files to the dist folder
-          cp src/subscription-tracker-client/public/web.config src/subscription-tracker-client/dist/
-          cp src/subscription-tracker-client/public/.deployment src/subscription-tracker-client/dist/
-          cp src/subscription-tracker-client/public/server.js src/subscription-tracker-client/dist/
-          cp src/subscription-tracker-client/public/package.json src/subscription-tracker-client/dist/
+  deploy-function:
+    needs: deploy-infrastructure
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
 
-      # Configure Azure Web App settings for frontend
-      - name: Configure Azure Web App settings
-        run: |
-          az webapp config set --resource-group ${{ steps.set_variables.outputs.RESOURCE_GROUP }} \
-            --name ${{ steps.set_variables.outputs.FRONTEND_WEBAPP_NAME }} \
-            --linux-fx-version "NODE|22-lts" \
-            --startup-file "server.js" \
-            --ftps-state Disabled
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
 
-          # Configure app settings
-          az webapp config appsettings set --resource-group ${{ steps.set_variables.outputs.RESOURCE_GROUP }} \
-            --name ${{ steps.set_variables.outputs.FRONTEND_WEBAPP_NAME }} \
-            --settings SCM_DO_BUILD_DURING_DEPLOYMENT=true
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # Deploy frontend to Azure Web App
-      - name: Deploy frontend to Azure Web App
-        id: deploy_frontend
-        uses: azure/webapps-deploy@v2
-        with:
-          app-name: ${{ steps.set_variables.outputs.FRONTEND_WEBAPP_NAME }}
-          package: ./src/subscription-tracker-client/dist
+    # 部署整合的 Function App
+    - name: Build and deploy Function App
+      uses: Azure/functions-action@v1
+      with:
+        app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
+        package: ${{ env.AZURE_FUNCTIONAPP_PATH }}/bin/Release/net8.0/publish
+        respect-funcignore: true
 
-      # Post-deployment verification
-      - name: Post-deployment verification
-        run: |
-          echo "Deployment completed successfully!"
-          echo "Version deployed: ${{ steps.get_version.outputs.VERSION }}"
-          echo "Backend deployed to: ${{ steps.set_variables.outputs.WEBAPP_NAME }}"
-          echo "Frontend deployed to: ${{ steps.set_variables.outputs.FRONTEND_WEBAPP_NAME }}"
+  deploy-frontend:
+    needs: deploy-function
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+
+    - name: Install Frontend dependencies
+      run: npm ci
+      working-directory: ${{ env.FRONTEND_PATH }}
+
+    - name: Build Frontend
+      run: npm run build
+      working-directory: ${{ env.FRONTEND_PATH }}
+      env:
+        VUE_APP_API_URL: https://${{ env.AZURE_FUNCTIONAPP_NAME }}.azurewebsites.net
+        VUE_APP_REDIRECT_URL: https://${{ env.AZURE_FUNCTIONAPP_NAME }}.azurewebsites.net
+        VUE_APP_CLIENT_ID: ${{ secrets.VUE_APP_CLIENT_ID }}
+        VUE_APP_TENANT_ID: ${{ secrets.VUE_APP_TENANT_ID }}
+        VUE_APP_API_CLIENT_ID: ${{ secrets.VUE_APP_API_CLIENT_ID }}
+
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Deploy Frontend to Static Web App
+      uses: Azure/static-web-apps-deploy@v1
+      with:
+        azure_static_web_apps_api_token: ${{ secrets.STATIC_WEB_APP_TOKEN }}
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        action: "upload"
+        app_location: "${{ env.FRONTEND_PATH }}/dist"
+        skip_app_build: true
