@@ -10,7 +10,7 @@ on:
 env:
   DOTNET_VERSION: '8.0.x'
   NODE_VERSION: '20.x'
-  AZURE_FUNCTIONAPP_NAME: akamoney-dev-api
+  AZURE_FUNCTIONAPP_NAME: akamoney-prod-api
   AZURE_FUNCTIONAPP_PATH: ./src/AkaMoney.Functions
   FRONTEND_PATH: ./src/akamoney-frontend
 
