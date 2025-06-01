@@ -1,4 +1,3 @@
-// filepath: c:\Users\tzyu\Source\Repos\AkaMoney\infra\modules\function-app.bicep
 /*
   Function App 模組 (FlexConsumption)
 */
@@ -11,6 +10,12 @@ param location string = resourceGroup().location
 
 @description('App Service Plan ID')
 param appServicePlanId string
+
+@description('子網路 ID 用於虛擬網路整合')
+param subnetId string = ''
+
+@description('是否啟用虛擬網路整合')
+param enableVnetIntegration bool = false
 
 @description('儲存體帳戶名稱')
 param storageAccountName string
@@ -30,6 +35,8 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' existing 
 var combinedAppSettings = union({
   AzureWebJobsStorage__accountName: storageAccountName
   FUNCTIONS_EXTENSION_VERSION: '~4'
+  WEBSITE_CONTENTSHARE: toLower(name)
+  WEBSITE_VNET_ROUTE_ALL: enableVnetIntegration ? '1' : '0'
   // 已移除 FUNCTIONS_WORKER_RUNTIME，因為 FlexConsumption 計劃不支援此設定
   // 已移除 WEBSITE_RUN_FROM_PACKAGE，因為 FlexConsumption 計劃不支援此設定
 }, appSettings)
@@ -45,6 +52,8 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
   properties: {
     serverFarmId: appServicePlanId
     httpsOnly: true
+    vnetRouteAllEnabled: enableVnetIntegration
+    virtualNetworkSubnetId: enableVnetIntegration ? subnetId : null
     functionAppConfig: {
       runtime: {
         name: 'dotnet-isolated'
@@ -72,6 +81,16 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
       minTlsVersion: '1.2'
       // 注意：移除了 ftpsState 和 linuxFxVersion，因為它們在 FlexConsumption 計劃中不支援
     }
+  }
+}
+
+// 虛擬網路整合
+resource networkConfig 'Microsoft.Web/sites/networkConfig@2023-12-01' = if (enableVnetIntegration) {
+  parent: functionApp
+  name: 'virtualNetwork'
+  properties: {
+    subnetResourceId: subnetId
+    swiftSupported: true
   }
 }
 

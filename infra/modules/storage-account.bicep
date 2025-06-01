@@ -11,6 +11,9 @@ param location string = resourceGroup().location
 @description('SKU 名稱')
 param skuName string = 'Standard_LRS'
 
+@description('是否啟用私人端點')
+param enablePrivateEndpoint bool = false
+
 @description('是否建立表格')
 param createTables bool = true
 
@@ -36,6 +39,17 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
     supportsHttpsTrafficOnly: true
     minimumTlsVersion: 'TLS1_2'
     allowBlobPublicAccess: false
+    publicNetworkAccess: enablePrivateEndpoint ? 'Disabled' : 'Enabled'
+    networkAcls: {
+      defaultAction: enablePrivateEndpoint ? 'Deny' : 'Allow'
+      bypass: 'AzureServices'
+      virtualNetworkRules: enablePrivateEndpoint ? [
+        {
+          id: resourceId('Microsoft.Network/virtualNetworks/subnets', 'AkaMoney-vnet', 'function-subnet')
+          action: 'Allow'
+        }
+      ] : []
+    }
   }
 }
 
@@ -69,3 +83,4 @@ output id string = storageAccount.id
 @secure()
 output primaryKey string = storageAccount.listKeys().keys[0].value
 output blobEndpoint string = storageAccount.properties.primaryEndpoints.blob
+output storageAccountId string = storageAccount.id
