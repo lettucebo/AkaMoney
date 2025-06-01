@@ -35,10 +35,10 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' existing 
 var combinedAppSettings = union({
   AzureWebJobsStorage__accountName: storageAccountName
   FUNCTIONS_EXTENSION_VERSION: '~4'
-  WEBSITE_CONTENTSHARE: toLower(name)
   WEBSITE_VNET_ROUTE_ALL: enableVnetIntegration ? '1' : '0'
   // 已移除 FUNCTIONS_WORKER_RUNTIME，因為 FlexConsumption 計劃不支援此設定
   // 已移除 WEBSITE_RUN_FROM_PACKAGE，因為 FlexConsumption 計劃不支援此設定
+  // 已移除 WEBSITE_CONTENTSHARE，因為 FlexConsumption 計劃不支援此設定
 }, appSettings)
 
 // 部署 Function App
