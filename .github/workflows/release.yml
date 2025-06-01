@@ -9,7 +9,7 @@ on:
 
 env:
   DOTNET_VERSION: '8.0.x'
-  NODE_VERSION: '20.x'
+  NODE_VERSION: '22.x'
   AZURE_FUNCTIONAPP_NAME: akamoney-prod-api
   AZURE_FUNCTIONAPP_PATH: ./src/AkaMoney.Functions
   FRONTEND_PATH: ./src/akamoney-frontend
@@ -72,15 +72,14 @@ jobs:
     - name: Azure Login
       uses: azure/login@v1
       with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-    # 部署整合的 Function App
+        creds: ${{ secrets.AZURE_CREDENTIALS }}    # 部署整合的 Function App
     - name: Build and deploy Function App
       uses: Azure/functions-action@v1
       with:
         app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
         package: ${{ env.AZURE_FUNCTIONAPP_PATH }}/bin/Release/net8.0/publish
         respect-funcignore: true
+        publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
 
   deploy-frontend:
     needs: deploy-function

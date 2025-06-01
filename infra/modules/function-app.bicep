@@ -31,7 +31,7 @@ var combinedAppSettings = union({
   AzureWebJobsStorage__accountName: storageAccountName
   FUNCTIONS_EXTENSION_VERSION: '~4'
   // 已移除 FUNCTIONS_WORKER_RUNTIME，因為 FlexConsumption 計劃不支援此設定
-  WEBSITE_RUN_FROM_PACKAGE: '1'
+  // 已移除 WEBSITE_RUN_FROM_PACKAGE，因為 FlexConsumption 計劃不支援此設定
 }, appSettings)
 
 // 部署 Function App
