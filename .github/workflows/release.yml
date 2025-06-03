@@ -34,9 +34,9 @@ jobs:
 
     - name: Restore .NET dependencies
       run: dotnet restore ./src/AkaMoney.sln
-
-    - name: Publish Function App
-      run: dotnet publish ${{ env.AZURE_FUNCTIONAPP_PATH }} --configuration Release --output ${{ env.AZURE_FUNCTIONAPP_PATH }}/bin/Release/net8.0/publish --no-restore
+      
+    - name: Build Function App
+      run: dotnet build ${{ env.AZURE_FUNCTIONAPP_PATH }} --configuration Release --no-restore
 
     - name: Install Frontend dependencies
       run: npm ci
@@ -56,12 +56,12 @@ jobs:
         VUE_APP_TENANT_ID: ${{ secrets.VUE_APP_TENANT_ID }}
         VUE_APP_API_CLIENT_ID: ${{ secrets.VUE_APP_API_CLIENT_ID }}
         
-    # 將產生好的檔案保存為構件，以供後續部署使用
-    - name: Upload Function App artifact
+    # 將原始程式碼保存為構件，以供後續部署使用
+    - name: Upload Function App source
       uses: actions/upload-artifact@v4
       with:
-        name: function-app
-        path: ${{ env.AZURE_FUNCTIONAPP_PATH }}/bin/Release/net8.0/publish
+        name: function-app-source
+        path: ${{ env.AZURE_FUNCTIONAPP_PATH }}
         
     - name: Upload Frontend artifact
       uses: actions/upload-artifact@v4
@@ -76,19 +76,30 @@ jobs:
     - name: Download Function App artifact
       uses: actions/download-artifact@v4
       with:
-        name: function-app
-        path: function-app
+        name: function-app-source
+        path: function-app-source
+        
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+        
+    - name: Install Azure Functions Core Tools
+      run: npm install -g azure-functions-core-tools@4 --unsafe-perm true
+        
+    - name: Publish Function App
+      run: dotnet publish ./function-app-source --configuration Release --output ./publish
         
     - name: Azure Login
       uses: azure/login@v1
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
         
-    - name: Build and deploy Function App
+    - name: Deploy Function App
       uses: Azure/functions-action@v1
       with:
         app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
-        package: ./function-app
+        package: ./publish
         respect-funcignore: true
         publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
 
@@ -103,7 +114,7 @@ jobs:
         path: frontend
 
     - name: Azure Login
-      uses: azure/login@v1
+      uses: Azure/login@v1
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
