@@ -58,13 +58,13 @@ jobs:
         
     # 將產生好的檔案保存為構件，以供後續部署使用
     - name: Upload Function App artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: function-app
         path: ${{ env.AZURE_FUNCTIONAPP_PATH }}/bin/Release/net8.0/publish
         
     - name: Upload Frontend artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: frontend
         path: ${{ env.FRONTEND_PATH }}/dist
@@ -74,7 +74,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Download Function App artifact
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: function-app
         path: function-app
@@ -97,7 +97,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Download Frontend artifact
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: frontend
         path: frontend
