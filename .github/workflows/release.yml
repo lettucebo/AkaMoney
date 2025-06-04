@@ -69,42 +69,42 @@ jobs:
         name: frontend
         path: ${{ env.FRONTEND_PATH }}/dist
 
-  deploy-function:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-    - name: Download Function App artifact
-      uses: actions/download-artifact@v4
-      with:
-        name: function-app-source
-        path: function-app-source
+  # deploy-function:
+  #   needs: build
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #   - name: Download Function App artifact
+  #     uses: actions/download-artifact@v4
+  #     with:
+  #       name: function-app-source
+  #       path: function-app-source
         
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v3
-      with:
-        dotnet-version: ${{ env.DOTNET_VERSION }}
+  #   - name: Setup .NET
+  #     uses: actions/setup-dotnet@v3
+  #     with:
+  #       dotnet-version: ${{ env.DOTNET_VERSION }}
         
-    - name: Install Azure Functions Core Tools
-      run: npm install -g azure-functions-core-tools@4 --unsafe-perm true
+  #   - name: Install Azure Functions Core Tools
+  #     run: npm install -g azure-functions-core-tools@4 --unsafe-perm true
         
-    - name: Publish Function App
-      run: dotnet publish ./function-app-source --configuration Release --output ./publish
+  #   - name: Publish Function App
+  #     run: dotnet publish ./function-app-source --configuration Release --output ./publish
         
-    - name: Azure Login
-      uses: azure/login@v1
-      with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
+  #   - name: Azure Login
+  #     uses: azure/login@v1
+  #     with:
+  #       creds: ${{ secrets.AZURE_CREDENTIALS }}
         
-    - name: Deploy Function App
-      uses: Azure/functions-action@v1
-      with:
-        app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
-        package: ./publish
-        respect-funcignore: true
-        publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
+  #   - name: Deploy Function App
+  #     uses: Azure/functions-action@v1
+  #     with:
+  #       app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
+  #       package: ./publish
+  #       respect-funcignore: true
+  #       publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
 
   deploy-frontend:
-    needs: deploy-function
+    needs: build
     runs-on: ubuntu-latest
     steps:
     - name: Download Frontend artifact
