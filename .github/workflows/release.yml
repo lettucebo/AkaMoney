@@ -10,7 +10,8 @@ on:
 env:
   DOTNET_VERSION: '8.0.x'
   NODE_VERSION: '22.x'
-  AZURE_FUNCTIONAPP_NAME: akamoney-prod-api
+  AZURE_FUNCTIONAPP_NAME: akamoney-api
+  AZURE_FUNCTIONAPP_HOST: akamoney-api-egfyapdmavc6hwba.japaneast-01.azurewebsites.net
   AZURE_FUNCTIONAPP_PATH: ./src/AkaMoney.Functions
   FRONTEND_PATH: ./src/akamoney-frontend
 
@@ -33,9 +34,9 @@ jobs:
 
     - name: Restore .NET dependencies
       run: dotnet restore ./src/AkaMoney.sln
-
-    - name: Build .NET projects
-      run: dotnet build ./src/AkaMoney.sln --configuration Release --no-restore
+      
+    - name: Build Function App
+      run: dotnet build ${{ env.AZURE_FUNCTIONAPP_PATH }} --configuration Release --no-restore
 
     - name: Install Frontend dependencies
       run: npm ci
@@ -49,66 +50,71 @@ jobs:
       run: npm run build
       working-directory: ${{ env.FRONTEND_PATH }}
       env:
-        VUE_APP_API_URL: https://${{ env.AZURE_FUNCTIONAPP_NAME }}.azurewebsites.net
-        VUE_APP_REDIRECT_URL: https://${{ env.AZURE_FUNCTIONAPP_NAME }}.azurewebsites.net
-  # deploy-function:
-  #   needs: build
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #   - name: Checkout code
-  #     uses: actions/checkout@v3
-
-  #   - name: Setup .NET
-  #     uses: actions/setup-dotnet@v3
-  #     with:
-  #       dotnet-version: ${{ env.DOTNET_VERSION }}
+        VUE_APP_API_URL: https://${{ env.AZURE_FUNCTIONAPP_HOST }}
+        VUE_APP_REDIRECT_URL: https://${{ env.AZURE_FUNCTIONAPP_HOST }}
+        VUE_APP_CLIENT_ID: ${{ secrets.VUE_APP_CLIENT_ID }}
+        VUE_APP_TENANT_ID: ${{ secrets.VUE_APP_TENANT_ID }}
+        VUE_APP_API_CLIENT_ID: ${{ secrets.VUE_APP_API_CLIENT_ID }}
         
-  #   - name: Restore dependencies
-  #     run: dotnet restore ${{ env.AZURE_FUNCTIONAPP_PATH }}
-      
-  #   - name: Publish Function App
-  #     run: dotnet publish ${{ env.AZURE_FUNCTIONAPP_PATH }} --configuration Release --output ${{ env.AZURE_FUNCTIONAPP_PATH }}/bin/Release/net8.0/publish
+    # 將原始程式碼保存為構件，以供後續部署使用
+    - name: Upload Function App source
+      uses: actions/upload-artifact@v4
+      with:
+        name: function-app-source
+        path: ${{ env.AZURE_FUNCTIONAPP_PATH }}
+        
+    - name: Upload Frontend artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: frontend
+        path: ${{ env.FRONTEND_PATH }}/dist
 
-  #   - name: Azure Login
-  #     uses: azure/login@v1
-  #     with:
-  #       creds: ${{ secrets.AZURE_CREDENTIALS }}    # 部署整合的 Function App
-  #   - name: Build and deploy Function App
-  #     uses: Azure/functions-action@v1
-  #     with:
-  #       app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
-  #       package: ${{ env.AZURE_FUNCTIONAPP_PATH }}/bin/Release/net8.0/publish
-  #       respect-funcignore: true
-  #       publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
+  deploy-function:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    - name: Download Function App artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: function-app-source
+        path: function-app-source
+        
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+        
+    - name: Install Azure Functions Core Tools
+      run: npm install -g azure-functions-core-tools@4 --unsafe-perm true
+        
+    - name: Publish Function App
+      run: dotnet publish ./function-app-source --configuration Release --output ./publish
+        
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+        
+    - name: Deploy Function App
+      uses: Azure/functions-action@v1
+      with:
+        app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
+        package: ./publish
+        respect-funcignore: true
+        publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
 
   deploy-frontend:
     needs: deploy-function
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
-
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
+    - name: Download Frontend artifact
+      uses: actions/download-artifact@v4
       with:
-        node-version: ${{ env.NODE_VERSION }}
-
-    - name: Install Frontend dependencies
-      run: npm ci
-      working-directory: ${{ env.FRONTEND_PATH }}
-
-    - name: Build Frontend
-      run: npm run build
-      working-directory: ${{ env.FRONTEND_PATH }}
-      env:
-        VUE_APP_API_URL: https://${{ env.AZURE_FUNCTIONAPP_NAME }}.azurewebsites.net
-        VUE_APP_REDIRECT_URL: https://${{ env.AZURE_FUNCTIONAPP_NAME }}.azurewebsites.net
-        VUE_APP_CLIENT_ID: ${{ secrets.VUE_APP_CLIENT_ID }}
-        VUE_APP_TENANT_ID: ${{ secrets.VUE_APP_TENANT_ID }}
-        VUE_APP_API_CLIENT_ID: ${{ secrets.VUE_APP_API_CLIENT_ID }}
+        name: frontend
+        path: frontend
 
     - name: Azure Login
-      uses: azure/login@v1
+      uses: Azure/login@v1
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
@@ -118,5 +124,5 @@ jobs:
         azure_static_web_apps_api_token: ${{ secrets.STATIC_WEB_APP_TOKEN }}
         repo_token: ${{ secrets.GITHUB_TOKEN }}
         action: "upload"
-        app_location: "${{ env.FRONTEND_PATH }}/dist"
+        app_location: "./frontend"
         skip_app_build: true
