@@ -13,7 +13,7 @@ env:
   AZURE_FUNCTIONAPP_NAME: akamoney-api
   AZURE_FUNCTIONAPP_HOST: akamoney-api-egfyapdmavc6hwba.japaneast-01.azurewebsites.net
   AZURE_FUNCTIONAPP_PATH: ./src/AkaMoney.Functions
-  AZURE_STATIC_WEB_APP_NAME: akamoney-admin
+  AZURE_STATIC_WEB_APP_NAME: delightful-sea-03f16ac00
   FRONTEND_PATH: ./src/akamoney-frontend
 
 jobs:
@@ -147,9 +147,6 @@ jobs:
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-
-
-
     - name: Deploy Frontend to Static Web App
       uses: Azure/static-web-apps-deploy@v1
       with:
@@ -160,4 +157,3 @@ jobs:
         skip_app_build: true
         repo_token: ${{ secrets.GITHUB_TOKEN }}
 
-   
