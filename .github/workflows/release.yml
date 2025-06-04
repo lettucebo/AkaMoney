@@ -22,18 +22,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
-    - name: Check SWA Token Secret Length
-      run: |
-        if [ -z "${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}" ]; then
-          echo "Secret is empty!"
-          exit 1
-        else
-          echo "Secret length: ${#AZURE_STATIC_WEB_APPS_API_TOKEN}"
-        fi
-      shell: bash
-      env:
-        AZURE_STATIC_WEB_APPS_API_TOKEN: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
-        
     - name: Checkout code
       uses: actions/checkout@v3
 
@@ -133,6 +121,7 @@ jobs:
   #       package: ./publish
   #       respect-funcignore: true
   #       publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
+  
   deploy-frontend:
     needs: build
     runs-on: ubuntu-latest
@@ -152,5 +141,5 @@ jobs:
       uses: azure/webapps-deploy@v2
       with:
         app-name: ${{ env.AZURE_WEBAPP_NAME }}
-        package: frontend/dist
+        package: frontend
 
