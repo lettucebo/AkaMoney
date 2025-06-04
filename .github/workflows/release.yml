@@ -118,23 +118,13 @@ jobs:
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-    - name: Get Static Web App Information
-      id: get_swa_info
-      run: |
-        echo "Getting information for ${{ env.AZURE_STATIC_WEB_APP_NAME }}"
-        # 列出靜態網站應用程式的詳細資訊以進行診斷
-        az staticwebapp show --name ${{ env.AZURE_STATIC_WEB_APP_NAME }}
-        # 嘗試獲取部署金鑰
-        TOKEN=$(az staticwebapp secrets list --name ${{ env.AZURE_STATIC_WEB_APP_NAME }} --query "properties.apiKey" -o tsv)
-        echo "DEPLOYMENT_TOKEN=$TOKEN" >> $GITHUB_OUTPUT
-      
     - name: Deploy Frontend to Static Web App
       uses: Azure/static-web-apps-deploy@v1
       with:
-        azure_static_web_apps_api_token: ${{ steps.get_swa_info.outputs.DEPLOYMENT_TOKEN }}
-        repo_token: ${{ secrets.GITHUB_TOKEN }}
-        action: "upload"
-        app_location: "./frontend"
-        skip_app_build: true
-        app_artifact_location: ""
+        app_location: frontend
         output_location: ""
+        azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+        action: "upload"
+        app_name: ${{ env.AZURE_STATIC_WEB_APP_NAME }}
+        skip_app_build: true
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
