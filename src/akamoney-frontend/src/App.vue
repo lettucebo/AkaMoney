@@ -76,7 +76,7 @@ export default {
         .getPropertyValue('--bg-color');
     };
     
-    const isAuthenticated = computed(() => authService.isAuthenticated());
+    const isAuthenticated = ref(false);
     const isLoginPage = computed(() => route.path === '/login');
     
     const toggleTheme = () => {
@@ -87,25 +87,29 @@ export default {
       updateTheme(theme.isDark);
     };
     
-    const logout = () => {
-      authService.logout();
+    const logout = async () => {
+      await authService.logout();
     };
     
     watch(() => theme.isDark, (newValue) => {
       updateTheme(newValue);
     });
     
-    onMounted(() => {
+    onMounted(async () => {
+      isAuthenticated.value = await authService.isAuthenticated();
       if (isAuthenticated.value) {
-        const account = authService.getAccount();
+        const account = await authService.getAccount();
         if (account) {
           userInfo.value = {
             name: account.name || account.username,
             email: account.username
           };
         }
+        // 若目前在 /login 頁，且已驗證，直接導向 dashboard
+        if (route.path === '/login') {
+          window.location.replace('/dashboard');
+        }
       }
-      
       updateTheme(theme.isDark);
     });
     

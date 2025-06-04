@@ -11,7 +11,7 @@ const api = axios.create({
 
 // Add request interceptor to add authorization token
 api.interceptors.request.use(async (config) => {
-  if (authService.isAuthenticated()) {
+  if (await authService.isAuthenticated()) {
     try {
       const token = await authService.getAccessToken();
       config.headers.Authorization = `Bearer ${token}`;

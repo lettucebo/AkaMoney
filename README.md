@@ -1,6 +1,11 @@
 # AkaMoney 🔗
 
-AkaMoney is a high-performance short URL service, providing a user-friendly interface to create, manage and track short URLs.
+AkaMoney is a high-performance short URL service. Now fully supports Microsoft Entra ID authentication for both frontend and backend.
+
+## Authentication (2025-06-04 Update)
+- Frontend authentication now only supports Microsoft Entra ID (MSAL.js)，mock/development login is no longer available.
+- Backend (AkaMoney.Functions) enforces Entra ID JWT authentication for all API endpoints.
+- Please configure `.env.example` (frontend) and `local.settings.json` (backend) with your Entra ID Application (clientId, tenantId, api scope) for both local and production environments.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 

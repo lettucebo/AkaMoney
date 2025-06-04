@@ -58,17 +58,20 @@ const router = createRouter({
 });
 
 // Navigation guard
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   // Check if the route requires authentication
-  if (to.meta.requiresAuth && !authService.isAuthenticated()) {
-    // Redirect to login page with return URL
-    next({
-      path: '/login',
-      query: { redirect: to.fullPath }
-    });
-  } else {
-    next();
+  if (to.meta.requiresAuth) {
+    const authed = await authService.isAuthenticated();
+    if (!authed) {
+      // Redirect to login page with return URL
+      next({
+        path: '/login',
+        query: { redirect: to.fullPath }
+      });
+      return;
+    }
   }
+  next();
 });
 
 export default router;

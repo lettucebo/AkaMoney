@@ -1,13 +1,10 @@
 // Auth configuration for Azure Entra ID (former Azure AD)
 import { PublicClientApplication } from "@azure/msal-browser";
 
-// Check if we're in development mode
-const isDevelopment = process.env.NODE_ENV === 'development';
-
-// MSAL configuration (only used in non-development environments)
+// MSAL configuration
 const msalConfig = {
   auth: {
-    clientId: process.env.VUE_APP_CLIENT_ID,
+    clientId: process.env.VUE_APP_CLIENT_ID, // Entra ID Application (client) ID
     authority: `https://login.microsoftonline.com/${process.env.VUE_APP_TENANT_ID}`,
     redirectUri: window.location.origin,
   },
@@ -22,26 +19,35 @@ const loginRequest = {
   scopes: ["User.Read", `api://${process.env.VUE_APP_API_CLIENT_ID}/access_as_user`],
 };
 
-// Store for development mock authentication
-let developmentAuthState = {
-  isAuthenticated: true, // 設為 true 讓本地開發時自動模擬已登入
-  user: {
-    name: 'Development User',
-    username: 'dev@example.com',
-    localAccountId: 'dev-user-id'
+let msalInstance = null;
+let msalInitPromise = null;
+
+/**
+ * Initialize authentication module.
+ * This function must be called before using any MSAL API.
+ * It handles the redirect promise and ensures MSAL is ready.
+ * Should be called once at app startup (e.g., in main.js).
+ * @returns {Promise<void>}
+ */
+async function initializeAuth() {
+  if (msalInitPromise) {
+    return msalInitPromise;
   }
-};
-
-// Initialize MSAL instance only if not in development
-const msalInstance = !isDevelopment ? new PublicClientApplication(msalConfig) : null;
-
-// Handle redirect promise after login (only in non-development environments)
-if (!isDevelopment && msalInstance) {
-  msalInstance.handleRedirectPromise()
-    .then(handleResponse)
-    .catch(error => {
+  msalInitPromise = (async () => {
+    if (!msalInstance) {
+      msalInstance = new PublicClientApplication(msalConfig);
+      // MSAL 3.x 必須先 await initialize()
+      if (typeof msalInstance.initialize === 'function') {
+        await msalInstance.initialize();
+      }
+    }
+    try {
+      await msalInstance.handleRedirectPromise().then(handleResponse);
+    } catch (error) {
       console.error("Error handling redirect: ", error);
-    });
+    }
+  })();
+  return msalInitPromise;
 }
 
 /**
@@ -51,44 +57,29 @@ if (!isDevelopment && msalInstance) {
 function handleResponse(response) {
   if (response !== null) {
     console.log("Authentication successful");
+    window.location.replace('/dashboard');
   }
 }
 
 /**
- * Login with redirect or mock login for development
+ * Login with Microsoft Entra ID
  */
-function login() {
-  if (isDevelopment) {
-    // Simulate login in development
-    developmentAuthState.isAuthenticated = true;
-    developmentAuthState.user = {
-      name: 'Development User',
-      username: 'dev@example.com',
-      localAccountId: 'dev-user-id'
-    };
-    
-    // Redirect to dashboard
-    window.location.href = '/#/dashboard';
-    return;
+async function login() {
+  await initializeAuth();
+  if (!msalInstance) {
+    throw new Error("MSAL instance not initialized. You must await authService.login().");
   }
-  
   msalInstance.loginRedirect(loginRequest);
 }
 
 /**
  * Logout from the application
  */
-function logout() {
-  if (isDevelopment) {
-    // Simulate logout in development
-    developmentAuthState.isAuthenticated = false;
-    developmentAuthState.user = null;
-    
-    // Redirect to login
-    window.location.href = '/#/login';
-    return;
+async function logout() {
+  await initializeAuth();
+  if (!msalInstance) {
+    throw new Error("MSAL instance not initialized. You must await authService.logout().");
   }
-  
   msalInstance.logoutRedirect();
 }
 
@@ -96,11 +87,8 @@ function logout() {
  * Get the active account
  * @returns {Object|null} The active account or null if no active account
  */
-function getAccount() {
-  if (isDevelopment) {
-    return developmentAuthState.isAuthenticated ? developmentAuthState.user : null;
-  }
-  
+async function getAccount() {
+  await initializeAuth();
   const currentAccounts = msalInstance.getAllAccounts();
   if (currentAccounts.length === 0) {
     return null;
@@ -113,21 +101,15 @@ function getAccount() {
  * @returns {Promise<string>} Promise resolving to access token
  */
 async function getAccessToken() {
-  if (isDevelopment) {
-    // Return a mock token for development
-    return 'dev-mock-token';
-  }
-  
-  const account = getAccount();
+  await initializeAuth();
+  const account = await getAccount();
   if (!account) {
     throw new Error("No active account! Please sign in.");
   }
-
   const tokenRequest = {
     scopes: [`api://${process.env.VUE_APP_API_CLIENT_ID}/access_as_user`],
     account: account
   };
-
   try {
     const response = await msalInstance.acquireTokenSilent(tokenRequest);
     return response.accessToken;
@@ -139,21 +121,19 @@ async function getAccessToken() {
 
 /**
  * Check if user is authenticated
- * @returns {boolean} True if authenticated, false otherwise
+ * @returns {Promise<boolean>} True if authenticated, false otherwise
  */
-function isAuthenticated() {
-  if (isDevelopment) {
-    return developmentAuthState.isAuthenticated;
-  }
-  
-  return getAccount() !== null;
+async function isAuthenticated() {
+  await initializeAuth();
+  return msalInstance && msalInstance.getAllAccounts().length > 0;
 }
 
 export default {
-  msalInstance,
+  get msalInstance() { return msalInstance; },
   login,
   logout,
   getAccount,
   getAccessToken,
-  isAuthenticated
+  isAuthenticated,
+  initializeAuth
 };

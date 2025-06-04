@@ -12,13 +12,8 @@ var builder = FunctionsApplication.CreateBuilder(args);
 builder.ConfigureFunctionsWebApplication();
 
 // Azure Entra ID (former Azure AD) authentication
-// 根據環境決定是否啟用身份驗證
-var isDevelopment = builder.Environment.IsDevelopment();
-if (!isDevelopment)
-{
-    builder.Services.AddMicrosoftIdentityWebApiAuthentication(builder.Configuration);
-}
-// 在開發環境中，我們使用匿名訪問以便本地測試
+// 強制啟用 Entra ID JWT 驗證，移除匿名模式
+builder.Services.AddMicrosoftIdentityWebApiAuthentication(builder.Configuration);
 
 // Add custom services
 builder.Services
