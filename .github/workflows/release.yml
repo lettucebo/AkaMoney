@@ -131,7 +131,7 @@ jobs:
     - name: Deploy Frontend to Static Web App
       uses: Azure/static-web-apps-deploy@v1
       with:
-        azure_static_web_apps_api_token: ${{ steps.get_swa_token.outputs.DEPLOYMENT_TOKEN }}
+        azure_static_web_apps_api_token: ${{ steps.get_swa_info.outputs.DEPLOYMENT_TOKEN }}
         repo_token: ${{ secrets.GITHUB_TOKEN }}
         action: "upload"
         app_location: "./frontend"
