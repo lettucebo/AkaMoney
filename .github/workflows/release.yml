@@ -15,6 +15,7 @@ env:
   AZURE_FUNCTIONAPP_PATH: ./src/AkaMoney.Functions
   AZURE_STATIC_WEB_APP_NAME: delightful-sea-03f16ac00
   FRONTEND_PATH: ./src/akamoney-frontend
+  AZURE_WEBAPP_NAME: akamoney-admin # Add your Azure Web App name here
 
 jobs:
   build:
@@ -147,13 +148,9 @@ jobs:
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-    - name: Deploy Frontend to Static Web App
-      uses: Azure/static-web-apps-deploy@v1
+    - name: Deploy Frontend to Azure Web App
+      uses: azure/webapps-deploy@v2
       with:
-        app_location: frontend
-        output_location: ""
-        azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
-        action: "upload"
-        skip_app_build: true
-        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        app-name: ${{ env.AZURE_WEBAPP_NAME }}
+        package: frontend/dist
 
