@@ -42,3 +42,10 @@ __azurite_db_queue_extent__.json
 __azurite_db_table__.json
 __blobstorage__/*
 AzuriteConfig
+src/AkaMoney.Functions/Properties/serviceDependencies.akamoney-api - Zip Deploy.json
+src/AkaMoney.Functions/Properties/serviceDependencies.json
+src/AkaMoney.Functions/Properties/serviceDependencies.local.json
+src/AkaMoney.Functions/Properties/PublishProfiles/akamoney-api - Zip Deploy.pubxml
+src/AkaMoney.Functions/Properties/ServiceDependencies/akamoney-api - Zip Deploy/profile.arm.json
+src/AkaMoney.Functions/Properties/ServiceDependencies/akamoney-api - Zip Deploy/storage1.arm.json
+src/AkaMoney.Functions/Properties/ServiceDependencies/local/appInsights1.arm.json
