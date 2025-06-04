@@ -33,11 +33,27 @@ jobs:
       with:
         node-version: ${{ env.NODE_VERSION }}
 
+    - name: Cache NuGet packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.nuget/packages
+        key: nuget-${{ runner.os }}-${{ hashFiles('**/packages.lock.json') }}
+        restore-keys: |
+          nuget-${{ runner.os }}-
+
     - name: Restore .NET dependencies
       run: dotnet restore ./src/AkaMoney.sln
       
     - name: Build Function App
       run: dotnet build ${{ env.AZURE_FUNCTIONAPP_PATH }} --configuration Release --no-restore
+
+    - name: Cache Node.js modules
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.FRONTEND_PATH }}/node_modules
+        key: node-${{ runner.os }}-${{ hashFiles('${{ env.FRONTEND_PATH }}/package-lock.json') }}
+        restore-keys: |
+          node-${{ runner.os }}-
 
     - name: Install Frontend dependencies
       run: npm ci
