@@ -87,37 +87,38 @@ jobs:
       with:
         name: frontend
         path: ${{ env.FRONTEND_PATH }}/dist
+  
+  # Disabled deployment to Function App for now, due to issues with Flex Consumption SKU and tight security requirements.
+  # deploy-function:
+  #   needs: build
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #   - name: Download Function App publish artifact
+  #     uses: actions/download-artifact@v4
+  #     with:
+  #       name: function-app-publish
+  #       path: functionapp
 
-  deploy-function:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-    - name: Download Function App publish artifact
-      uses: actions/download-artifact@v4
-      with:
-        name: function-app-publish
-        path: functionapp
+  #   - name: Azure Login
+  #     uses: azure/login@v1
+  #     with:
+  #       creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-    - name: Azure Login
-      uses: azure/login@v1
-      with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-    # 啟用 Storage Account access key
-    - name: Enable Storage Account access key
-      run: |
-        az storage account update --name ${{ secrets.AZURE_STORAGE_ACCOUNT }} --resource-group ${{ secrets.AZURE_RG }} --allow-shared-key-access true
+  #   # 啟用 Storage Account access key
+  #   - name: Enable Storage Account access key
+  #     run: |
+  #       az storage account update --name ${{ secrets.AZURE_STORAGE_ACCOUNT }} --resource-group ${{ secrets.AZURE_RG }} --allow-shared-key-access true
 
     
-    # 部署到 Flex Consumption Function App
-    - name: Deploy to Azure Function App (Flex Consumption)
-      uses: Azure/functions-action@v1.5.3
-      with:
-        app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
-        package: functionapp
-        publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
-        sku: flexconsumption
-        remote-build: true
+  #   # 部署到 Flex Consumption Function App
+  #   - name: Deploy to Azure Function App (Flex Consumption)
+  #     uses: Azure/functions-action@v1.5.3
+  #     with:
+  #       app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
+  #       package: functionapp
+  #       publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
+  #       sku: flexconsumption
+  #       remote-build: true
 
   deploy-frontend:
     needs: build
