@@ -23,15 +23,15 @@ jobs:
     steps:
 
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Setup .NET
-      uses: actions/setup-dotnet@v3
+      uses: actions/setup-dotnet@v4
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
 
     - name: Setup Node.js
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: ${{ env.NODE_VERSION }}
 
@@ -90,7 +90,7 @@ jobs:
 
   deploy-function:
     needs: build
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     steps:
     - name: Download Function App publish artifact
       uses: actions/download-artifact@v4
@@ -107,14 +107,21 @@ jobs:
     - name: Enable Storage Account access key
       run: |
         az storage account update --name ${{ secrets.AZURE_STORAGE_ACCOUNT }} --resource-group ${{ secrets.AZURE_RG }} --allow-shared-key-access true
-      shell: pwsh
 
-    - name: Deploy Function App
-      uses: Azure/functions-action@v1
-      with:
-        app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
-        package: functionapp
-        publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
+    # 為 Flex Consumption 部署準備 zip 檔案
+    - name: Create deployment package
+      run: |
+        cd functionapp
+        zip -r ../deployment.zip .
+        cd ..
+
+    # 使用 Azure CLI 部署到 Flex Consumption Function App
+    - name: Deploy to Azure Function App (Flex Consumption)
+      run: |
+        az functionapp deployment source config-zip \
+          --resource-group ${{ secrets.AZURE_RG }} \
+          --name ${{ env.AZURE_FUNCTIONAPP_NAME }} \
+          --src deployment.zip
 
   deploy-frontend:
     needs: build
@@ -127,7 +134,7 @@ jobs:
         path: frontend
 
     - name: Azure Login
-      uses: Azure/login@v1
+      uses: azure/login@v1
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
@@ -136,4 +143,3 @@ jobs:
       with:
         app-name: ${{ env.AZURE_WEBAPP_NAME }}
         package: frontend
-
