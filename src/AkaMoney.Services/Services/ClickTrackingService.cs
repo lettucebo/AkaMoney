@@ -5,7 +5,9 @@ using AkaMoney.Services.Interfaces;
 using AkaMoney.Services.Models;
 using Azure;
 using Azure.Data.Tables;
+using Azure.Identity;
 using Microsoft.Extensions.Configuration;
+using System;
 
 namespace AkaMoney.Services.Services
 {
@@ -26,18 +28,29 @@ namespace AkaMoney.Services.Services
             if (configuration == null)
             {
                 throw new ArgumentNullException(nameof(configuration));
-            }            // Get the connection string from configuration
-            string? connectionString = configuration["TableStorageConnection"];
-            
-            if (string.IsNullOrEmpty(connectionString))
-            {
-                throw new InvalidOperationException("TableStorageConnection configuration is missing or empty.");
             }
-            
-            // Create the table clients
-            _clickInfoTable = new TableClient(connectionString, ClickInfoTableName);
-            _shortUrlTable = new TableClient(connectionString, ShortUrlTableName);
-            
+
+            string? connectionString = configuration["TableStorageConnection"];
+
+            if (!string.IsNullOrEmpty(connectionString))
+            {
+                // Local development or explicit connection string
+                _clickInfoTable = new TableClient(connectionString, ClickInfoTableName);
+                _shortUrlTable = new TableClient(connectionString, ShortUrlTableName);
+            }
+            else
+            {
+                // Use Managed Identity (DefaultAzureCredential) in production
+                string accountName = configuration["AzureWebJobsStorage__accountName"];
+                if (string.IsNullOrEmpty(accountName))
+                {
+                    throw new InvalidOperationException("AzureWebJobsStorage__accountName setting is missing for Managed Identity Table authentication.");
+                }
+                var endpoint = new Uri($"https://{accountName}.table.core.windows.net");
+                _clickInfoTable = new TableClient(endpoint, ClickInfoTableName, new DefaultAzureCredential());
+                _shortUrlTable = new TableClient(endpoint, ShortUrlTableName, new DefaultAzureCredential());
+            }
+
             // Create the tables if they don't exist
             _clickInfoTable.CreateIfNotExists();
             _shortUrlTable.CreateIfNotExists();

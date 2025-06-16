@@ -8,7 +8,9 @@ using AkaMoney.Services.Interfaces;
 using AkaMoney.Services.Models;
 using Azure;
 using Azure.Data.Tables;
+using Azure.Identity;
 using Microsoft.Extensions.Configuration;
+using System;
 
 namespace AkaMoney.Services.Services
 {
@@ -26,13 +28,24 @@ namespace AkaMoney.Services.Services
         /// <param name="configuration">The configuration object.</param>
         public ShortUrlService(IConfiguration configuration)
         {
-            // Get the connection string from configuration
-            string connectionString = configuration["TableStorageConnection"];
-            
-            // Create the table client
-            _shortUrlTable = new TableClient(connectionString, TableName);
-            
-            // Create the table if it doesn't exist
+            string? connectionString = configuration["TableStorageConnection"];
+
+            if (!string.IsNullOrEmpty(connectionString))
+            {
+                // Local development or explicit connection string
+                _shortUrlTable = new TableClient(connectionString, TableName);
+            }
+            else
+            {
+                // Use Managed Identity (DefaultAzureCredential) in production
+                string accountName = configuration["AzureWebJobsStorage__accountName"];
+                if (string.IsNullOrEmpty(accountName))
+                {
+                    throw new InvalidOperationException("AzureWebJobsStorage__accountName setting is missing for Managed Identity Table authentication.");
+                }
+                var endpoint = new Uri($"https://{accountName}.table.core.windows.net");
+                _shortUrlTable = new TableClient(endpoint, TableName, new DefaultAzureCredential());
+            }
             _shortUrlTable.CreateIfNotExists();
         }
 
