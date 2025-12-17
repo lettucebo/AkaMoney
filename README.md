@@ -2,6 +2,8 @@
 
 A modern URL shortening service built with Vue 3, TypeScript, and Cloudflare Workers.
 
+English | [繁體中文](README.zh-TW.md)
+
 ## Features
 
 - 🔗 URL Shortening with custom short codes
@@ -203,9 +205,20 @@ CREATE TABLE click_records (
 - [ ] Bulk URL import
 - [ ] API rate limiting
 
+## Documentation
+
+Complete documentation is available in both English and Traditional Chinese:
+
+- [Setup Guide (English)](SETUP.md) | [設定指南（繁體中文）](SETUP.zh-TW.md)
+- [API Documentation (English)](API.md) | [API 文件（繁體中文）](API.zh-TW.md)
+- [Contributing Guide (English)](CONTRIBUTING.md) | [貢獻指南（繁體中文）](CONTRIBUTING.zh-TW.md)
+- [Changelog (English)](CHANGELOG.md) | [更新日誌（繁體中文）](CHANGELOG.zh-TW.md)
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+
+For detailed contribution guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md) or [CONTRIBUTING.zh-TW.md](CONTRIBUTING.zh-TW.md).
 
 ## License
 

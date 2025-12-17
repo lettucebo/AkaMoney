@@ -1,5 +1,7 @@
 # AkaMoney API Documentation
 
+English | [繁體中文](API.zh-TW.md)
+
 Base URL: `https://your-worker.workers.dev` or `https://api.aka.money`
 
 ## Authentication

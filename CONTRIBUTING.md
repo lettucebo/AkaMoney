@@ -1,5 +1,7 @@
 # Contributing to AkaMoney
 
+English | [繁體中文](CONTRIBUTING.zh-TW.md)
+
 Thank you for your interest in contributing to AkaMoney! This document provides guidelines and instructions for contributing.
 
 ## Getting Started
