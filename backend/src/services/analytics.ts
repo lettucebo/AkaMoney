@@ -10,7 +10,7 @@ const ANALYTICS_DEFAULT_DAYS = 30;
  * Parse User-Agent to extract device, browser, and OS info
  * Note: This is a simplified parser. For production use, consider a library like ua-parser-js
  */
-function parseUserAgent(userAgent: string): {
+export function parseUserAgent(userAgent: string): {
   device_type: string;
   browser: string;
   os: string;

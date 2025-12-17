@@ -8,6 +8,9 @@
     "dev": "wrangler dev",
     "build": "wrangler deploy --dry-run",
     "deploy": "wrangler deploy",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "db:create": "wrangler d1 create akamoney",
     "db:migrate": "wrangler d1 migrations apply akamoney --local",
     "db:migrate:prod": "wrangler d1 migrations apply akamoney --remote",
@@ -24,7 +27,9 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20241218.0",
     "@types/node": "^22.10.2",
+    "@vitest/coverage-v8": "^2.1.9",
     "typescript": "^5.7.2",
+    "vitest": "^2.1.9",
     "wrangler": "^3.94.0"
   },
   "dependencies": {

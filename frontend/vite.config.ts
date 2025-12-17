@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import { fileURLToPath, URL } from 'node:url';
@@ -18,5 +19,29 @@ export default defineConfig({
         changeOrigin: true
       }
     }
+  },
+  test: {
+    globals: true,
+    environment: 'happy-dom',
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html', 'lcov'],
+      include: ['src/**/*.ts'],
+      exclude: [
+        'src/**/*.d.ts',
+        'src/main.ts',
+        'src/router/**',
+        'src/services/api.ts',
+        'src/services/auth.ts',
+        'src/**/__tests__/**'
+      ],
+      thresholds: {
+        statements: 80,
+        branches: 80,
+        functions: 80,
+        lines: 80
+      }
+    },
+    include: ['src/**/*.test.ts', 'src/**/*.spec.ts']
   }
 });
