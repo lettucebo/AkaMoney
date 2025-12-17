@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { setActivePinia, createPinia } from 'pinia';
 import { useUrlStore } from '../url';
 import apiService from '@/services/api';

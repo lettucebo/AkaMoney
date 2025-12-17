@@ -120,7 +120,7 @@ describe('Error Middleware', () => {
       };
       const mockNext = vi.fn().mockRejectedValue(new NotFoundError('Not found'));
       
-      const result = await errorMiddleware(mockContext as any, mockNext);
+      await errorMiddleware(mockContext as any, mockNext);
       
       expect(mockContext.json).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -139,7 +139,7 @@ describe('Error Middleware', () => {
       };
       const mockNext = vi.fn().mockRejectedValue(new Error('Something went wrong'));
       
-      const result = await errorMiddleware(mockContext as any, mockNext);
+      await errorMiddleware(mockContext as any, mockNext);
       
       expect(mockContext.json).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -157,7 +157,7 @@ describe('Error Middleware', () => {
       };
       const mockNext = vi.fn().mockRejectedValue('string error');
       
-      const result = await errorMiddleware(mockContext as any, mockNext);
+      await errorMiddleware(mockContext as any, mockNext);
       
       expect(mockContext.json).toHaveBeenCalledWith(
         expect.objectContaining({

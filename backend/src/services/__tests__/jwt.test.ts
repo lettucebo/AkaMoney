@@ -47,8 +47,6 @@ describe('JWT Service', () => {
     });
 
     it('should handle different expiration formats', async () => {
-      const now = Math.floor(Date.now() / 1000);
-      
       // Test seconds
       const tokenSec = await generateToken(payload, secret, '60s');
       let parts = tokenSec.split('.');
