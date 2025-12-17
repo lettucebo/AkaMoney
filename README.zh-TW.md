@@ -217,6 +217,8 @@ CREATE TABLE click_records (
 - [貢獻指南（英文）](CONTRIBUTING.md)
 - [更新日誌（繁體中文）](CHANGELOG.zh-TW.md) - 版本歷史和更改
 - [更新日誌（英文）](CHANGELOG.md)
+- [截圖與介面指南（繁體中文）](SCREENSHOTS.zh-TW.md) - 管理後台詳細截圖
+- [截圖與介面指南（英文）](SCREENSHOTS.md)
 
 ## 貢獻
 

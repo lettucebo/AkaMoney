@@ -213,6 +213,7 @@ Complete documentation is available in both English and Traditional Chinese:
 - [API Documentation (English)](API.md) | [API 文件（繁體中文）](API.zh-TW.md)
 - [Contributing Guide (English)](CONTRIBUTING.md) | [貢獻指南（繁體中文）](CONTRIBUTING.zh-TW.md)
 - [Changelog (English)](CHANGELOG.md) | [更新日誌（繁體中文）](CHANGELOG.zh-TW.md)
+- [Screenshots & UI Guide (English)](SCREENSHOTS.md) | [截圖與介面指南（繁體中文）](SCREENSHOTS.zh-TW.md)
 
 ## Contributing
 
