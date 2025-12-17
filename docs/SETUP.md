@@ -441,6 +441,6 @@ If authentication fails:
 ## Support
 
 For issues or questions:
-- Check the main [README.md](README.md)
+- Check the main [README.md](../README.md)
 - Review Cloudflare Workers documentation
 - Check Vue 3 and Vite documentation

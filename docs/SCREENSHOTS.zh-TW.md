@@ -18,7 +18,7 @@
 
 **路由：** `/login`
 
-![登入頁面](docs/screenshots/login.png)
+![登入頁面](screenshots/login.png)
 
 ### 功能：
 - **Microsoft Entra ID 整合**：單一登入 (SSO)
@@ -55,7 +55,7 @@
 
 **路由：** `/dashboard`
 
-![儀表板](docs/screenshots/dashboard.png)
+![儀表板](screenshots/dashboard.png)
 
 ### 功能：
 - **網址列表檢視**：所有縮短的網址以清晰、有組織的表格顯示
@@ -149,7 +149,7 @@
 
 **觸發方式：** 點擊「+ 建立新網址」按鈕
 
-![建立視窗](docs/screenshots/create-modal.png)
+![建立視窗](screenshots/create-modal.png)
 
 ### 介面：
 ```
@@ -219,7 +219,7 @@
 
 **觸發方式：** 點擊網址上的刪除按鈕
 
-![刪除視窗](docs/screenshots/delete-modal.png)
+![刪除視窗](screenshots/delete-modal.png)
 
 ### 介面：
 ```
@@ -260,7 +260,7 @@
 
 **路由：** `/analytics/:shortCode`
 
-![分析儀表板](docs/screenshots/analytics.png)
+![分析儀表板](screenshots/analytics.png)
 
 ### 功能：
 - **完整統計資訊**：多種資料視覺化

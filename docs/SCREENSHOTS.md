@@ -18,7 +18,7 @@ This document provides detailed visual documentation of the AkaMoney management 
 
 **Route:** `/login`
 
-![Login Page](docs/screenshots/login.png)
+![Login Page](screenshots/login.png)
 
 ### Features:
 - **Microsoft Entra ID Integration**: Single Sign-On (SSO) login
@@ -55,7 +55,7 @@ This document provides detailed visual documentation of the AkaMoney management 
 
 **Route:** `/dashboard`
 
-![Dashboard](docs/screenshots/dashboard.png)
+![Dashboard](screenshots/dashboard.png)
 
 ### Features:
 - **URL List View**: All shortened URLs in a clean, organized table
@@ -149,7 +149,7 @@ When no URLs exist:
 
 **Triggered by:** Clicking "+ Create New" button
 
-![Create Modal](docs/screenshots/create-modal.png)
+![Create Modal](screenshots/create-modal.png)
 
 ### Interface:
 ```
@@ -219,7 +219,7 @@ After successful creation:
 
 **Triggered by:** Clicking delete button on a URL
 
-![Delete Modal](docs/screenshots/delete-modal.png)
+![Delete Modal](screenshots/delete-modal.png)
 
 ### Interface:
 ```
@@ -261,7 +261,7 @@ After successful creation:
 
 **Route:** `/analytics/:shortCode`
 
-![Analytics Dashboard](docs/screenshots/analytics.png)
+![Analytics Dashboard](screenshots/analytics.png)
 
 ### Features:
 - **Comprehensive Statistics**: Multiple data visualizations
