@@ -1,0 +1,34 @@
+{
+  "name": "akamoney-backend",
+  "version": "1.0.0",
+  "description": "AkaMoney Backend API - Cloudflare Workers",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "build": "wrangler deploy --dry-run",
+    "deploy": "wrangler deploy",
+    "db:create": "wrangler d1 create akamoney",
+    "db:migrate": "wrangler d1 migrations apply akamoney --local",
+    "db:migrate:prod": "wrangler d1 migrations apply akamoney --remote",
+    "db:shell": "wrangler d1 execute akamoney --local --command",
+    "r2:create": "wrangler r2 bucket create akamoney-storage"
+  },
+  "keywords": [
+    "cloudflare",
+    "workers",
+    "url-shortener"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241218.0",
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2",
+    "wrangler": "^3.94.0"
+  },
+  "dependencies": {
+    "hono": "^4.6.14",
+    "nanoid": "^5.0.9"
+  }
+}

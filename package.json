@@ -1,0 +1,33 @@
+{
+  "name": "akamoney",
+  "version": "1.0.0",
+  "description": "URL Shortening Service with Vue 3 and Cloudflare Workers",
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "dev": "npm run dev:frontend & npm run dev:backend",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && npm run dev",
+    "build": "npm run build:frontend && npm run build:backend",
+    "build:frontend": "cd frontend && npm run build",
+    "build:backend": "cd backend && npm run build",
+    "deploy": "npm run deploy:frontend && npm run deploy:backend",
+    "deploy:frontend": "cd frontend && npm run deploy",
+    "deploy:backend": "cd backend && npm run deploy",
+    "setup": "npm install && cd frontend && npm install && cd ../backend && npm install"
+  },
+  "keywords": [
+    "url-shortener",
+    "vue3",
+    "cloudflare-workers",
+    "typescript"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2"
+  }
+}
