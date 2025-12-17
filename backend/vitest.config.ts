@@ -9,10 +9,9 @@ export default defineConfig({
       reporter: ['text', 'json', 'html', 'lcov'],
       include: ['src/**/*.ts'],
       exclude: [
-        'src/**/*.d.ts', 
-        'src/global.d.ts',
-        'src/index.ts', // Main entry point - requires integration testing
-        'src/**/__tests__/**' // Exclude test files from coverage
+        'src/**/*.d.ts',
+        'src/index.ts',
+        'src/**/__tests__/**'
       ],
       thresholds: {
         statements: 80,

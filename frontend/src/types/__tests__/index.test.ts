@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 // Import types only for type checking
 import type { UrlResponse, CreateUrlRequest, UpdateUrlRequest, AnalyticsResponse } from '@/types';

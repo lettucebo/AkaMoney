@@ -28,14 +28,12 @@ export default defineConfig({
       reporter: ['text', 'json', 'html', 'lcov'],
       include: ['src/**/*.ts'],
       exclude: [
-        'src/**/*.d.ts', 
-        'src/main.ts', 
-        'src/vite-env.d.ts', 
-        'src/shims-vue.d.ts',
-        'src/router/**', // Router configuration
-        'src/services/api.ts', // API service - needs integration testing
-        'src/services/auth.ts', // Auth service - needs MSAL mocking
-        'src/**/__tests__/**' // Exclude test files
+        'src/**/*.d.ts',
+        'src/main.ts',
+        'src/router/**',
+        'src/services/api.ts',
+        'src/services/auth.ts',
+        'src/**/__tests__/**'
       ],
       thresholds: {
         statements: 80,
