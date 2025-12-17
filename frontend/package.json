@@ -7,23 +7,31 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "deploy": "npm run build && wrangler pages deploy dist"
   },
   "dependencies": {
-    "vue": "^3.5.13",
-    "vue-router": "^4.4.5",
-    "pinia": "^2.2.8",
-    "bootstrap": "^5.3.3",
-    "bootstrap-icons": "^1.11.3",
+    "@azure/msal-browser": "^3.28.0",
     "@popperjs/core": "^2.11.8",
     "axios": "^1.7.9",
-    "@azure/msal-browser": "^3.28.0"
+    "bootstrap": "^5.3.3",
+    "bootstrap-icons": "^1.11.3",
+    "pinia": "^2.2.8",
+    "vue": "^3.5.13",
+    "vue-router": "^4.4.5"
   },
   "devDependencies": {
+    "@types/node": "^22.10.2",
     "@vitejs/plugin-vue": "^5.2.1",
-    "vite": "^6.0.3",
+    "@vitest/coverage-v8": "^2.1.9",
+    "@vue/test-utils": "^2.4.6",
+    "happy-dom": "^20.0.11",
+    "jsdom": "^27.3.0",
     "typescript": "^5.7.2",
-    "vue-tsc": "^2.1.10",
-    "@types/node": "^22.10.2"
+    "vite": "^6.0.3",
+    "vitest": "^2.1.9",
+    "vue-tsc": "^2.1.10"
   }
 }
