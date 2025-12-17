@@ -1,0 +1,28 @@
+{
+  "name": "akamoney-frontend",
+  "version": "1.0.0",
+  "description": "AkaMoney Frontend - URL Shortening Service",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "deploy": "npm run build && wrangler pages deploy dist"
+  },
+  "dependencies": {
+    "vue": "^3.5.13",
+    "vue-router": "^4.4.5",
+    "pinia": "^2.2.8",
+    "bootstrap": "^5.3.3",
+    "@popperjs/core": "^2.11.8",
+    "axios": "^1.7.9",
+    "@azure/msal-browser": "^3.28.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.1",
+    "vite": "^6.0.3",
+    "typescript": "^5.7.2",
+    "vue-tsc": "^2.1.10",
+    "@types/node": "^22.10.2"
+  }
+}
