@@ -375,6 +375,6 @@ print(data['short_url'])
 
 如有問題：
 - 查看[設定指南](SETUP.zh-TW.md)
-- 閱讀[完整文件](README.zh-TW.md)
+- 閱讀[完整文件](../README.zh-TW.md)
 - 在 GitHub 上提出 Issue
 - 查看 [Cloudflare Workers 文件](https://developers.cloudflare.com/workers/)

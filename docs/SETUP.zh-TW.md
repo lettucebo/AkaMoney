@@ -439,6 +439,6 @@ wrangler d1 execute akamoney --local --command "SELECT * FROM urls LIMIT 10"
 ## 支援
 
 如有問題或疑問：
-- 查看主要的 [README.md](README.zh-TW.md)
+- 查看主要的 [README.md](../README.zh-TW.md)
 - 檢閱 Cloudflare Workers 文件
 - 查看 Vue 3 和 Vite 文件
