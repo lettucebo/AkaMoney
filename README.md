@@ -37,24 +37,25 @@ English | [繁體中文](README.zh-TW.md)
 
 ```
 .
-├── frontend/          # Vue 3 application
-│   ├── src/
-│   │   ├── components/
-│   │   ├── views/
-│   │   ├── router/
-│   │   ├── stores/
-│   │   └── services/
-│   └── package.json
-├── backend/           # Cloudflare Workers
-│   ├── src/
-│   │   ├── handlers/
-│   │   ├── middleware/
-│   │   ├── services/
-│   │   └── types/
-│   ├── wrangler.toml
-│   └── package.json
-├── shared/            # Shared types and utilities
-│   └── types/
+├── src/
+│   ├── frontend/          # Vue 3 application
+│   │   ├── src/
+│   │   │   ├── components/
+│   │   │   ├── views/
+│   │   │   ├── router/
+│   │   │   ├── stores/
+│   │   │   └── services/
+│   │   └── package.json
+│   ├── backend/           # Cloudflare Workers
+│   │   ├── src/
+│   │   │   ├── handlers/
+│   │   │   ├── middleware/
+│   │   │   ├── services/
+│   │   │   └── types/
+│   │   ├── wrangler.toml
+│   │   └── package.json
+│   └── shared/            # Shared types and utilities
+│       └── types/
 └── docs/              # Documentation
     ├── API.md
     ├── SETUP.md
@@ -85,8 +86,8 @@ npm run setup
 
 3. Configure environment variables:
 ```bash
-cp frontend/.env.example frontend/.env
-cp backend/.env.example backend/.env
+cp src/frontend/.env.example src/frontend/.env
+cp src/backend/.env.example src/backend/.env
 ```
 
 4. Update configuration files with your Cloudflare credentials
@@ -125,7 +126,7 @@ npm run deploy
 
 ### Frontend Configuration
 
-Edit `frontend/.env`:
+Edit `src/frontend/.env`:
 ```env
 VITE_API_URL=https://your-worker.workers.dev
 VITE_ENTRA_ID_CLIENT_ID=your-client-id
@@ -134,7 +135,7 @@ VITE_ENTRA_ID_TENANT_ID=your-tenant-id
 
 ### Backend Configuration
 
-Edit `backend/wrangler.toml`:
+Edit `src/backend/wrangler.toml`:
 ```toml
 name = "akamoney-api"
 main = "src/index.ts"

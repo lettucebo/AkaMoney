@@ -279,7 +279,7 @@ Currently, there is no rate limiting implemented. It's recommended to implement 
 
 The API supports CORS with the following configuration:
 
-- Allowed origins: Configurable in `backend/src/middleware/cors.ts`
+- Allowed origins: Configurable in `src/backend/src/middleware/cors.ts`
 - Allowed methods: GET, POST, PUT, DELETE, OPTIONS
 - Allowed headers: Content-Type, Authorization
 - Credentials: Supported

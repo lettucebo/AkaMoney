@@ -279,7 +279,7 @@ Authorization: ******
 
 API 支援 CORS，配置如下：
 
-- 允許的來源：可在 `backend/src/middleware/cors.ts` 中配置
+- 允許的來源：可在 `src/backend/src/middleware/cors.ts` 中配置
 - 允許的方法：GET、POST、PUT、DELETE、OPTIONS
 - 允許的標頭：Content-Type、Authorization
 - 憑證：支援

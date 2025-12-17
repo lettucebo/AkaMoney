@@ -28,36 +28,36 @@ jobs:
           cache: 'npm'
           cache-dependency-path: |
             package-lock.json
-            frontend/package-lock.json
-            backend/package-lock.json
+            src/frontend/package-lock.json
+            src/backend/package-lock.json
 
       - name: Install root dependencies
         run: npm ci
 
       - name: Install backend dependencies
-        run: cd backend && npm ci
+        run: cd src/backend && npm ci
 
       - name: Install frontend dependencies
-        run: cd frontend && npm ci
+        run: cd src/frontend && npm ci
 
       - name: Run backend tests with coverage
-        run: cd backend && npm run test:coverage
+        run: cd src/backend && npm run test:coverage
 
       - name: Run frontend tests with coverage
-        run: cd frontend && npm run test:coverage
+        run: cd src/frontend && npm run test:coverage
 
       - name: Build frontend
-        run: cd frontend && npm run build
+        run: cd src/frontend && npm run build
 
       - name: Build backend (dry run)
-        run: cd backend && npm run build
+        run: cd src/backend && npm run build
 
       - name: Upload backend coverage report
         uses: actions/upload-artifact@v4
         if: matrix.node-version == '20.x'
         with:
           name: backend-coverage-report
-          path: backend/coverage/
+          path: src/backend/coverage/
           retention-days: 30
 
       - name: Upload frontend coverage report
@@ -65,5 +65,5 @@ jobs:
         if: matrix.node-version == '20.x'
         with:
           name: frontend-coverage-report
-          path: frontend/coverage/
+          path: src/frontend/coverage/
           retention-days: 30
