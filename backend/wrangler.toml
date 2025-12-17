@@ -7,10 +7,13 @@ node_compat = true
 workers_dev = true
 
 # D1 Database binding
+# IMPORTANT: Replace YOUR_DATABASE_ID with your actual D1 database ID
+# Get your database ID by running: wrangler d1 create akamoney
+# Or find it in the Cloudflare dashboard under Workers & Pages > D1
 [[d1_databases]]
 binding = "DB"
 database_name = "akamoney"
-database_id = "YOUR_DATABASE_ID"  # Replace with actual database ID after creation
+database_id = "YOUR_DATABASE_ID"
 
 # R2 Storage binding
 [[r2_buckets]]

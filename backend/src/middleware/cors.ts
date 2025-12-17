@@ -6,11 +6,6 @@ import { cors as honoCors } from 'hono/cors';
  */
 export const corsMiddleware = honoCors({
   origin: (origin) => {
-    // Allow all origins in development
-    if (process.env.ENVIRONMENT === 'development') {
-      return origin;
-    }
-    
     // In production, allow specific domains
     const allowedOrigins = [
       'https://aka.money',
@@ -19,7 +14,12 @@ export const corsMiddleware = honoCors({
       'http://localhost:8787'
     ];
     
-    return allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
+    // Allow localhost origins in development or if origin matches allowed list
+    if (origin && (origin.includes('localhost') || allowedOrigins.includes(origin))) {
+      return origin;
+    }
+    
+    return allowedOrigins[0];
   },
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],

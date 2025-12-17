@@ -170,11 +170,17 @@ const copyToClipboard = async () => {
   if (shortUrlInput.value) {
     try {
       await navigator.clipboard.writeText(fullShortUrl.value);
-      alert('Copied to clipboard!');
+      // Show success message (could be replaced with toast notification)
+      const button = shortUrlInput.value.nextElementSibling;
+      const originalText = button?.textContent;
+      if (button) {
+        button.textContent = 'Copied!';
+        setTimeout(() => {
+          button.textContent = originalText || 'Copy';
+        }, 2000);
+      }
     } catch (err) {
-      shortUrlInput.value.select();
-      document.execCommand('copy');
-      alert('Copied to clipboard!');
+      console.error('Failed to copy:', err);
     }
   }
 };
