@@ -53,8 +53,12 @@
 │   │   └── types/
 │   ├── wrangler.toml
 │   └── package.json
-└── shared/            # 共享型別和工具
-    └── types/
+├── shared/            # 共享型別和工具
+│   └── types/
+└── docs/              # 文件
+    ├── API.md
+    ├── SETUP.md
+    └── SCREENSHOTS.md
 ```
 
 ## 快速開始
@@ -231,16 +235,16 @@ CREATE TABLE click_records (
 
 完整文件請參閱：
 
-- [設定指南（繁體中文）](SETUP.zh-TW.md) - 詳細的設定和部署說明
-- [設定指南（英文）](SETUP.md)
-- [API 文件（繁體中文）](API.zh-TW.md) - 完整的 API 參考
-- [API 文件（英文）](API.md)
+- [設定指南（繁體中文）](docs/SETUP.zh-TW.md) - 詳細的設定和部署說明
+- [設定指南（英文）](docs/SETUP.md)
+- [API 文件（繁體中文）](docs/API.zh-TW.md) - 完整的 API 參考
+- [API 文件（英文）](docs/API.md)
 - [貢獻指南（繁體中文）](CONTRIBUTING.zh-TW.md) - 如何為專案做出貢獻
 - [貢獻指南（英文）](CONTRIBUTING.md)
 - [更新日誌（繁體中文）](CHANGELOG.zh-TW.md) - 版本歷史和更改
 - [更新日誌（英文）](CHANGELOG.md)
-- [截圖與介面指南（繁體中文）](SCREENSHOTS.zh-TW.md) - 管理後台詳細截圖
-- [截圖與介面指南（英文）](SCREENSHOTS.md)
+- [截圖與介面指南（繁體中文）](docs/SCREENSHOTS.zh-TW.md) - 管理後台詳細截圖
+- [截圖與介面指南（英文）](docs/SCREENSHOTS.md)
 
 ## 貢獻
 
@@ -255,8 +259,8 @@ CREATE TABLE click_records (
 ## 支援
 
 如有問題或需要協助：
-- 查看[設定指南](SETUP.zh-TW.md)
-- 閱讀 [API 文件](API.zh-TW.md)
+- 查看[設定指南](docs/SETUP.zh-TW.md)
+- 閱讀 [API 文件](docs/API.zh-TW.md)
 - 在 GitHub 上提出 Issue
 - 查看 [Cloudflare Workers 文件](https://developers.cloudflare.com/workers/)
 

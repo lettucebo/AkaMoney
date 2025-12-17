@@ -53,8 +53,12 @@ English | [繁體中文](README.zh-TW.md)
 │   │   └── types/
 │   ├── wrangler.toml
 │   └── package.json
-└── shared/            # Shared types and utilities
-    └── types/
+├── shared/            # Shared types and utilities
+│   └── types/
+└── docs/              # Documentation
+    ├── API.md
+    ├── SETUP.md
+    └── SCREENSHOTS.md
 ```
 
 ## Getting Started
@@ -231,11 +235,11 @@ CREATE TABLE click_records (
 
 Complete documentation is available in both English and Traditional Chinese:
 
-- [Setup Guide (English)](SETUP.md) | [設定指南（繁體中文）](SETUP.zh-TW.md)
-- [API Documentation (English)](API.md) | [API 文件（繁體中文）](API.zh-TW.md)
+- [Setup Guide (English)](docs/SETUP.md) | [設定指南（繁體中文）](docs/SETUP.zh-TW.md)
+- [API Documentation (English)](docs/API.md) | [API 文件（繁體中文）](docs/API.zh-TW.md)
 - [Contributing Guide (English)](CONTRIBUTING.md) | [貢獻指南（繁體中文）](CONTRIBUTING.zh-TW.md)
 - [Changelog (English)](CHANGELOG.md) | [更新日誌（繁體中文）](CHANGELOG.zh-TW.md)
-- [Screenshots & UI Guide (English)](SCREENSHOTS.md) | [截圖與介面指南（繁體中文）](SCREENSHOTS.zh-TW.md)
+- [Screenshots & UI Guide (English)](docs/SCREENSHOTS.md) | [截圖與介面指南（繁體中文）](docs/SCREENSHOTS.zh-TW.md)
 
 ## Contributing
 
