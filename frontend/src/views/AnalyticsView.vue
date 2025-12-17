@@ -55,7 +55,15 @@
                 <span class="text-muted small">{{ formatDate(date) }}</span>
                 <span class="badge bg-primary">{{ count }}</span>
               </div>
-              <div class="progress" style="height: 10px;">
+              <div 
+                class="progress" 
+                style="height: 10px;"
+                role="progressbar"
+                :aria-label="`${count} clicks on ${formatDate(date)}`"
+                :aria-valuenow="count"
+                :aria-valuemin="0"
+                :aria-valuemax="analytics.total_clicks"
+              >
                 <div
                   class="progress-bar"
                   :style="{ width: `${(count / analytics.total_clicks) * 100}%` }"

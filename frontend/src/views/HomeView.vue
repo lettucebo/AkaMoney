@@ -76,8 +76,9 @@
                 class="btn btn-outline-secondary"
                 type="button"
                 @click="copyToClipboard"
+                :disabled="isCopying"
               >
-                <i class="bi bi-clipboard"></i> Copy
+                <i class="bi bi-clipboard"></i> {{ copyButtonText }}
               </button>
             </div>
             <div class="d-flex justify-content-between align-items-center">
@@ -135,6 +136,8 @@ const shortUrl = ref<UrlResponse | null>(null);
 const loading = ref(false);
 const error = ref<string | null>(null);
 const shortUrlInput = ref<HTMLInputElement | null>(null);
+const copyButtonText = ref('Copy');
+const isCopying = ref(false);
 
 const fullShortUrl = ref('');
 
@@ -142,6 +145,7 @@ const handleSubmit = async () => {
   loading.value = true;
   error.value = null;
   shortUrl.value = null;
+  copyButtonText.value = 'Copy';
 
   try {
     const data: any = {
@@ -167,21 +171,23 @@ const handleSubmit = async () => {
 };
 
 const copyToClipboard = async () => {
-  if (shortUrlInput.value) {
-    try {
-      await navigator.clipboard.writeText(fullShortUrl.value);
-      // Show success message (could be replaced with toast notification)
-      const button = shortUrlInput.value.nextElementSibling;
-      const originalText = button?.textContent;
-      if (button) {
-        button.textContent = 'Copied!';
-        setTimeout(() => {
-          button.textContent = originalText || 'Copy';
-        }, 2000);
-      }
-    } catch (err) {
-      console.error('Failed to copy:', err);
-    }
+  if (isCopying.value) return;
+  
+  try {
+    isCopying.value = true;
+    await navigator.clipboard.writeText(fullShortUrl.value);
+    copyButtonText.value = 'Copied!';
+    setTimeout(() => {
+      copyButtonText.value = 'Copy';
+      isCopying.value = false;
+    }, 2000);
+  } catch (err) {
+    console.error('Failed to copy:', err);
+    copyButtonText.value = 'Failed';
+    setTimeout(() => {
+      copyButtonText.value = 'Copy';
+      isCopying.value = false;
+    }, 2000);
   }
 };
 </script>

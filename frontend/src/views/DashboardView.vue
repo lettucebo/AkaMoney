@@ -4,7 +4,7 @@
       <div class="col-12">
         <div class="d-flex justify-content-between align-items-center mb-4">
           <h2>My URLs</h2>
-          <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createUrlModal">
+          <button class="btn btn-primary" @click="openCreateModal">
             <i class="bi bi-plus-lg"></i> Create New
           </button>
         </div>
@@ -64,7 +64,7 @@
                       </router-link>
                       <button
                         class="btn btn-sm btn-outline-danger"
-                        @click="handleDelete(url.id)"
+                        @click="confirmDelete(url.id)"
                       >
                         <i class="bi bi-trash"></i>
                       </button>
@@ -106,12 +106,12 @@
     </div>
 
     <!-- Create URL Modal -->
-    <div class="modal fade" id="createUrlModal" tabindex="-1">
+    <div v-if="showCreateModal" class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5)">
       <div class="modal-dialog">
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title">Create Short URL</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <button type="button" class="btn-close" @click="closeCreateModal"></button>
           </div>
           <div class="modal-body">
             <form @submit.prevent="handleCreate">
@@ -145,11 +145,40 @@
                 />
               </div>
               <div v-if="createError" class="alert alert-danger">{{ createError }}</div>
-              <button type="submit" class="btn btn-primary" :disabled="creating">
-                <span v-if="creating" class="spinner-border spinner-border-sm me-2"></span>
-                Create
-              </button>
+              <div class="d-flex justify-content-end gap-2">
+                <button type="button" class="btn btn-secondary" @click="closeCreateModal">
+                  Cancel
+                </button>
+                <button type="submit" class="btn btn-primary" :disabled="creating">
+                  <span v-if="creating" class="spinner-border spinner-border-sm me-2"></span>
+                  Create
+                </button>
+              </div>
             </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div v-if="showDeleteModal" class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5)">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Confirm Delete</h5>
+            <button type="button" class="btn-close" @click="showDeleteModal = false"></button>
+          </div>
+          <div class="modal-body">
+            <p>Are you sure you want to delete this URL? This action cannot be undone.</p>
+            <div v-if="deleteError" class="alert alert-danger">{{ deleteError }}</div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" @click="showDeleteModal = false">
+              Cancel
+            </button>
+            <button type="button" class="btn btn-danger" @click="handleDelete">
+              Delete
+            </button>
           </div>
         </div>
       </div>
@@ -172,6 +201,10 @@ const formData = ref({
 
 const creating = ref(false);
 const createError = ref<string | null>(null);
+const showCreateModal = ref(false);
+const deleteUrlId = ref<string | null>(null);
+const showDeleteModal = ref(false);
+const deleteError = ref<string | null>(null);
 
 onMounted(() => {
   urlStore.fetchUrls();
@@ -181,19 +214,23 @@ const loadPage = (page: number) => {
   urlStore.fetchUrls(page);
 };
 
+const openCreateModal = () => {
+  showCreateModal.value = true;
+  createError.value = null;
+};
+
+const closeCreateModal = () => {
+  showCreateModal.value = false;
+  formData.value = { original_url: '', short_code: '', title: '' };
+};
+
 const handleCreate = async () => {
   creating.value = true;
   createError.value = null;
 
   try {
     await urlStore.createUrl(formData.value);
-    formData.value = { original_url: '', short_code: '', title: '' };
-    // Close modal
-    const modal = document.getElementById('createUrlModal');
-    if (modal) {
-      const bsModal = (window as any).bootstrap.Modal.getInstance(modal);
-      bsModal?.hide();
-    }
+    closeCreateModal();
   } catch (err: any) {
     createError.value = err.response?.data?.message || 'Failed to create URL';
   } finally {
@@ -201,13 +238,21 @@ const handleCreate = async () => {
   }
 };
 
-const handleDelete = async (id: string) => {
-  if (confirm('Are you sure you want to delete this URL?')) {
-    try {
-      await urlStore.deleteUrl(id);
-    } catch (err) {
-      alert('Failed to delete URL');
-    }
+const confirmDelete = (id: string) => {
+  deleteUrlId.value = id;
+  showDeleteModal.value = true;
+  deleteError.value = null;
+};
+
+const handleDelete = async () => {
+  if (!deleteUrlId.value) return;
+  
+  try {
+    await urlStore.deleteUrl(deleteUrlId.value);
+    showDeleteModal.value = false;
+    deleteUrlId.value = null;
+  } catch (err: any) {
+    deleteError.value = err.response?.data?.message || 'Failed to delete URL';
   }
 };
 

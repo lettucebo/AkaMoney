@@ -1,9 +1,14 @@
 import { nanoid } from 'nanoid';
 import type { Env, ClickRecord, AnalyticsResponse, UrlResponse } from '../types';
-import { getUrlByShortCode, incrementClickCount } from './url';
+import { getUrlByShortCode, incrementClickCount, checkUrlOwnership } from './url';
+import { NotFoundError } from '../types/errors';
+
+// Constants
+const ANALYTICS_DEFAULT_DAYS = 30;
 
 /**
  * Parse User-Agent to extract device, browser, and OS info
+ * Note: This is a simplified parser. For production use, consider a library like ua-parser-js
  */
 function parseUserAgent(userAgent: string): {
   device_type: string;
@@ -122,12 +127,18 @@ export async function recordClick(
  */
 export async function getAnalytics(
   db: D1Database,
-  shortCode: string
+  shortCode: string,
+  userId?: string
 ): Promise<AnalyticsResponse | null> {
   // Get URL
   const url = await getUrlByShortCode(db, shortCode);
   if (!url) {
     return null;
+  }
+
+  // Check ownership if userId is provided
+  if (userId) {
+    checkUrlOwnership(url, userId);
   }
 
   // Get total clicks
@@ -138,8 +149,8 @@ export async function getAnalytics(
   
   const total_clicks = totalResult?.count || 0;
 
-  // Get clicks by date (last 30 days)
-  const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+  // Get clicks by date (last ANALYTICS_DEFAULT_DAYS days)
+  const daysAgo = Date.now() - (ANALYTICS_DEFAULT_DAYS * 24 * 60 * 60 * 1000);
   const clicksByDateResult = await db
     .prepare(`
       SELECT 
@@ -150,7 +161,7 @@ export async function getAnalytics(
       GROUP BY date
       ORDER BY date
     `)
-    .bind(shortCode, thirtyDaysAgo)
+    .bind(shortCode, daysAgo)
     .all<{ date: string; count: number }>();
 
   const clicks_by_date: Record<string, number> = {};

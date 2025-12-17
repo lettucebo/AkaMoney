@@ -40,6 +40,11 @@ class ApiService {
         if (error.response?.status === 401) {
           // Handle unauthorized access
           localStorage.removeItem('auth_token');
+          // Store current path for redirect after login
+          const currentPath = window.location.pathname + window.location.search;
+          if (currentPath !== '/login') {
+            sessionStorage.setItem('redirect_after_login', currentPath);
+          }
           window.location.href = '/login';
         }
         return Promise.reject(error);

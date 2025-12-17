@@ -1,10 +1,15 @@
 import { nanoid } from 'nanoid';
 import type { Env, Url, CreateUrlRequest, UpdateUrlRequest, UrlResponse } from '../types';
+import { NotFoundError, ConflictError, ValidationError, ForbiddenError } from '../types/errors';
+
+// Constants
+const MAX_SHORT_CODE_GENERATION_ATTEMPTS = 5;
+const DEFAULT_SHORT_CODE_LENGTH = 6;
 
 /**
  * Generate a unique short code
  */
-export function generateShortCode(length: number = 6): string {
+export function generateShortCode(length: number = DEFAULT_SHORT_CODE_LENGTH): string {
   return nanoid(length);
 }
 
@@ -17,6 +22,15 @@ export function isValidUrl(url: string): boolean {
     return parsed.protocol === 'http:' || parsed.protocol === 'https:';
   } catch {
     return false;
+  }
+}
+
+/**
+ * Check if user owns the URL
+ */
+export function checkUrlOwnership(url: Url, userId: string): void {
+  if (url.user_id && url.user_id !== userId) {
+    throw new ForbiddenError('You do not have permission to access this URL');
   }
 }
 
@@ -38,14 +52,14 @@ export async function createUrl(
 ): Promise<UrlResponse> {
   // Validate original URL
   if (!isValidUrl(data.original_url)) {
-    throw new Error('Invalid URL format');
+    throw new ValidationError('Invalid URL format');
   }
 
   // Generate or validate short code
   let shortCode = data.short_code;
   if (shortCode) {
     if (!isValidShortCode(shortCode)) {
-      throw new Error('Invalid short code format. Use 3-20 alphanumeric characters, hyphens, or underscores.');
+      throw new ValidationError('Invalid short code format. Use 3-20 alphanumeric characters, hyphens, or underscores.');
     }
     
     // Check if short code already exists
@@ -55,12 +69,12 @@ export async function createUrl(
       .first();
     
     if (existing) {
-      throw new Error('Short code already exists. Please choose a different one.');
+      throw new ConflictError('Short code already exists. Please choose a different one.');
     }
   } else {
     // Generate unique short code
     let attempts = 0;
-    while (attempts < 5) {
+    while (attempts < MAX_SHORT_CODE_GENERATION_ATTEMPTS) {
       shortCode = generateShortCode();
       const existing = await db
         .prepare('SELECT id FROM urls WHERE short_code = ?')
@@ -71,7 +85,7 @@ export async function createUrl(
       attempts++;
     }
     
-    if (attempts === 5) {
+    if (attempts === MAX_SHORT_CODE_GENERATION_ATTEMPTS) {
       throw new Error('Failed to generate unique short code');
     }
   }
@@ -154,11 +168,17 @@ export async function getUrlById(
 export async function updateUrl(
   db: D1Database,
   id: string,
-  data: UpdateUrlRequest
+  data: UpdateUrlRequest,
+  userId?: string
 ): Promise<UrlResponse> {
   const url = await getUrlById(db, id);
   if (!url) {
-    throw new Error('URL not found');
+    throw new NotFoundError('URL not found');
+  }
+
+  // Check ownership if userId is provided
+  if (userId) {
+    checkUrlOwnership(url, userId);
   }
 
   const updates: string[] = [];
@@ -166,7 +186,7 @@ export async function updateUrl(
 
   if (data.original_url !== undefined) {
     if (!isValidUrl(data.original_url)) {
-      throw new Error('Invalid URL format');
+      throw new ValidationError('Invalid URL format');
     }
     updates.push('original_url = ?');
     values.push(data.original_url);
@@ -210,8 +230,19 @@ export async function updateUrl(
  */
 export async function deleteUrl(
   db: D1Database,
-  id: string
+  id: string,
+  userId?: string
 ): Promise<void> {
+  const url = await getUrlById(db, id);
+  if (!url) {
+    throw new NotFoundError('URL not found');
+  }
+
+  // Check ownership if userId is provided
+  if (userId) {
+    checkUrlOwnership(url, userId);
+  }
+
   await db
     .prepare('DELETE FROM urls WHERE id = ?')
     .bind(id)

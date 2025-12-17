@@ -95,11 +95,21 @@ app.get('/api/urls', authMiddleware, async (c) => {
 
 // Get specific URL
 app.get('/api/urls/:id', authMiddleware, async (c) => {
+  const user = getAuthUser(c);
+  if (!user) {
+    return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+  }
+
   const id = c.req.param('id');
   const url = await getUrlById(c.env.DB, id);
 
   if (!url) {
     return c.json({ error: 'Not Found', message: 'URL not found' }, 404);
+  }
+
+  // Check ownership
+  if (url.user_id && url.user_id !== user.userId) {
+    return c.json({ error: 'Forbidden', message: 'You do not have permission to access this URL' }, 403);
   }
 
   return c.json({
@@ -119,28 +129,43 @@ app.get('/api/urls/:id', authMiddleware, async (c) => {
 
 // Update URL
 app.put('/api/urls/:id', authMiddleware, async (c) => {
+  const user = getAuthUser(c);
+  if (!user) {
+    return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+  }
+
   const id = c.req.param('id');
   const body = await c.req.json<UpdateUrlRequest>();
 
-  const url = await updateUrl(c.env.DB, id, body);
+  const url = await updateUrl(c.env.DB, id, body, user.userId);
 
   return c.json(url);
 });
 
 // Delete URL
 app.delete('/api/urls/:id', authMiddleware, async (c) => {
+  const user = getAuthUser(c);
+  if (!user) {
+    return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+  }
+
   const id = c.req.param('id');
 
-  await deleteUrl(c.env.DB, id);
+  await deleteUrl(c.env.DB, id, user.userId);
 
   return c.json({ message: 'URL deleted successfully' });
 });
 
 // Get analytics for a short code
 app.get('/api/analytics/:shortCode', authMiddleware, async (c) => {
+  const user = getAuthUser(c);
+  if (!user) {
+    return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+  }
+
   const shortCode = c.req.param('shortCode');
 
-  const analytics = await getAnalytics(c.env.DB, shortCode);
+  const analytics = await getAnalytics(c.env.DB, shortCode, user.userId);
 
   if (!analytics) {
     return c.json({ error: 'Not Found', message: 'URL not found' }, 404);
