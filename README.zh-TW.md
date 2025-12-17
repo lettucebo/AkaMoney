@@ -205,6 +205,28 @@ CREATE TABLE click_records (
 - [ ] 批量網址匯入
 - [ ] API 速率限制
 
+## 螢幕截圖
+
+### 首頁 - 網址縮短介面
+![首頁](https://github.com/user-attachments/assets/fb6c649e-b8f3-4cb4-9817-a49de28f8cd5)
+*簡潔易用的介面，可建立短網址並使用自訂短代碼*
+
+### 登入頁面 - Microsoft Entra ID 整合
+![登入頁面](https://github.com/user-attachments/assets/b9768508-a03f-4cb6-b220-10376fe3e18d)
+*使用 Microsoft Entra ID（Azure AD）進行安全身份驗證*
+
+### 首頁 - 建立短網址
+![建立網址](https://github.com/user-attachments/assets/4c28b480-dd1a-4812-9aab-b26091826840)
+*表單驗證和使用者友善的網址縮短輸入介面*
+
+### 儀表板 - 網址管理
+![儀表板](https://github.com/user-attachments/assets/7904a993-13d8-4709-b099-3d245058b4a8)
+*管理所有縮短的網址，包含點擊統計和快速操作*
+
+### 分析儀表板 - 完整統計資訊
+![分析](https://github.com/user-attachments/assets/a314ccfd-8b6a-44dc-8eaa-014df795327c)
+*詳細的分析資料，包括地理分布、裝置類型、瀏覽器和點擊歷史記錄*
+
 ## 文件
 
 完整文件請參閱：

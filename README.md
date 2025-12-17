@@ -205,6 +205,28 @@ CREATE TABLE click_records (
 - [ ] Bulk URL import
 - [ ] API rate limiting
 
+## Screenshots
+
+### Home Page - URL Shortening Interface
+![Home Page](https://github.com/user-attachments/assets/fb6c649e-b8f3-4cb4-9817-a49de28f8cd5)
+*Clean and simple interface for creating short URLs with optional custom codes*
+
+### Login Page - Microsoft Entra ID Integration
+![Login Page](https://github.com/user-attachments/assets/b9768508-a03f-4cb6-b220-10376fe3e18d)
+*Secure authentication using Microsoft Entra ID (Azure AD)*
+
+### Home Page - Creating Short URL
+![Creating URL](https://github.com/user-attachments/assets/4c28b480-dd1a-4812-9aab-b26091826840)
+*Form validation and user-friendly input for URL shortening*
+
+### Dashboard - URL Management
+![Dashboard](https://github.com/user-attachments/assets/7904a993-13d8-4709-b099-3d245058b4a8)
+*Manage all your shortened URLs with click statistics and quick actions*
+
+### Analytics Dashboard - Comprehensive Statistics
+![Analytics](https://github.com/user-attachments/assets/a314ccfd-8b6a-44dc-8eaa-014df795327c)
+*Detailed analytics including geographic distribution, device types, browsers, and click history*
+
 ## Documentation
 
 Complete documentation is available in both English and Traditional Chinese:
