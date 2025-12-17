@@ -14,24 +14,25 @@ All core features and components have been implemented and are ready for testing
 
 ```
 AkaMoney/
-├── frontend/           # Vue 3 application
-│   ├── src/
-│   │   ├── components/ # Reusable Vue components
-│   │   ├── views/      # Page components
-│   │   ├── router/     # Vue Router configuration
-│   │   ├── stores/     # Pinia state management
-│   │   ├── services/   # API and Auth services
-│   │   ├── types/      # TypeScript type definitions
-│   │   └── assets/     # Static assets and CSS
-│   └── public/         # Public assets
-├── backend/            # Cloudflare Workers API
-│   ├── src/
-│   │   ├── handlers/   # Request handlers
-│   │   ├── middleware/ # Auth, CORS, Error handling
-│   │   ├── services/   # Business logic (URL, JWT, Analytics)
-│   │   └── types/      # TypeScript type definitions
-│   └── migrations/     # D1 database migrations
-└── shared/             # Shared types between frontend/backend
+├── src/
+│   ├── frontend/           # Vue 3 application
+│   │   ├── src/
+│   │   │   ├── components/ # Reusable Vue components
+│   │   │   ├── views/      # Page components
+│   │   │   ├── router/     # Vue Router configuration
+│   │   │   ├── stores/     # Pinia state management
+│   │   │   ├── services/   # API and Auth services
+│   │   │   ├── types/      # TypeScript type definitions
+│   │   │   └── assets/     # Static assets and CSS
+│   │   └── public/         # Public assets
+│   ├── backend/            # Cloudflare Workers API
+│   │   ├── src/
+│   │   │   ├── handlers/   # Request handlers
+│   │   │   ├── middleware/ # Auth, CORS, Error handling
+│   │   │   ├── services/   # Business logic (URL, JWT, Analytics)
+│   │   │   └── types/      # TypeScript type definitions
+│   │   └── migrations/     # D1 database migrations
+│   └── shared/             # Shared types between frontend/backend
 ```
 
 ### 2. Frontend (Vue 3 + Vite + TypeScript) ✅
@@ -199,7 +200,7 @@ CREATE TABLE users (
 - Users: email, entra_id
 
 **Migration System:**
-- SQL migration files in `backend/migrations/`
+- SQL migration files in `src/backend/migrations/`
 - Wrangler commands for applying migrations
 - Support for local and remote databases
 

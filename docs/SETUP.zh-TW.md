@@ -31,11 +31,11 @@ wrangler login
 
 #### 建立 D1 資料庫
 ```bash
-cd backend
+cd src/backend
 wrangler d1 create akamoney
 ```
 
-此命令會輸出資料庫 ID。複製它並更新 `backend/wrangler.toml`：
+此命令會輸出資料庫 ID。複製它並更新 `src/backend/wrangler.toml`：
 ```toml
 [[d1_databases]]
 binding = "DB"
@@ -71,20 +71,20 @@ wrangler secret put ENTRA_ID_CLIENT_SECRET
 ### 3. 配置環境變數
 
 #### 後端環境
-建立 `backend/.env`：
+建立 `src/backend/.env`：
 ```bash
-cp backend/.env.example backend/.env
+cp src/backend/.env.example src/backend/.env
 ```
 
-編輯 `backend/.env` 並填入您的值。
+編輯 `src/backend/.env` 並填入您的值。
 
 #### 前端環境
-建立 `frontend/.env`：
+建立 `src/frontend/.env`：
 ```bash
-cp frontend/.env.example frontend/.env
+cp src/frontend/.env.example src/frontend/.env
 ```
 
-編輯 `frontend/.env`：
+編輯 `src/frontend/.env`：
 ```env
 VITE_API_URL=http://localhost:8787
 VITE_ENTRA_ID_CLIENT_ID=your_client_id
@@ -162,13 +162,13 @@ wrangler pages deploy dist
 1. 前往 Pages 在您的 Cloudflare 儀表板
 2. 建立新專案
 3. 連接您的 GitHub 儲存庫
-4. 設定建置命令：`cd frontend && npm install && npm run build`
-5. 設定建置輸出目錄：`frontend/dist`
-6. 從 `frontend/.env.example` 新增環境變數
+4. 設定建置命令：`cd src/frontend && npm install && npm run build`
+5. 設定建置輸出目錄：`src/frontend/dist`
+6. 從 `src/frontend/.env.example` 新增環境變數
 
 ### 更新前端配置
 
-部署後端後，更新 `frontend/.env`（或 Cloudflare Pages 環境變數）：
+部署後端後，更新 `src/frontend/.env`（或 Cloudflare Pages 環境變數）：
 
 ```env
 VITE_API_URL=https://akamoney-api.YOUR_SUBDOMAIN.workers.dev
@@ -261,7 +261,7 @@ VITE_SHORT_DOMAIN=https://akamoney-api.YOUR_SUBDOMAIN.workers.dev
 
 ### 步驟 8：更新環境變數
 
-#### 前端配置（`frontend/.env`）：
+#### 前端配置（`src/frontend/.env`）：
 ```env
 VITE_ENTRA_ID_CLIENT_ID=<您的應用程式用戶端ID>
 VITE_ENTRA_ID_TENANT_ID=<您的目錄租用戶ID>
@@ -275,7 +275,7 @@ wrangler secret put ENTRA_ID_CLIENT_SECRET
 # 提示時，貼上您先前複製的密碼值
 ```
 
-#### 後端配置（`backend/.env`）：
+#### 後端配置（`src/backend/.env`）：
 ```env
 ENTRA_ID_TENANT_ID=<您的目錄租用戶ID>
 ENTRA_ID_CLIENT_ID=<您的應用程式用戶端ID>
@@ -400,7 +400,7 @@ wrangler d1 execute akamoney --local --command "SELECT * FROM urls LIMIT 10"
 ### CORS 問題
 
 如果遇到 CORS 錯誤：
-1. 檢查 `backend/src/middleware/cors.ts` 是否包含您的前端 URL
+1. 檢查 `src/backend/src/middleware/cors.ts` 是否包含您的前端 URL
 2. 確認環境變數設定正確
 3. 清除瀏覽器快取
 

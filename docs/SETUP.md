@@ -33,11 +33,11 @@ wrangler login
 
 #### Create D1 Database
 ```bash
-cd backend
+cd src/backend
 wrangler d1 create akamoney
 ```
 
-This will output a database ID. Copy it and update `backend/wrangler.toml`:
+This will output a database ID. Copy it and update `src/backend/wrangler.toml`:
 ```toml
 [[d1_databases]]
 binding = "DB"
@@ -73,20 +73,20 @@ wrangler secret put ENTRA_ID_CLIENT_SECRET
 ### 3. Configure Environment Variables
 
 #### Backend Environment
-Create `backend/.env`:
+Create `src/backend/.env`:
 ```bash
-cp backend/.env.example backend/.env
+cp src/backend/.env.example src/backend/.env
 ```
 
-Edit `backend/.env` and fill in your values.
+Edit `src/backend/.env` and fill in your values.
 
 #### Frontend Environment
-Create `frontend/.env`:
+Create `src/frontend/.env`:
 ```bash
-cp frontend/.env.example frontend/.env
+cp src/frontend/.env.example src/frontend/.env
 ```
 
-Edit `frontend/.env`:
+Edit `src/frontend/.env`:
 ```env
 VITE_API_URL=http://localhost:8787
 VITE_ENTRA_ID_CLIENT_ID=your_client_id
@@ -164,13 +164,13 @@ Or use the Cloudflare Dashboard:
 1. Go to Pages in your Cloudflare dashboard
 2. Create a new project
 3. Connect your GitHub repository
-4. Set build command: `cd frontend && npm install && npm run build`
-5. Set build output directory: `frontend/dist`
-6. Add environment variables from `frontend/.env.example`
+4. Set build command: `cd src/frontend && npm install && npm run build`
+5. Set build output directory: `src/frontend/dist`
+6. Add environment variables from `src/frontend/.env.example`
 
 ### Update Frontend Configuration
 
-After deploying the backend, update `frontend/.env` (or Cloudflare Pages environment variables):
+After deploying the backend, update `src/frontend/.env` (or Cloudflare Pages environment variables):
 
 ```env
 VITE_API_URL=https://akamoney-api.YOUR_SUBDOMAIN.workers.dev
@@ -263,7 +263,7 @@ To enable Microsoft authentication for the management dashboard, follow these de
 
 ### Step 8: Update Environment Variables
 
-#### Frontend Configuration (`frontend/.env`):
+#### Frontend Configuration (`src/frontend/.env`):
 ```env
 VITE_ENTRA_ID_CLIENT_ID=<Your-Application-Client-ID>
 VITE_ENTRA_ID_TENANT_ID=<Your-Directory-Tenant-ID>
@@ -277,7 +277,7 @@ wrangler secret put ENTRA_ID_CLIENT_SECRET
 # When prompted, paste the secret value you copied earlier
 ```
 
-#### Backend Configuration (`backend/.env`):
+#### Backend Configuration (`src/backend/.env`):
 ```env
 ENTRA_ID_TENANT_ID=<Your-Directory-Tenant-ID>
 ENTRA_ID_CLIENT_ID=<Your-Application-Client-ID>
@@ -402,7 +402,7 @@ wrangler d1 execute akamoney --local --command "SELECT * FROM urls LIMIT 10"
 ### CORS Issues
 
 If you get CORS errors:
-1. Check that `backend/src/middleware/cors.ts` includes your frontend URL
+1. Check that `src/backend/src/middleware/cors.ts` includes your frontend URL
 2. Verify environment variables are set correctly
 3. Clear browser cache
 

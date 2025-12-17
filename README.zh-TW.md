@@ -37,24 +37,25 @@
 
 ```
 .
-├── frontend/          # Vue 3 應用程式
-│   ├── src/
-│   │   ├── components/
-│   │   ├── views/
-│   │   ├── router/
-│   │   ├── stores/
-│   │   └── services/
-│   └── package.json
-├── backend/           # Cloudflare Workers
-│   ├── src/
-│   │   ├── handlers/
-│   │   ├── middleware/
-│   │   ├── services/
-│   │   └── types/
-│   ├── wrangler.toml
-│   └── package.json
-├── shared/            # 共享型別和工具
-│   └── types/
+├── src/
+│   ├── frontend/          # Vue 3 應用程式
+│   │   ├── src/
+│   │   │   ├── components/
+│   │   │   ├── views/
+│   │   │   ├── router/
+│   │   │   ├── stores/
+│   │   │   └── services/
+│   │   └── package.json
+│   ├── backend/           # Cloudflare Workers
+│   │   ├── src/
+│   │   │   ├── handlers/
+│   │   │   ├── middleware/
+│   │   │   ├── services/
+│   │   │   └── types/
+│   │   ├── wrangler.toml
+│   │   └── package.json
+│   └── shared/            # 共享型別和工具
+│       └── types/
 └── docs/              # 文件
     ├── API.md
     ├── SETUP.md
@@ -85,8 +86,8 @@ npm run setup
 
 3. 配置環境變數：
 ```bash
-cp frontend/.env.example frontend/.env
-cp backend/.env.example backend/.env
+cp src/frontend/.env.example src/frontend/.env
+cp src/backend/.env.example src/backend/.env
 ```
 
 4. 使用您的 Cloudflare 憑證更新配置檔案
@@ -125,7 +126,7 @@ npm run deploy
 
 ### 前端配置
 
-編輯 `frontend/.env`：
+編輯 `src/frontend/.env`：
 ```env
 VITE_API_URL=https://your-worker.workers.dev
 VITE_ENTRA_ID_CLIENT_ID=your-client-id
@@ -134,7 +135,7 @@ VITE_ENTRA_ID_TENANT_ID=your-tenant-id
 
 ### 後端配置
 
-編輯 `backend/wrangler.toml`：
+編輯 `src/backend/wrangler.toml`：
 ```toml
 name = "akamoney-api"
 main = "src/index.ts"
