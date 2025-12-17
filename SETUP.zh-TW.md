@@ -409,7 +409,7 @@ wrangler d1 execute akamoney --local --command "SELECT * FROM urls LIMIT 10"
 如果驗證失敗：
 1. 確認已設定 JWT_SECRET：`wrangler secret list`
 2. 檢查權杖到期時間
-3. 確保 Authorization 標頭格式：`******
+3. 確保 Authorization 標頭格式：`******`
 
 ## 開發提示
 
