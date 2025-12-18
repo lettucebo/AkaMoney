@@ -11,11 +11,11 @@ node_compat = true
 workers_dev = true
 
 # D1 Database binding
-# Get your database ID by running: wrangler d1 create akamoney
+# Get your database ID by running: wrangler d1 create akamoney-clicks
 # Or find it in the Cloudflare dashboard under Workers & Pages > D1
 [[d1_databases]]
 binding = "DB"
-database_name = "akamoney"
+database_name = "akamoney-clicks"
 database_id = "YOUR_DATABASE_ID_HERE"
 
 # R2 Storage binding
