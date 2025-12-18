@@ -10,6 +10,9 @@ permissions:
   contents: read
   deployments: write
 
+env:
+  CLOUDFLARE_PAGES_PROJECT: akamoney
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
@@ -82,34 +85,36 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: src/backend
           command: deploy
+        env:
+          CLOUDFLARE_D1_DATABASE_ID: ${{ secrets.CLOUDFLARE_D1_DATABASE_ID }}
 
-      - name: Add deployment success summary
-        if: success()
+      - name: Add deployment summary
+        if: always()
         run: |
-          echo "## Backend Deployment Summary :rocket:" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "| --- | --- |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Status** | ✅ Deployed successfully |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Environment** | Production |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Commit** | ${{ github.sha }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Ref** | ${{ github.ref_name }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Triggered by** | ${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
-
-      - name: Add deployment failure summary
-        if: failure()
-        run: |
-          echo "## Backend Deployment Summary :x:" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "| --- | --- |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Status** | ❌ Deployment failed |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Environment** | Production |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Commit** | ${{ github.sha }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Ref** | ${{ github.ref_name }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Triggered by** | ${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Please check the workflow logs for more details." >> $GITHUB_STEP_SUMMARY
+          STATUS="${{ job.status }}"
+          if [ "$STATUS" = "success" ]; then
+            echo "## Backend Deployment Summary :rocket:" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Property | Value |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| --- | --- |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Status** | ✅ Deployed successfully |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Environment** | Production |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Commit** | ${{ github.sha }} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Ref** | ${{ github.ref_name }} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Triggered by** | ${{ github.actor }} |" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## Backend Deployment Summary :x:" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Property | Value |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| --- | --- |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Status** | ❌ Deployment failed |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Environment** | Production |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Commit** | ${{ github.sha }} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Ref** | ${{ github.ref_name }} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Triggered by** | ${{ github.actor }} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "Please check the workflow logs for more details." >> "$GITHUB_STEP_SUMMARY"
+          fi
 
   deploy-frontend:
     runs-on: ubuntu-latest
@@ -117,24 +122,11 @@ jobs:
     environment: production
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
       - name: Download frontend build artifacts
         uses: actions/download-artifact@v4
         with:
           name: frontend-dist
           path: src/frontend/dist/
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20.x'
-          cache: 'npm'
-          cache-dependency-path: src/frontend/package-lock.json
-
-      - name: Install frontend dependencies
-        run: cd src/frontend && npm ci
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
@@ -142,32 +134,32 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: src/frontend
-          command: pages deploy dist --project-name=akamoney
+          command: pages deploy dist --project-name=${{ env.CLOUDFLARE_PAGES_PROJECT }}
 
-      - name: Add deployment success summary
-        if: success()
+      - name: Add deployment summary
+        if: always()
         run: |
-          echo "## Frontend Deployment Summary :rocket:" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "| --- | --- |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Status** | ✅ Deployed successfully |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Environment** | Production |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Commit** | ${{ github.sha }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Ref** | ${{ github.ref_name }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Triggered by** | ${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
-
-      - name: Add deployment failure summary
-        if: failure()
-        run: |
-          echo "## Frontend Deployment Summary :x:" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "| --- | --- |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Status** | ❌ Deployment failed |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Environment** | Production |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Commit** | ${{ github.sha }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Ref** | ${{ github.ref_name }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Triggered by** | ${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Please check the workflow logs for more details." >> $GITHUB_STEP_SUMMARY
+          STATUS="${{ job.status }}"
+          if [ "$STATUS" = "success" ]; then
+            echo "## Frontend Deployment Summary :rocket:" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Property | Value |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| --- | --- |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Status** | ✅ Deployed successfully |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Environment** | Production |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Commit** | ${{ github.sha }} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Ref** | ${{ github.ref_name }} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Triggered by** | ${{ github.actor }} |" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## Frontend Deployment Summary :x:" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Property | Value |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| --- | --- |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Status** | ❌ Deployment failed |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Environment** | Production |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Commit** | ${{ github.sha }} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Ref** | ${{ github.ref_name }} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Triggered by** | ${{ github.actor }} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "Please check the workflow logs for more details." >> "$GITHUB_STEP_SUMMARY"
+          fi
