@@ -12,7 +12,7 @@ workers_dev = true
 # Run local dev with: wrangler dev --config wrangler.local.toml
 [[d1_databases]]
 binding = "DB"
-database_name = "akamoney"
+database_name = "akamoney-clicks"
 database_id = ""
 
 # R2 Storage binding
