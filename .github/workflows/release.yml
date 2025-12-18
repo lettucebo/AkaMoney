@@ -79,8 +79,23 @@ jobs:
         run: cd src/backend && npm ci
 
       - name: Inject D1 Database ID into wrangler.toml
+        env:
+          CLOUDFLARE_D1_DATABASE_ID: ${{ secrets.CLOUDFLARE_D1_DATABASE_ID }}
         run: |
-          sed -i 's/database_id = ""/database_id = "${{ secrets.CLOUDFLARE_D1_DATABASE_ID }}"/' src/backend/wrangler.toml
+          # Validate that the secret is set
+          if [ -z "$CLOUDFLARE_D1_DATABASE_ID" ]; then
+            echo "Error: CLOUDFLARE_D1_DATABASE_ID secret is not set"
+            exit 1
+          fi
+          # Replace the empty database_id with the secret value
+          sed -i "s/^database_id = \"\"$/database_id = \"${CLOUDFLARE_D1_DATABASE_ID}\"/" src/backend/wrangler.toml
+          # Verify the replacement was successful
+          if grep -q "^database_id = \"${CLOUDFLARE_D1_DATABASE_ID}\"$" src/backend/wrangler.toml; then
+            echo "Successfully injected D1 database ID"
+          else
+            echo "Error: Failed to inject D1 database ID"
+            exit 1
+          fi
 
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
