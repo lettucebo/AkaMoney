@@ -2,9 +2,9 @@ name: CD
 
 on:
   push:
-    branches: [main]
     tags:
       - '*'
+  workflow_dispatch:
 
 permissions:
   contents: read
