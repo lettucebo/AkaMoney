@@ -135,7 +135,12 @@ VITE_ENTRA_ID_TENANT_ID=your-tenant-id
 
 ### Backend Configuration
 
-Edit `src/backend/wrangler.toml`:
+For local development, copy the template and fill in your values:
+```bash
+cp src/backend/wrangler.local.toml.example src/backend/wrangler.local.toml
+```
+
+Edit `src/backend/wrangler.local.toml` with your D1 database ID:
 ```toml
 name = "akamoney-api"
 main = "src/index.ts"
@@ -150,6 +155,13 @@ database_id = "your-database-id"
 binding = "BUCKET"
 bucket_name = "akamoney-storage"
 ```
+
+Run the backend in local development with:
+```bash
+cd src/backend && wrangler dev --config wrangler.local.toml
+```
+
+> **Note**: The `wrangler.local.toml` file is ignored by git to prevent credential leaks. For CI/CD deployment, sensitive values like `database_id` are injected from GitHub Secrets.
 
 ## API Endpoints
 

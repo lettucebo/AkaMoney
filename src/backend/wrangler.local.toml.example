@@ -1,3 +1,7 @@
+# Local Development Configuration Template
+# Copy this file to wrangler.local.toml and fill in your values
+# Note: wrangler.local.toml is ignored by git to prevent credential leaks
+
 name = "akamoney-api"
 main = "src/index.ts"
 compatibility_date = "2024-12-17"
@@ -7,13 +11,12 @@ node_compat = true
 workers_dev = true
 
 # D1 Database binding
-# IMPORTANT: For CD deployment, database_id is injected from GitHub Secrets (CLOUDFLARE_D1_DATABASE_ID).
-# For local development, copy wrangler.local.toml.example to wrangler.local.toml and set your database_id.
-# Run local dev with: wrangler dev --config wrangler.local.toml
+# Get your database ID by running: wrangler d1 create akamoney
+# Or find it in the Cloudflare dashboard under Workers & Pages > D1
 [[d1_databases]]
 binding = "DB"
 database_name = "akamoney"
-database_id = ""
+database_id = "YOUR_DATABASE_ID_HERE"
 
 # R2 Storage binding
 [[r2_buckets]]

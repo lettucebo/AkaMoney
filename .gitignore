@@ -141,6 +141,7 @@ vite.config.ts.timestamp-*
 # Wrangler
 .wrangler/
 .dev.vars
+wrangler.local.toml
 
 # Environment files
 .env

@@ -35,13 +35,20 @@ cd src/backend
 wrangler d1 create akamoney
 ```
 
-此命令會輸出資料庫 ID。複製它並更新 `src/backend/wrangler.toml`：
+此命令會輸出資料庫 ID。複製它並建立您的本地配置：
+```bash
+cp src/backend/wrangler.local.toml.example src/backend/wrangler.local.toml
+```
+
+編輯 `src/backend/wrangler.local.toml` 並設定您的 database_id：
 ```toml
 [[d1_databases]]
 binding = "DB"
 database_name = "akamoney"
 database_id = "YOUR_DATABASE_ID_HERE"
 ```
+
+> **注意**：`wrangler.local.toml` 檔案已被 git 忽略，以防止敏感資訊洩漏。主要的 `wrangler.toml` 保留為範本，其中 `database_id` 為空，供 CD 部署時自動從 Secrets 注入。
 
 #### 執行資料庫遷移
 ```bash
@@ -98,6 +105,8 @@ VITE_SHORT_DOMAIN=http://localhost:8787
 
 ### 本地執行
 
+> **重要**：對於使用 D1 資料庫的本地開發，請確保您已按照上述「建立 D1 資料庫」章節建立包含資料庫 ID 的 `wrangler.local.toml`。
+
 #### 選項 1：同時執行前端和後端
 ```bash
 npm run dev
@@ -109,12 +118,12 @@ npm run dev
 
 #### 選項 2：分別執行
 ```bash
-# 終端機 1 - 後端
-cd backend
-npm run dev
+# 終端機 1 - 後端（使用本地配置）
+cd src/backend
+wrangler dev --config wrangler.local.toml
 
 # 終端機 2 - 前端
-cd frontend
+cd src/frontend
 npm run dev
 ```
 

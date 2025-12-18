@@ -78,6 +78,10 @@ jobs:
       - name: Install backend dependencies
         run: cd src/backend && npm ci
 
+      - name: Inject D1 Database ID into wrangler.toml
+        run: |
+          sed -i 's/database_id = ""/database_id = "${{ secrets.CLOUDFLARE_D1_DATABASE_ID }}"/' src/backend/wrangler.toml
+
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:
@@ -85,8 +89,6 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: src/backend
           command: deploy
-        env:
-          CLOUDFLARE_D1_DATABASE_ID: ${{ secrets.CLOUDFLARE_D1_DATABASE_ID }}
 
       - name: Add deployment summary
         if: always()
