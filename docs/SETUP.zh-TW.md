@@ -32,7 +32,7 @@ wrangler login
 #### 建立 D1 資料庫
 ```bash
 cd src/backend
-wrangler d1 create akamoney
+wrangler d1 create akamoney-clicks
 ```
 
 此命令會輸出資料庫 ID。複製它並建立您的本地配置：
@@ -44,7 +44,7 @@ cp src/backend/wrangler.local.toml.example src/backend/wrangler.local.toml
 ```toml
 [[d1_databases]]
 binding = "DB"
-database_name = "akamoney"
+database_name = "akamoney-clicks"
 database_id = "YOUR_DATABASE_ID_HERE"
 ```
 
@@ -53,10 +53,10 @@ database_id = "YOUR_DATABASE_ID_HERE"
 #### 執行資料庫遷移
 ```bash
 # 用於本地開發
-wrangler d1 migrations apply akamoney --local
+wrangler d1 migrations apply akamoney-clicks --local
 
 # 用於生產環境
-wrangler d1 migrations apply akamoney --remote
+wrangler d1 migrations apply akamoney-clicks --remote
 ```
 
 #### 建立 R2 Bucket
@@ -397,13 +397,13 @@ wrangler tail
 如果遷移失敗：
 ```bash
 # 檢查資料庫狀態
-wrangler d1 info akamoney
+wrangler d1 info akamoney-clicks
 
 # 列出現有遷移
-wrangler d1 migrations list akamoney --local
+wrangler d1 migrations list akamoney-clicks --local
 
 # 直接執行 SQL
-wrangler d1 execute akamoney --local --command "SELECT * FROM urls LIMIT 10"
+wrangler d1 execute akamoney-clicks --local --command "SELECT * FROM urls LIMIT 10"
 ```
 
 ### CORS 問題

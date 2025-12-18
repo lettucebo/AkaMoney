@@ -148,7 +148,7 @@ compatibility_date = "2024-01-01"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "akamoney"
+database_name = "akamoney-clicks"
 database_id = "your-database-id"
 
 [[r2_buckets]]

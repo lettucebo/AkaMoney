@@ -87,10 +87,10 @@ jobs:
             echo "Error: CLOUDFLARE_D1_DATABASE_ID secret is not set"
             exit 1
           fi
-          # Replace the empty database_id with the secret value
-          sed -i "s/^database_id = \"\"$/database_id = \"${CLOUDFLARE_D1_DATABASE_ID}\"/" src/backend/wrangler.toml
-          # Verify the replacement was successful
-          if grep -q "^database_id = \"${CLOUDFLARE_D1_DATABASE_ID}\"$" src/backend/wrangler.toml; then
+          # Replace the empty database_id with the secret value (allowing flexible whitespace)
+          sed -i 's/^[[:space:]]*database_id[[:space:]]*=[[:space:]]*""/database_id = "'"${CLOUDFLARE_D1_DATABASE_ID}"'"/' src/backend/wrangler.toml
+          # Verify the replacement was successful without exposing the secret value
+          if grep -q '^database_id = "[^"]\+"$' src/backend/wrangler.toml; then
             echo "Successfully injected D1 database ID"
           else
             echo "Error: Failed to inject D1 database ID"

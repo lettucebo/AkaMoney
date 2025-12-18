@@ -34,7 +34,7 @@ wrangler login
 #### Create D1 Database
 ```bash
 cd src/backend
-wrangler d1 create akamoney
+wrangler d1 create akamoney-clicks
 ```
 
 This will output a database ID. Copy it and create your local configuration:
@@ -46,7 +46,7 @@ Edit `src/backend/wrangler.local.toml` and set your database_id:
 ```toml
 [[d1_databases]]
 binding = "DB"
-database_name = "akamoney"
+database_name = "akamoney-clicks"
 database_id = "YOUR_DATABASE_ID_HERE"
 ```
 
@@ -55,10 +55,10 @@ database_id = "YOUR_DATABASE_ID_HERE"
 #### Run Database Migrations
 ```bash
 # For local development
-wrangler d1 migrations apply akamoney --local
+wrangler d1 migrations apply akamoney-clicks --local
 
 # For production
-wrangler d1 migrations apply akamoney --remote
+wrangler d1 migrations apply akamoney-clicks --remote
 ```
 
 #### Create R2 Bucket
@@ -399,13 +399,13 @@ wrangler tail
 If migrations fail:
 ```bash
 # Check database status
-wrangler d1 info akamoney
+wrangler d1 info akamoney-clicks
 
 # List existing migrations
-wrangler d1 migrations list akamoney --local
+wrangler d1 migrations list akamoney-clicks --local
 
 # Execute SQL directly
-wrangler d1 execute akamoney --local --command "SELECT * FROM urls LIMIT 10"
+wrangler d1 execute akamoney-clicks --local --command "SELECT * FROM urls LIMIT 10"
 ```
 
 ### CORS Issues
