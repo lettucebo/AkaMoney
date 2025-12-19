@@ -135,7 +135,12 @@ VITE_ENTRA_ID_TENANT_ID=your-tenant-id
 
 ### 後端配置
 
-編輯 `src/backend/wrangler.toml`：
+對於本地開發，複製範本並填入您的值：
+```bash
+cp src/backend/wrangler.local.toml.example src/backend/wrangler.local.toml
+```
+
+編輯 `src/backend/wrangler.local.toml` 並填入您的 D1 資料庫 ID：
 ```toml
 name = "akamoney-api"
 main = "src/index.ts"
@@ -143,13 +148,20 @@ compatibility_date = "2024-01-01"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "akamoney"
+database_name = "akamoney-clicks"
 database_id = "your-database-id"
 
 [[r2_buckets]]
 binding = "BUCKET"
 bucket_name = "akamoney-storage"
 ```
+
+使用以下命令在本地開發模式下執行後端：
+```bash
+cd src/backend && wrangler dev --config wrangler.local.toml
+```
+
+> **注意**：`wrangler.local.toml` 檔案已被 git 忽略，以防止敏感資訊洩漏。對於 CI/CD 部署，敏感值如 `database_id` 會從 GitHub Secrets 注入。
 
 ## API 端點
 

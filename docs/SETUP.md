@@ -34,24 +34,31 @@ wrangler login
 #### Create D1 Database
 ```bash
 cd src/backend
-wrangler d1 create akamoney
+wrangler d1 create akamoney-clicks
 ```
 
-This will output a database ID. Copy it and update `src/backend/wrangler.toml`:
+This will output a database ID. Copy it and create your local configuration:
+```bash
+cp src/backend/wrangler.local.toml.example src/backend/wrangler.local.toml
+```
+
+Edit `src/backend/wrangler.local.toml` and set your database_id:
 ```toml
 [[d1_databases]]
 binding = "DB"
-database_name = "akamoney"
+database_name = "akamoney-clicks"
 database_id = "YOUR_DATABASE_ID_HERE"
 ```
+
+> **Note**: The `wrangler.local.toml` file is ignored by git to prevent credential leaks. The main `wrangler.toml` is kept as a template with an empty `database_id` for CD deployment where secrets are injected automatically.
 
 #### Run Database Migrations
 ```bash
 # For local development
-wrangler d1 migrations apply akamoney --local
+wrangler d1 migrations apply akamoney-clicks --local
 
 # For production
-wrangler d1 migrations apply akamoney --remote
+wrangler d1 migrations apply akamoney-clicks --remote
 ```
 
 #### Create R2 Bucket
@@ -100,6 +107,8 @@ VITE_SHORT_DOMAIN=http://localhost:8787
 
 ### Running Locally
 
+> **Important**: For local development with D1 database, make sure you have created `wrangler.local.toml` with your database ID as described in the "Create D1 Database" section above.
+
 #### Option 1: Run Both Frontend and Backend
 ```bash
 npm run dev
@@ -111,12 +120,12 @@ This will start:
 
 #### Option 2: Run Separately
 ```bash
-# Terminal 1 - Backend
-cd backend
-npm run dev
+# Terminal 1 - Backend (using local config)
+cd src/backend
+wrangler dev --config wrangler.local.toml
 
 # Terminal 2 - Frontend
-cd frontend
+cd src/frontend
 npm run dev
 ```
 
@@ -390,13 +399,13 @@ wrangler tail
 If migrations fail:
 ```bash
 # Check database status
-wrangler d1 info akamoney
+wrangler d1 info akamoney-clicks
 
 # List existing migrations
-wrangler d1 migrations list akamoney --local
+wrangler d1 migrations list akamoney-clicks --local
 
 # Execute SQL directly
-wrangler d1 execute akamoney --local --command "SELECT * FROM urls LIMIT 10"
+wrangler d1 execute akamoney-clicks --local --command "SELECT * FROM urls LIMIT 10"
 ```
 
 ### CORS Issues
