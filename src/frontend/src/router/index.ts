@@ -2,6 +2,13 @@ import { createRouter, createWebHistory } from 'vue-router';
 import type { RouteRecordRaw } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 
+// Extend vue-router RouteMeta interface to include requiresAuth
+declare module 'vue-router' {
+  interface RouteMeta {
+    requiresAuth?: boolean;
+  }
+}
+
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
@@ -51,8 +58,9 @@ router.beforeEach(async (to, from, next) => {
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     next({ name: 'Login', query: { redirect: to.fullPath } });
   } else if (to.name === 'Login' && authStore.isAuthenticated) {
-    // Redirect authenticated users away from login page
-    next({ name: 'Home' });
+    // Redirect authenticated users away from login page, preserving redirect target if present
+    const redirect = (to.query.redirect as string) || '/';
+    next(redirect);
   } else {
     next();
   }
