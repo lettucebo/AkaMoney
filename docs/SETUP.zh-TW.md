@@ -75,6 +75,62 @@ wrangler secret put JWT_SECRET
 wrangler secret put ENTRA_ID_CLIENT_SECRET
 ```
 
+## 儲存空間設定
+
+AkaMoney 支援兩種儲存空間供應商：
+- **Cloudflare R2**（預設）- 適合 Cloudflare Workers 部署
+- **Azure Blob Storage** - 適合以 Azure 為主的部署環境
+
+### 使用 Cloudflare R2（預設）
+
+R2 是預設的儲存空間供應商。請確保您已如上述建立 R2 bucket。
+
+在 `wrangler.toml` 中的設定：
+```toml
+[vars]
+STORAGE_PROVIDER = "r2"
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "akamoney-storage"
+```
+
+### 使用 Azure Blob Storage
+
+若要使用 Azure Blob Storage 取代 R2：
+
+1. 在 Azure 入口網站中建立 Azure 儲存體帳戶
+2. 為您的檔案建立容器
+3. 從 Azure 入口網站 > 儲存體帳戶 > 存取金鑰 取得儲存體帳戶名稱和存取金鑰
+4. 設定環境變數：
+
+```bash
+# 設定儲存空間供應商
+wrangler secret put STORAGE_PROVIDER
+# 輸入：azure
+
+# 設定 Azure 儲存體憑證
+wrangler secret put AZURE_STORAGE_ACCOUNT_NAME
+# 輸入您的儲存體帳戶名稱
+
+wrangler secret put AZURE_STORAGE_ACCOUNT_KEY
+# 輸入您的儲存體帳戶存取金鑰
+
+wrangler secret put AZURE_STORAGE_CONTAINER_NAME
+# 輸入您的容器名稱
+
+# 選用：自訂端點 URL（適用於 Azure Government、Azure China 等）
+# wrangler secret put AZURE_STORAGE_ENDPOINT_URL
+```
+
+更新 `wrangler.toml`：
+```toml
+[vars]
+STORAGE_PROVIDER = "azure"
+```
+
+> **注意**：使用 Azure 儲存體時，`wrangler.toml` 中的 R2 bucket 綁定會被忽略，但可以保留在設定檔中。
+
 ### 3. 配置環境變數
 
 #### 後端環境

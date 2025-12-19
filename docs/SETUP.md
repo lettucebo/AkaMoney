@@ -77,6 +77,62 @@ wrangler secret put JWT_SECRET
 wrangler secret put ENTRA_ID_CLIENT_SECRET
 ```
 
+## Storage Configuration
+
+AkaMoney supports two storage providers:
+- **Cloudflare R2** (default) - Ideal for Cloudflare Workers deployment
+- **Azure Blob Storage** - For Azure-centric deployments
+
+### Using Cloudflare R2 (Default)
+
+R2 is the default storage provider. Ensure you have created the R2 bucket as shown above.
+
+Configuration in `wrangler.toml`:
+```toml
+[vars]
+STORAGE_PROVIDER = "r2"
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "akamoney-storage"
+```
+
+### Using Azure Blob Storage
+
+To use Azure Blob Storage instead of R2:
+
+1. Create an Azure Storage Account in the Azure Portal
+2. Create a container for your files
+3. Get your storage account name and access key from Azure Portal > Storage Account > Access keys
+4. Configure the environment variables:
+
+```bash
+# Set the storage provider
+wrangler secret put STORAGE_PROVIDER
+# Enter: azure
+
+# Set Azure Storage credentials
+wrangler secret put AZURE_STORAGE_ACCOUNT_NAME
+# Enter your storage account name
+
+wrangler secret put AZURE_STORAGE_ACCOUNT_KEY
+# Enter your storage account access key
+
+wrangler secret put AZURE_STORAGE_CONTAINER_NAME
+# Enter your container name
+
+# Optional: Custom endpoint URL (for Azure Government, China, etc.)
+# wrangler secret put AZURE_STORAGE_ENDPOINT_URL
+```
+
+Update `wrangler.toml`:
+```toml
+[vars]
+STORAGE_PROVIDER = "azure"
+```
+
+> **Note**: When using Azure Storage, the R2 bucket binding in `wrangler.toml` is ignored but can remain in the configuration file.
+
 ### 3. Configure Environment Variables
 
 #### Backend Environment

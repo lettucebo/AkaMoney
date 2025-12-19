@@ -1,7 +1,16 @@
 // Environment bindings
 export interface Env {
   DB: D1Database;
-  BUCKET: R2Bucket;
+  // Storage provider selection: 'r2' (default) or 'azure'
+  STORAGE_PROVIDER?: string;
+  // Cloudflare R2 configuration
+  BUCKET?: R2Bucket;
+  // Azure Storage configuration
+  AZURE_STORAGE_ACCOUNT_NAME?: string;
+  AZURE_STORAGE_ACCOUNT_KEY?: string;
+  AZURE_STORAGE_CONTAINER_NAME?: string;
+  AZURE_STORAGE_ENDPOINT_URL?: string;
+  // Authentication
   JWT_SECRET: string;
   JWT_EXPIRES_IN: string;
   ENTRA_ID_TENANT_ID?: string;
