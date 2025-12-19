@@ -1,4 +1,4 @@
-import type { Env, Url, ClickRecord } from './types';
+import type { Url, ClickRecord, RequestWithCf } from './types';
 
 /**
  * Generate a unique ID for click records
@@ -84,7 +84,8 @@ export async function recordClick(
 ): Promise<void> {
   const userAgent = request.headers.get('user-agent');
   const referer = request.headers.get('referer');
-  const cfData = (request as any).cf as { country?: string; city?: string } | undefined;
+  const cfRequest = request as RequestWithCf;
+  const cfData = cfRequest.cf;
   
   const { device_type, browser, os } = parseUserAgent(userAgent);
 

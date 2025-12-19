@@ -7,6 +7,31 @@ export interface Env {
 }
 
 /**
+ * Cloudflare request CF object for geographic and network data
+ */
+export interface CfProperties {
+  country?: string;
+  city?: string;
+  continent?: string;
+  latitude?: string;
+  longitude?: string;
+  region?: string;
+  regionCode?: string;
+  timezone?: string;
+  postalCode?: string;
+  asn?: number;
+  asOrganization?: string;
+  colo?: string;
+}
+
+/**
+ * Extended Request type with Cloudflare properties
+ */
+export interface RequestWithCf extends Request {
+  cf?: CfProperties;
+}
+
+/**
  * URL record from database
  */
 export interface Url {

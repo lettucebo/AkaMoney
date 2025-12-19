@@ -29,11 +29,6 @@ app.get('/health', (c) => {
 // Redirect endpoint (public - no authentication required)
 app.get('/:shortCode', async (c) => {
   const shortCode = c.req.param('shortCode');
-  
-  // Skip health endpoint (already handled)
-  if (shortCode === 'health') {
-    return c.notFound();
-  }
 
   const url = await getUrlByShortCode(c.env.DB, shortCode);
 
