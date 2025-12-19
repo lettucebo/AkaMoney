@@ -151,6 +151,20 @@ jobs:
             echo "Bucket '$BUCKET_NAME' created successfully"
           fi
 
+      - name: Configure Worker secrets
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          cd src/backend
+          echo "Configuring Worker secrets..."
+          echo "${{ secrets.JWT_SECRET }}" | npx wrangler secret put JWT_SECRET
+          echo "${{ secrets.ENTRA_ID_TENANT_ID }}" | npx wrangler secret put ENTRA_ID_TENANT_ID
+          echo "${{ secrets.ENTRA_ID_CLIENT_ID }}" | npx wrangler secret put ENTRA_ID_CLIENT_ID
+          echo "${{ secrets.ENTRA_ID_CLIENT_SECRET }}" | npx wrangler secret put ENTRA_ID_CLIENT_SECRET
+          echo "${{ secrets.SHORT_DOMAIN }}" | npx wrangler secret put SHORT_DOMAIN
+          echo "Worker secrets configured successfully"
+
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:
