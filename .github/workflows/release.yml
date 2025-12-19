@@ -102,9 +102,9 @@ jobs:
         run: |
           cd src/backend
           DB_NAME="akamoney-clicks"
-          # Get the database ID from wrangler d1 list output
-          DB_ID=$(npx wrangler d1 list 2>/dev/null | grep -w "$DB_NAME" | awk '{print $1}')
-          if [ -z "$DB_ID" ]; then
+          # Get the database ID from wrangler d1 list output using JSON format for reliable parsing
+          DB_ID=$(npx wrangler d1 list --json 2>/dev/null | jq -r --arg name "$DB_NAME" '.[] | select(.name == $name) | .uuid')
+          if [ -z "$DB_ID" ] || [ "$DB_ID" = "null" ]; then
             echo "Error: Could not retrieve database ID for '$DB_NAME'"
             exit 1
           fi
