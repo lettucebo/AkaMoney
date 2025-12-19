@@ -1,0 +1,21 @@
+# Local development configuration for redirect service
+# Copy this file to wrangler.local.toml and fill in your database_id
+# Run with: wrangler dev --config wrangler.local.toml
+
+name = "akamoney-redirect"
+main = "src/index.ts"
+compatibility_date = "2024-12-17"
+node_compat = true
+
+# Workers configuration
+workers_dev = true
+
+# D1 Database binding
+[[d1_databases]]
+binding = "DB"
+database_name = "akamoney-clicks"
+database_id = "YOUR_DATABASE_ID_HERE"
+
+# Environment variables
+[vars]
+ENVIRONMENT = "development"
