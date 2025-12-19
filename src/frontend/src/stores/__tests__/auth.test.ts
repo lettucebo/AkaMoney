@@ -26,6 +26,7 @@ describe('Auth Store', () => {
       expect(store.user).toBeNull();
       expect(store.isAuthenticated).toBe(false);
       expect(store.loading).toBe(false);
+      expect(store.initialized).toBe(false);
     });
   });
 
@@ -77,6 +78,7 @@ describe('Auth Store', () => {
       expect(store.user).toEqual(mockAccount);
       expect(store.isAuthenticated).toBe(true);
       expect(store.loading).toBe(false);
+      expect(store.initialized).toBe(true);
     });
 
     it('should initialize with no user if no account', async () => {
@@ -88,6 +90,7 @@ describe('Auth Store', () => {
       
       expect(store.user).toBeNull();
       expect(store.isAuthenticated).toBe(false);
+      expect(store.initialized).toBe(true);
     });
 
     it('should handle initialization error', async () => {
@@ -99,6 +102,18 @@ describe('Auth Store', () => {
       
       expect(store.loading).toBe(false);
       expect(store.user).toBeNull();
+      expect(store.initialized).toBe(true);
+    });
+
+    it('should not initialize again if already initialized', async () => {
+      vi.mocked(authService.initialize).mockResolvedValue(undefined);
+      vi.mocked(authService.getAccount).mockReturnValue(null);
+      
+      const store = useAuthStore();
+      await store.initialize();
+      await store.initialize(); // Call again
+      
+      expect(authService.initialize).toHaveBeenCalledTimes(1);
     });
   });
 
