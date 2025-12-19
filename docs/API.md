@@ -2,21 +2,32 @@
 
 English | [繁體中文](API.zh-TW.md)
 
-Base URL: `https://your-worker.workers.dev` or `https://api.aka.money`
+## Service Architecture
+
+AkaMoney uses a separated services architecture:
+
+| Service | Base URL | Authentication |
+|---------|----------|----------------|
+| **Redirect Service** | `https://go.aka.money` | ❌ None (public access) |
+| **Admin API** | `https://api.aka.money` | ✅ JWT required |
 
 ## Authentication
 
-Most endpoints require JWT authentication. Include the JWT token in the Authorization header:
+Most Admin API endpoints require JWT authentication. Include the JWT token in the Authorization header:
 
 ```
 Authorization: Bearer <your_jwt_token>
 ```
 
-## Endpoints
+---
 
-### Public Endpoints
+## Redirect Service Endpoints
 
-#### Health Check
+Base URL: `https://go.aka.money` (or your redirect worker URL)
+
+> **Note**: The Redirect Service is public and requires no authentication.
+
+### Health Check
 ```http
 GET /health
 ```
@@ -25,11 +36,12 @@ GET /health
 ```json
 {
   "status": "ok",
+  "service": "redirect",
   "timestamp": 1702834567890
 }
 ```
 
-#### Redirect to Original URL
+### Redirect to Original URL
 ```http
 GET /:shortCode
 ```
@@ -40,7 +52,29 @@ GET /:shortCode
 - 404: Short URL not found
 - 410: Short URL has expired
 
-#### Create Short URL (Public)
+---
+
+## Admin API Endpoints
+
+Base URL: `https://api.aka.money` (or your admin API worker URL)
+
+> **Note**: Most endpoints require JWT authentication.
+
+### Health Check
+```http
+GET /health
+```
+
+**Response:**
+```json
+{
+  "status": "ok",
+  "service": "admin-api",
+  "timestamp": 1702834567890
+}
+```
+
+### Create Short URL (Public)
 ```http
 POST /api/shorten
 Content-Type: application/json
@@ -75,7 +109,7 @@ Content-Type: application/json
 - 400: Invalid URL or short code format
 - 409: Short code already exists
 
-#### Get Public Analytics
+### Get Public Analytics
 ```http
 GET /api/public/analytics/:shortCode
 ```

@@ -1,22 +1,33 @@
 # AkaMoney API 文件
 
-基礎 URL：`https://your-worker.workers.dev` 或 `https://api.aka.money`
-
 [English](API.md) | 繁體中文
+
+## 服務架構
+
+AkaMoney 使用分離式服務架構：
+
+| 服務 | 基礎 URL | 驗證 |
+|------|----------|------|
+| **重定向服務** | `https://go.aka.money` | ❌ 無需驗證（公開存取） |
+| **管理 API** | `https://api.aka.money` | ✅ 需要 JWT |
 
 ## 身份驗證
 
-大多數端點需要 JWT 身份驗證。在 Authorization 標頭中包含 JWT 權杖：
+大多數管理 API 端點需要 JWT 身份驗證。在 Authorization 標頭中包含 JWT 權杖：
 
 ```
-Authorization: ******
+Authorization: Bearer <your_jwt_token>
 ```
 
-## 端點
+---
 
-### 公開端點
+## 重定向服務端點
 
-#### 健康檢查
+基礎 URL：`https://go.aka.money`（或您的重定向 worker URL）
+
+> **注意**：重定向服務為公開存取，無需驗證。
+
+### 健康檢查
 ```http
 GET /health
 ```
@@ -25,11 +36,12 @@ GET /health
 ```json
 {
   "status": "ok",
+  "service": "redirect",
   "timestamp": 1702834567890
 }
 ```
 
-#### 重定向到原始網址
+### 重定向到原始網址
 ```http
 GET /:shortCode
 ```
@@ -40,7 +52,29 @@ GET /:shortCode
 - 404：找不到短網址
 - 410：短網址已過期
 
-#### 建立短網址（公開）
+---
+
+## 管理 API 端點
+
+基礎 URL：`https://api.aka.money`（或您的管理 API worker URL）
+
+> **注意**：大多數端點需要 JWT 驗證。
+
+### 健康檢查
+```http
+GET /health
+```
+
+**回應：**
+```json
+{
+  "status": "ok",
+  "service": "admin-api",
+  "timestamp": 1702834567890
+}
+```
+
+### 建立短網址（公開）
 ```http
 POST /api/shorten
 Content-Type: application/json

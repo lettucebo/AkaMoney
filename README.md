@@ -15,6 +15,23 @@ English | [繁體中文](README.zh-TW.md)
 - 🎨 Bootstrap 5 responsive design
 - ⚡ Fast redirects with Cloudflare Workers
 
+## Architecture
+
+AkaMoney uses a **separated services architecture** for better security and scalability:
+
+| Service | Purpose | Authentication | Domain Example |
+|---------|---------|----------------|----------------|
+| **Redirect Service** (`akamoney-redirect`) | Public URL redirection | ❌ None required | `go.aka.money` |
+| **Admin API** (`akamoney-admin-api`) | URL management, analytics | ✅ JWT required | `api.aka.money` |
+| **Frontend** | Management dashboard | ✅ Entra ID | `admin.aka.money` |
+
+### Service Separation Benefits
+
+- **Security**: Admin API protected by JWT, redirect service is public
+- **Scalability**: Services can be scaled independently
+- **Reliability**: Issues in admin API don't affect redirects
+- **Performance**: Redirect service is optimized for speed
+
 ## Tech Stack
 
 ### Frontend
@@ -38,7 +55,7 @@ English | [繁體中文](README.zh-TW.md)
 ```
 .
 ├── src/
-│   ├── frontend/          # Vue 3 application
+│   ├── frontend/          # Vue 3 application (management dashboard)
 │   │   ├── src/
 │   │   │   ├── components/
 │   │   │   ├── views/
@@ -46,12 +63,15 @@ English | [繁體中文](README.zh-TW.md)
 │   │   │   ├── stores/
 │   │   │   └── services/
 │   │   └── package.json
-│   ├── backend/           # Cloudflare Workers
+│   ├── backend/           # Admin API (Cloudflare Workers) - JWT protected
 │   │   ├── src/
-│   │   │   ├── handlers/
 │   │   │   ├── middleware/
 │   │   │   ├── services/
 │   │   │   └── types/
+│   │   ├── wrangler.toml
+│   │   └── package.json
+│   ├── redirect/          # Redirect Service (Cloudflare Workers) - public access
+│   │   ├── src/
 │   │   ├── wrangler.toml
 │   │   └── package.json
 │   └── shared/            # Shared types and utilities
@@ -104,20 +124,23 @@ Or start them separately:
 # Frontend (http://localhost:5173)
 npm run dev:frontend
 
-# Backend (http://localhost:8787)
+# Admin API (http://localhost:8787)
 npm run dev:backend
+
+# Redirect Service (http://localhost:8788)
+npm run dev:redirect
 ```
 
 ### Building
 
-Build both frontend and backend:
+Build all services:
 ```bash
 npm run build
 ```
 
 ### Deployment
 
-Deploy to Cloudflare:
+Deploy all services to Cloudflare:
 ```bash
 npm run deploy
 ```
@@ -128,12 +151,12 @@ npm run deploy
 
 Edit `src/frontend/.env`:
 ```env
-VITE_API_URL=https://your-worker.workers.dev
+VITE_API_URL=https://your-admin-api.workers.dev
 VITE_ENTRA_ID_CLIENT_ID=your-client-id
 VITE_ENTRA_ID_TENANT_ID=your-tenant-id
 ```
 
-### Backend Configuration
+### Admin API Configuration
 
 For local development, copy the template and fill in your values:
 ```bash
@@ -142,7 +165,7 @@ cp src/backend/wrangler.local.toml.example src/backend/wrangler.local.toml
 
 Edit `src/backend/wrangler.local.toml` with your D1 database ID:
 ```toml
-name = "akamoney-api"
+name = "akamoney-admin-api"
 main = "src/index.ts"
 compatibility_date = "2024-01-01"
 
@@ -156,25 +179,57 @@ binding = "BUCKET"
 bucket_name = "akamoney-storage"
 ```
 
-Run the backend in local development with:
+Run the admin API in local development with:
 ```bash
 cd src/backend && wrangler dev --config wrangler.local.toml
 ```
 
-> **Note**: The `wrangler.local.toml` file is ignored by git to prevent credential leaks. For CI/CD deployment, sensitive values like `database_id` are injected from GitHub Secrets.
+### Redirect Service Configuration
+
+For local development:
+```bash
+cp src/redirect/wrangler.local.toml.example src/redirect/wrangler.local.toml
+```
+
+Edit `src/redirect/wrangler.local.toml` with your D1 database ID:
+```toml
+name = "akamoney-redirect"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "akamoney-clicks"
+database_id = "your-database-id"
+```
+
+> **Note**: Both `wrangler.local.toml` files are ignored by git to prevent credential leaks. For CI/CD deployment, sensitive values like `database_id` are injected from GitHub Secrets.
 
 ## API Endpoints
 
-### Public Endpoints
-- `GET /:shortCode` - Redirect to original URL
-- `POST /api/shorten` - Create short URL (with JWT)
+### Redirect Service (Public - No Authentication)
 
-### Protected Endpoints (JWT Required)
-- `GET /api/urls` - List all URLs
-- `GET /api/urls/:id` - Get URL details
-- `PUT /api/urls/:id` - Update URL
-- `DELETE /api/urls/:id` - Delete URL
-- `GET /api/analytics/:shortCode` - Get analytics
+Base URL: `https://go.aka.money` (or your redirect worker URL)
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /health` | Health check |
+| `GET /:shortCode` | Redirect to original URL |
+
+### Admin API (JWT Authentication Required)
+
+Base URL: `https://api.aka.money` (or your admin API worker URL)
+
+| Endpoint | Auth | Description |
+|----------|------|-------------|
+| `GET /health` | ❌ | Health check |
+| `POST /api/shorten` | Optional | Create short URL |
+| `GET /api/urls` | ✅ JWT | List all URLs |
+| `GET /api/urls/:id` | ✅ JWT | Get URL details |
+| `PUT /api/urls/:id` | ✅ JWT | Update URL |
+| `DELETE /api/urls/:id` | ✅ JWT | Delete URL |
+| `GET /api/analytics/:shortCode` | ✅ JWT | Get analytics |
+| `GET /api/public/analytics/:shortCode` | ❌ | Get public analytics (limited) |
 
 ### Authentication
 - `POST /api/auth/login` - Get JWT token
