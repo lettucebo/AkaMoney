@@ -86,7 +86,7 @@ jobs:
           cd src/backend
           DB_NAME="akamoney-clicks"
           echo "Checking if D1 database '$DB_NAME' exists..."
-          if npx wrangler d1 list 2>/dev/null | grep -q "$DB_NAME"; then
+          if npx wrangler d1 list 2>/dev/null | grep -qw "$DB_NAME"; then
             echo "Database '$DB_NAME' already exists"
           else
             echo "Creating D1 database '$DB_NAME'..."
@@ -103,9 +103,14 @@ jobs:
           cd src/backend
           DB_NAME="akamoney-clicks"
           # Get the database ID from wrangler d1 list output
-          DB_ID=$(npx wrangler d1 list 2>/dev/null | grep "$DB_NAME" | awk '{print $1}')
+          DB_ID=$(npx wrangler d1 list 2>/dev/null | grep -w "$DB_NAME" | awk '{print $1}')
           if [ -z "$DB_ID" ]; then
             echo "Error: Could not retrieve database ID for '$DB_NAME'"
+            exit 1
+          fi
+          # Validate UUID format (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+          if ! echo "$DB_ID" | grep -qE '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'; then
+            echo "Error: Retrieved database ID '$DB_ID' is not a valid UUID format"
             exit 1
           fi
           echo "Database ID: $DB_ID"
@@ -138,7 +143,7 @@ jobs:
           cd src/backend
           BUCKET_NAME="akamoney-storage"
           echo "Checking if R2 bucket '$BUCKET_NAME' exists..."
-          if npx wrangler r2 bucket list 2>/dev/null | grep -q "$BUCKET_NAME"; then
+          if npx wrangler r2 bucket list 2>/dev/null | grep -qw "$BUCKET_NAME"; then
             echo "Bucket '$BUCKET_NAME' already exists"
           else
             echo "Creating R2 bucket '$BUCKET_NAME'..."
@@ -206,7 +211,7 @@ jobs:
         run: |
           PROJECT_NAME="${{ env.CLOUDFLARE_PAGES_PROJECT }}"
           echo "Checking if Pages project '$PROJECT_NAME' exists..."
-          if npx wrangler pages project list 2>/dev/null | grep -q "$PROJECT_NAME"; then
+          if npx wrangler pages project list 2>/dev/null | grep -qw "$PROJECT_NAME"; then
             echo "Pages project '$PROJECT_NAME' already exists"
           else
             echo "Creating Pages project '$PROJECT_NAME'..."
