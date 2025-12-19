@@ -6,7 +6,8 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/',
     name: 'Home',
-    component: () => import('@/views/HomeView.vue')
+    component: () => import('@/views/HomeView.vue'),
+    meta: { requiresAuth: true }
   },
   {
     path: '/login',
@@ -28,7 +29,8 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
-    component: () => import('@/views/NotFoundView.vue')
+    component: () => import('@/views/NotFoundView.vue'),
+    meta: { requiresAuth: true }
   }
 ];
 
@@ -41,8 +43,16 @@ const router = createRouter({
 router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore();
 
+  // Wait for auth initialization if not already done
+  if (!authStore.initialized) {
+    await authStore.initialize();
+  }
+
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     next({ name: 'Login', query: { redirect: to.fullPath } });
+  } else if (to.name === 'Login' && authStore.isAuthenticated) {
+    // Redirect authenticated users away from login page
+    next({ name: 'Home' });
   } else {
     next();
   }
