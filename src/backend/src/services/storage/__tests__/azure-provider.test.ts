@@ -368,6 +368,38 @@ describe('AzureStorageProvider', () => {
       expect(result.cursor).toBe('next-cursor');
     });
 
+    it('should handle XML entities in blob names', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+        text: vi.fn().mockResolvedValue(`
+          <?xml version="1.0" encoding="utf-8"?>
+          <EnumerationResults>
+            <Blobs>
+              <Blob>
+                <Name>file&amp;name.txt</Name>
+                <Properties>
+                  <Content-Length>100</Content-Length>
+                </Properties>
+              </Blob>
+              <Blob>
+                <Name>&lt;special&gt;.txt</Name>
+                <Properties>
+                  <Content-Length>200</Content-Length>
+                </Properties>
+              </Blob>
+            </Blobs>
+          </EnumerationResults>
+        `)
+      });
+
+      const result = await provider.list();
+
+      expect(result.objects).toHaveLength(2);
+      expect(result.objects[0].key).toBe('file&name.txt');
+      expect(result.objects[1].key).toBe('<special>.txt');
+    });
+
     it('should throw error on failed list', async () => {
       mockFetch.mockResolvedValue({
         ok: false,

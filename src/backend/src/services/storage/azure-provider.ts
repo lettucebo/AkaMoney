@@ -117,7 +117,9 @@ export class AzureStorageProvider implements StorageProvider {
     } else if (data instanceof ArrayBuffer) {
       bodyData = data;
     } else {
-      // ReadableStream - collect all chunks
+      // ReadableStream - collect all chunks into memory
+      // Note: This loads the entire stream into memory. For very large files,
+      // consider using Azure's block blob upload API with chunked uploads.
       const reader = data.getReader();
       const chunks: Uint8Array[] = [];
       let done = false;
@@ -318,8 +320,32 @@ export class AzureStorageProvider implements StorageProvider {
     };
   }
 
+  /**
+   * Decode XML entities in a string
+   * Note: &amp; is replaced last to prevent double-unescaping
+   * (e.g., &amp;lt; should become &lt; not <)
+   */
+  private decodeXmlEntities(text: string): string {
+    return text
+      .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code, 10)))
+      .replace(/&#x([0-9a-fA-F]+);/g, (_, code) => String.fromCharCode(parseInt(code, 16)))
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&apos;/g, "'")
+      .replace(/&amp;/g, '&');
+  }
+
+  /**
+   * Extract text content from an XML element
+   */
+  private extractXmlElement(xml: string, tagName: string): string | null {
+    const regex = new RegExp(`<${tagName}>([\\s\\S]*?)<\\/${tagName}>`, 's');
+    const match = regex.exec(xml);
+    return match ? this.decodeXmlEntities(match[1]) : null;
+  }
+
   private parseListResponse(xml: string): ListResult {
-    // Simple XML parsing for blob list
     const objects: StorageObjectMetadata[] = [];
     
     // Extract blob entries
@@ -329,31 +355,30 @@ export class AzureStorageProvider implements StorageProvider {
     while ((blobMatch = blobRegex.exec(xml)) !== null) {
       const blobXml = blobMatch[1];
       
-      const nameMatch = /<Name>(.*?)<\/Name>/s.exec(blobXml);
-      const sizeMatch = /<Content-Length>(\d+)<\/Content-Length>/s.exec(blobXml);
-      const lastModifiedMatch = /<Last-Modified>(.*?)<\/Last-Modified>/s.exec(blobXml);
-      const contentTypeMatch = /<Content-Type>(.*?)<\/Content-Type>/s.exec(blobXml);
-      const etagMatch = /<Etag>(.*?)<\/Etag>/s.exec(blobXml);
+      const name = this.extractXmlElement(blobXml, 'Name');
+      const sizeStr = this.extractXmlElement(blobXml, 'Content-Length');
+      const lastModifiedStr = this.extractXmlElement(blobXml, 'Last-Modified');
+      const contentType = this.extractXmlElement(blobXml, 'Content-Type');
+      const etag = this.extractXmlElement(blobXml, 'Etag');
 
-      if (nameMatch) {
+      if (name) {
         objects.push({
-          key: nameMatch[1],
-          size: sizeMatch ? parseInt(sizeMatch[1], 10) : 0,
-          lastModified: lastModifiedMatch ? new Date(lastModifiedMatch[1]) : undefined,
-          contentType: contentTypeMatch ? contentTypeMatch[1] : undefined,
-          etag: etagMatch ? etagMatch[1] : undefined
+          key: name,
+          size: sizeStr ? parseInt(sizeStr, 10) : 0,
+          lastModified: lastModifiedStr ? new Date(lastModifiedStr) : undefined,
+          contentType: contentType || undefined,
+          etag: etag || undefined
         });
       }
     }
 
     // Check for next marker (pagination)
-    const nextMarkerMatch = /<NextMarker>(.*?)<\/NextMarker>/s.exec(xml);
-    const cursor = nextMarkerMatch && nextMarkerMatch[1] ? nextMarkerMatch[1] : undefined;
+    const cursor = this.extractXmlElement(xml, 'NextMarker');
 
     return {
       objects,
       truncated: !!cursor,
-      cursor
+      cursor: cursor || undefined
     };
   }
 }
