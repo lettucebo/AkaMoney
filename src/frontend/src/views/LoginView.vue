@@ -41,6 +41,7 @@
 import { ref, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+import { AuthConfigurationError } from '@/services/auth';
 
 const router = useRouter();
 const route = useRoute();
@@ -66,7 +67,12 @@ const handleLogin = async () => {
     const redirect = (route.query.redirect as string) || '/dashboard';
     router.push(redirect);
   } catch (err) {
-    error.value = 'Failed to sign in. Please try again.';
+    if (err instanceof AuthConfigurationError) {
+      error.value =
+        err.message || 'Authentication is not configured. Please contact the administrator.';
+    } else {
+      error.value = 'Failed to sign in. Please try again.';
+    }
     console.error('Login error:', err);
   } finally {
     loading.value = false;
