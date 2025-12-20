@@ -21,6 +21,16 @@
             <li v-if="authStore.isAuthenticated" class="nav-item">
               <router-link to="/dashboard" class="nav-link">Dashboard</router-link>
             </li>
+            <li class="nav-item">
+              <button
+                class="nav-link btn btn-link"
+                @click="themeStore.toggleTheme()"
+                :aria-label="themeStore.isDark ? 'Switch to light mode' : 'Switch to dark mode'"
+                :title="themeStore.isDark ? 'Switch to light mode' : 'Switch to dark mode'"
+              >
+                <i :class="['bi', themeStore.toggleIcon]"></i>
+              </button>
+            </li>
             <li v-if="authStore.isAuthenticated" class="nav-item dropdown">
               <a
                 class="nav-link dropdown-toggle"
@@ -49,9 +59,9 @@
       <router-view />
     </main>
 
-    <footer class="footer mt-auto py-3 bg-light">
+    <footer class="footer mt-auto py-3 bg-body-secondary">
       <div class="container text-center">
-        <span class="text-muted">{{ appName }} &copy; 2024</span>
+        <span class="text-body-secondary">{{ appName }} &copy; 2024</span>
       </div>
     </footer>
   </div>
@@ -60,10 +70,12 @@
 <script setup lang="ts">
 import { onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
+import { useThemeStore } from '@/stores/theme';
 import { useRouter } from 'vue-router';
 
 const appName = import.meta.env.VITE_APP_NAME || 'AkaMoney';
 const authStore = useAuthStore();
+const themeStore = useThemeStore();
 const router = useRouter();
 
 onMounted(async () => {
@@ -89,5 +101,28 @@ main {
 
 .footer {
   margin-top: auto;
+}
+
+/* Theme toggle button styling */
+.nav-link.btn-link {
+  background: none;
+  border: none;
+  padding: 0.5rem;
+  cursor: pointer;
+}
+
+.nav-link.btn-link:hover {
+  opacity: 0.8;
+}
+
+/* Smooth theme transition */
+html {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+html *,
+html *::before,
+html *::after {
+  transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
 </style>
