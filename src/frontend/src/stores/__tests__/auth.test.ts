@@ -165,7 +165,14 @@ describe('Auth Store', () => {
       
       const store = useAuthStore();
       
-      await expect(store.login()).rejects.toThrow('Entra ID client is not configured');
+      try {
+        await store.login();
+        expect.fail('Expected AuthConfigurationError to be thrown');
+      } catch (thrownError) {
+        expect(thrownError).toBeInstanceOf(AuthConfigurationError);
+        expect((thrownError as AuthConfigurationError).name).toBe('AuthConfigurationError');
+        expect((thrownError as AuthConfigurationError).message).toBe('Entra ID client is not configured');
+      }
       expect(store.loading).toBe(false);
     });
   });

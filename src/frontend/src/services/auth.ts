@@ -62,6 +62,10 @@ class AuthService {
         // Store token for API requests if available
         if (loginResponse.accessToken) {
           localStorage.setItem('auth_token', loginResponse.accessToken);
+        } else {
+          console.warn(
+            'Login succeeded but no access token was returned. Subsequent API calls relying on auth_token may fail.'
+          );
         }
         return loginResponse.account;
       }

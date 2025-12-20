@@ -68,7 +68,8 @@ const handleLogin = async () => {
     router.push(redirect);
   } catch (err) {
     if (err instanceof AuthConfigurationError) {
-      error.value = 'Authentication is not configured. Please contact the administrator.';
+      error.value =
+        err.message || 'Authentication is not configured. Please contact the administrator.';
     } else {
       error.value = 'Failed to sign in. Please try again.';
     }
