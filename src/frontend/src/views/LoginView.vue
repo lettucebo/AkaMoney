@@ -32,13 +32,6 @@
             </div>
           </div>
         </div>
-
-        <div class="text-center mt-3">
-          <router-link to="/" class="text-muted">
-            <i class="bi bi-arrow-left me-1"></i>
-            Back to home
-          </router-link>
-        </div>
       </div>
     </div>
   </div>

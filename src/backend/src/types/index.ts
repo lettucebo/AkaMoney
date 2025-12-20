@@ -8,6 +8,7 @@ export interface Env {
   ENTRA_ID_CLIENT_ID?: string;
   ENTRA_ID_CLIENT_SECRET?: string;
   ENVIRONMENT: string;
+  SHORT_DOMAIN?: string;
 }
 
 // Database Models

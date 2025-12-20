@@ -6,13 +6,15 @@ interface AuthState {
   user: AccountInfo | null;
   isAuthenticated: boolean;
   loading: boolean;
+  initialized: boolean;
 }
 
 export const useAuthStore = defineStore('auth', {
   state: (): AuthState => ({
     user: null,
     isAuthenticated: false,
-    loading: false
+    loading: false,
+    initialized: false
   }),
 
   getters: {
@@ -22,6 +24,9 @@ export const useAuthStore = defineStore('auth', {
 
   actions: {
     async initialize() {
+      if (this.initialized || this.loading) {
+        return;
+      }
       this.loading = true;
       try {
         await authService.initialize();
@@ -34,6 +39,7 @@ export const useAuthStore = defineStore('auth', {
         console.error('Auth initialization error:', error);
       } finally {
         this.loading = false;
+        this.initialized = true;
       }
     },
 
