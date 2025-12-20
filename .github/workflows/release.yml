@@ -161,7 +161,6 @@ jobs:
             echo "Bucket '$BUCKET_NAME' created successfully"
           fi
 
-      - name: Deploy Admin API to Cloudflare Workers
       - name: Configure Worker secrets
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
