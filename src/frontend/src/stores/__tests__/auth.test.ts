@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { setActivePinia, createPinia } from 'pinia';
 import { useAuthStore } from '../auth';
-import authService from '@/services/auth';
+import authService, { AuthConfigurationError } from '@/services/auth';
 
 // Mock the auth service
 vi.mock('@/services/auth', () => ({
@@ -10,6 +10,12 @@ vi.mock('@/services/auth', () => ({
     login: vi.fn(),
     logout: vi.fn(),
     getAccount: vi.fn()
+  },
+  AuthConfigurationError: class AuthConfigurationError extends Error {
+    constructor(message: string) {
+      super(message);
+      this.name = 'AuthConfigurationError';
+    }
   }
 }));
 
@@ -149,6 +155,17 @@ describe('Auth Store', () => {
       const store = useAuthStore();
       
       await expect(store.login()).rejects.toThrow('Login failed');
+      expect(store.loading).toBe(false);
+    });
+
+    it('should handle AuthConfigurationError', async () => {
+      const error = new AuthConfigurationError('Entra ID client is not configured');
+      vi.mocked(authService.login).mockRejectedValue(error);
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      
+      const store = useAuthStore();
+      
+      await expect(store.login()).rejects.toThrow('Entra ID client is not configured');
       expect(store.loading).toBe(false);
     });
   });

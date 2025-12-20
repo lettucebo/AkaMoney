@@ -1,8 +1,17 @@
 import { PublicClientApplication, type Configuration, type AccountInfo } from '@azure/msal-browser';
 
+export class AuthConfigurationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'AuthConfigurationError';
+  }
+}
+
+const clientId = import.meta.env.VITE_ENTRA_ID_CLIENT_ID || '';
+
 const msalConfig: Configuration = {
   auth: {
-    clientId: import.meta.env.VITE_ENTRA_ID_CLIENT_ID || '',
+    clientId,
     authority: `https://login.microsoftonline.com/${import.meta.env.VITE_ENTRA_ID_TENANT_ID || 'common'}`,
     redirectUri: import.meta.env.VITE_ENTRA_ID_REDIRECT_URI || window.location.origin
   },
@@ -13,25 +22,42 @@ const msalConfig: Configuration = {
 };
 
 class AuthService {
-  private msalInstance: PublicClientApplication;
+  private msalInstance: PublicClientApplication | null = null;
+  private isConfigured: boolean;
 
   constructor() {
-    this.msalInstance = new PublicClientApplication(msalConfig);
+    this.isConfigured = Boolean(clientId);
+    if (this.isConfigured) {
+      this.msalInstance = new PublicClientApplication(msalConfig);
+    }
+  }
+
+  private ensureConfigured(): void {
+    if (!this.isConfigured || !this.msalInstance) {
+      throw new AuthConfigurationError(
+        'Entra ID client is not configured. Please set VITE_ENTRA_ID_CLIENT_ID environment variable.'
+      );
+    }
   }
 
   async initialize() {
+    if (!this.isConfigured || !this.msalInstance) {
+      // Skip initialization if not configured - login will show proper error
+      return;
+    }
     await this.msalInstance.initialize();
     await this.msalInstance.handleRedirectPromise();
   }
 
   async login() {
+    this.ensureConfigured();
     try {
-      const loginResponse = await this.msalInstance.loginPopup({
+      const loginResponse = await this.msalInstance!.loginPopup({
         scopes: ['openid', 'profile', 'email']
       });
       
       if (loginResponse.account) {
-        this.msalInstance.setActiveAccount(loginResponse.account);
+        this.msalInstance!.setActiveAccount(loginResponse.account);
         // Store token for API requests
         localStorage.setItem('auth_token', loginResponse.accessToken);
         return loginResponse.account;
@@ -43,8 +69,9 @@ class AuthService {
   }
 
   async loginRedirect() {
+    this.ensureConfigured();
     try {
-      await this.msalInstance.loginRedirect({
+      await this.msalInstance!.loginRedirect({
         scopes: ['openid', 'profile', 'email']
       });
     } catch (error) {
@@ -57,7 +84,7 @@ class AuthService {
     const account = this.getAccount();
     localStorage.removeItem('auth_token');
     
-    if (account) {
+    if (account && this.msalInstance) {
       await this.msalInstance.logoutPopup({
         account
       });
@@ -65,6 +92,9 @@ class AuthService {
   }
 
   getAccount(): AccountInfo | null {
+    if (!this.msalInstance) {
+      return null;
+    }
     const currentAccount = this.msalInstance.getActiveAccount();
     if (currentAccount) {
       return currentAccount;
@@ -85,7 +115,7 @@ class AuthService {
 
   async getToken(): Promise<string | null> {
     const account = this.getAccount();
-    if (!account) {
+    if (!account || !this.msalInstance) {
       return null;
     }
 
