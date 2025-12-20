@@ -15,6 +15,23 @@
 - 🎨 Bootstrap 5 響應式設計
 - ⚡ 使用 Cloudflare Workers 的快速重定向
 
+## 架構
+
+AkaMoney 使用**分離式服務架構**以提供更好的安全性和可擴展性：
+
+| 服務 | 用途 | 驗證 | 域名範例 |
+|------|------|------|----------|
+| **重定向服務** (`akamoney-redirect`) | 公開網址重定向 | ❌ 無需驗證 | `go.aka.money` |
+| **管理 API** (`akamoney-admin-api`) | 網址管理、分析 | ✅ 需要 JWT | `api.aka.money` |
+| **前端** | 管理儀表板 | ✅ Entra ID | `admin.aka.money` |
+
+### 服務分離的優點
+
+- **安全性**：管理 API 受 JWT 保護，重定向服務為公開存取
+- **可擴展性**：服務可以獨立擴展
+- **可靠性**：管理 API 問題不會影響重定向功能
+- **效能**：重定向服務針對速度進行優化
+
 ## 技術堆疊
 
 ### 前端
@@ -38,7 +55,7 @@
 ```
 .
 ├── src/
-│   ├── frontend/          # Vue 3 應用程式
+│   ├── frontend/          # Vue 3 應用程式（管理儀表板）
 │   │   ├── src/
 │   │   │   ├── components/
 │   │   │   ├── views/
@@ -46,12 +63,15 @@
 │   │   │   ├── stores/
 │   │   │   └── services/
 │   │   └── package.json
-│   ├── backend/           # Cloudflare Workers
+│   ├── backend/           # 管理 API（Cloudflare Workers）- JWT 保護
 │   │   ├── src/
-│   │   │   ├── handlers/
 │   │   │   ├── middleware/
 │   │   │   ├── services/
 │   │   │   └── types/
+│   │   ├── wrangler.toml
+│   │   └── package.json
+│   ├── redirect/          # 重定向服務（Cloudflare Workers）- 公開存取
+│   │   ├── src/
 │   │   ├── wrangler.toml
 │   │   └── package.json
 │   └── shared/            # 共享型別和工具
@@ -104,20 +124,23 @@ npm run dev
 # 前端（http://localhost:5173）
 npm run dev:frontend
 
-# 後端（http://localhost:8787）
+# 管理 API（http://localhost:8787）
 npm run dev:backend
+
+# 重定向服務（http://localhost:8788）
+npm run dev:redirect
 ```
 
 ### 建置
 
-同時建置前端和後端：
+建置所有服務：
 ```bash
 npm run build
 ```
 
 ### 部署
 
-部署到 Cloudflare：
+部署所有服務到 Cloudflare：
 ```bash
 npm run deploy
 ```
@@ -128,12 +151,12 @@ npm run deploy
 
 編輯 `src/frontend/.env`：
 ```env
-VITE_API_URL=https://your-worker.workers.dev
+VITE_API_URL=https://your-admin-api.workers.dev
 VITE_ENTRA_ID_CLIENT_ID=your-client-id
 VITE_ENTRA_ID_TENANT_ID=your-tenant-id
 ```
 
-### 後端配置
+### 管理 API 配置
 
 對於本地開發，複製範本並填入您的值：
 ```bash
@@ -142,7 +165,7 @@ cp src/backend/wrangler.local.toml.example src/backend/wrangler.local.toml
 
 編輯 `src/backend/wrangler.local.toml` 並填入您的 D1 資料庫 ID：
 ```toml
-name = "akamoney-api"
+name = "akamoney-admin-api"
 main = "src/index.ts"
 compatibility_date = "2024-01-01"
 
@@ -156,25 +179,57 @@ binding = "BUCKET"
 bucket_name = "akamoney-storage"
 ```
 
-使用以下命令在本地開發模式下執行後端：
+使用以下命令在本地開發模式下執行管理 API：
 ```bash
 cd src/backend && wrangler dev --config wrangler.local.toml
 ```
 
-> **注意**：`wrangler.local.toml` 檔案已被 git 忽略，以防止敏感資訊洩漏。對於 CI/CD 部署，敏感值如 `database_id` 會從 GitHub Secrets 注入。
+### 重定向服務配置
+
+對於本地開發：
+```bash
+cp src/redirect/wrangler.local.toml.example src/redirect/wrangler.local.toml
+```
+
+編輯 `src/redirect/wrangler.local.toml` 並填入您的 D1 資料庫 ID：
+```toml
+name = "akamoney-redirect"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "akamoney-clicks"
+database_id = "your-database-id"
+```
+
+> **注意**：兩個 `wrangler.local.toml` 檔案都已被 git 忽略，以防止敏感資訊洩漏。對於 CI/CD 部署，敏感值如 `database_id` 會從 GitHub Secrets 注入。
 
 ## API 端點
 
-### 公開端點
-- `GET /:shortCode` - 重定向到原始網址
-- `POST /api/shorten` - 建立短網址（使用 JWT）
+### 重定向服務（公開 - 無需驗證）
 
-### 受保護端點（需要 JWT）
-- `GET /api/urls` - 列出所有網址
-- `GET /api/urls/:id` - 取得網址詳細資訊
-- `PUT /api/urls/:id` - 更新網址
-- `DELETE /api/urls/:id` - 刪除網址
-- `GET /api/analytics/:shortCode` - 取得分析
+基礎 URL：`https://go.aka.money`（或您的重定向 worker URL）
+
+| 端點 | 說明 |
+|------|------|
+| `GET /health` | 健康檢查 |
+| `GET /:shortCode` | 重定向到原始網址 |
+
+### 管理 API（需要 JWT 驗證）
+
+基礎 URL：`https://api.aka.money`（或您的管理 API worker URL）
+
+| 端點 | 驗證 | 說明 |
+|------|------|------|
+| `GET /health` | ❌ | 健康檢查 |
+| `POST /api/shorten` | 選用 | 建立短網址 |
+| `GET /api/urls` | ✅ JWT | 列出所有網址 |
+| `GET /api/urls/:id` | ✅ JWT | 取得網址詳細資訊 |
+| `PUT /api/urls/:id` | ✅ JWT | 更新網址 |
+| `DELETE /api/urls/:id` | ✅ JWT | 刪除網址 |
+| `GET /api/analytics/:shortCode` | ✅ JWT | 取得分析 |
+| `GET /api/public/analytics/:shortCode` | ❌ | 取得公開分析（有限） |
 
 ### 驗證
 - `POST /api/auth/login` - 取得 JWT 權杖

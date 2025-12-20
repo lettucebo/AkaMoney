@@ -30,6 +30,7 @@ jobs:
             package-lock.json
             src/frontend/package-lock.json
             src/backend/package-lock.json
+            src/redirect/package-lock.json
 
       - name: Install root dependencies
         run: npm ci
@@ -40,17 +41,26 @@ jobs:
       - name: Install frontend dependencies
         run: cd src/frontend && npm ci
 
+      - name: Install redirect dependencies
+        run: cd src/redirect && npm ci
+
       - name: Run backend tests
         run: cd src/backend && npm run test:coverage
 
       - name: Run frontend tests
         run: cd src/frontend && npm run test:coverage
 
+      - name: Run redirect tests
+        run: cd src/redirect && npm run test:coverage
+
       - name: Build frontend
         run: cd src/frontend && npm run build
 
       - name: Build backend (dry run)
         run: cd src/backend && npm run build
+
+      - name: Build redirect (dry run)
+        run: cd src/redirect && npm run build
 
       - name: Upload frontend build artifacts
         uses: actions/upload-artifact@v4
@@ -59,7 +69,7 @@ jobs:
           path: src/frontend/dist/
           retention-days: 1
 
-  deploy-backend:
+  deploy-admin-api:
     runs-on: ubuntu-latest
     needs: build-and-test
     environment: production
@@ -210,21 +220,121 @@ jobs:
         run: |
           STATUS="${{ job.status }}"
           if [ "$STATUS" = "success" ]; then
-            echo "## Backend Deployment Summary :rocket:" >> "$GITHUB_STEP_SUMMARY"
+            echo "## Admin API Deployment Summary :rocket:" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
             echo "| Property | Value |" >> "$GITHUB_STEP_SUMMARY"
             echo "| --- | --- |" >> "$GITHUB_STEP_SUMMARY"
             echo "| **Status** | ✅ Deployed successfully |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Service** | akamoney-admin-api |" >> "$GITHUB_STEP_SUMMARY"
             echo "| **Environment** | Production |" >> "$GITHUB_STEP_SUMMARY"
             echo "| **Commit** | ${{ github.sha }} |" >> "$GITHUB_STEP_SUMMARY"
             echo "| **Ref** | ${{ github.ref_name }} |" >> "$GITHUB_STEP_SUMMARY"
             echo "| **Triggered by** | ${{ github.actor }} |" >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "## Backend Deployment Summary :x:" >> "$GITHUB_STEP_SUMMARY"
+            echo "## Admin API Deployment Summary :x:" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
             echo "| Property | Value |" >> "$GITHUB_STEP_SUMMARY"
             echo "| --- | --- |" >> "$GITHUB_STEP_SUMMARY"
             echo "| **Status** | ❌ Deployment failed |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Service** | akamoney-admin-api |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Environment** | Production |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Commit** | ${{ github.sha }} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Ref** | ${{ github.ref_name }} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Triggered by** | ${{ github.actor }} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "Please check the workflow logs for more details." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  deploy-redirect:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    environment: production
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+          cache-dependency-path: src/redirect/package-lock.json
+
+      - name: Install redirect dependencies
+        run: cd src/redirect && npm ci
+
+      - name: Get D1 Database ID
+        id: d1-database
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          cd src/redirect
+          DB_NAME="akamoney-clicks"
+          # Get the database ID from wrangler d1 list output using JSON format for reliable parsing
+          DB_ID=$(npx wrangler d1 list --json 2>/dev/null | jq -r --arg name "$DB_NAME" '.[] | select(.name == $name) | .uuid')
+          if [ -z "$DB_ID" ] || [ "$DB_ID" = "null" ]; then
+            echo "Error: Could not retrieve database ID for '$DB_NAME'"
+            exit 1
+          fi
+          # Validate UUID format (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+          if ! echo "$DB_ID" | grep -qE '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'; then
+            echo "Error: Retrieved database ID '$DB_ID' is not a valid UUID format"
+            exit 1
+          fi
+          echo "Database ID: $DB_ID"
+          echo "database_id=$DB_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Inject D1 Database ID into wrangler.toml
+        env:
+          CLOUDFLARE_D1_DATABASE_ID: ${{ steps.d1-database.outputs.database_id }}
+        run: |
+          # Validate that the database ID is set
+          if [ -z "$CLOUDFLARE_D1_DATABASE_ID" ]; then
+            echo "Error: CLOUDFLARE_D1_DATABASE_ID is not set"
+            exit 1
+          fi
+          # Replace the empty database_id with the retrieved value (allowing flexible whitespace)
+          sed -i 's/^[[:space:]]*database_id[[:space:]]*=[[:space:]]*""/database_id = "'"${CLOUDFLARE_D1_DATABASE_ID}"'"/' src/redirect/wrangler.toml
+          # Verify the replacement was successful without exposing the secret value
+          if grep -q '^database_id = "[^"]\+"$' src/redirect/wrangler.toml; then
+            echo "Successfully injected D1 database ID"
+          else
+            echo "Error: Failed to inject D1 database ID"
+            exit 1
+          fi
+
+      - name: Deploy Redirect Service to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: src/redirect
+          command: deploy
+
+      - name: Add deployment summary
+        if: always()
+        run: |
+          STATUS="${{ job.status }}"
+          if [ "$STATUS" = "success" ]; then
+            echo "## Redirect Service Deployment Summary :rocket:" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Property | Value |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| --- | --- |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Status** | ✅ Deployed successfully |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Service** | akamoney-redirect |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Environment** | Production |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Commit** | ${{ github.sha }} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Ref** | ${{ github.ref_name }} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Triggered by** | ${{ github.actor }} |" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## Redirect Service Deployment Summary :x:" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Property | Value |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| --- | --- |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Status** | ❌ Deployment failed |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Service** | akamoney-redirect |" >> "$GITHUB_STEP_SUMMARY"
             echo "| **Environment** | Production |" >> "$GITHUB_STEP_SUMMARY"
             echo "| **Commit** | ${{ github.sha }} |" >> "$GITHUB_STEP_SUMMARY"
             echo "| **Ref** | ${{ github.ref_name }} |" >> "$GITHUB_STEP_SUMMARY"

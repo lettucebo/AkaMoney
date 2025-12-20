@@ -1,4 +1,4 @@
-name = "akamoney-admin-api"
+name = "akamoney-redirect"
 main = "src/index.ts"
 compatibility_date = "2024-12-17"
 node_compat = true
@@ -6,7 +6,7 @@ node_compat = true
 # Workers configuration
 workers_dev = true
 
-# D1 Database binding
+# D1 Database binding (read-only access for redirect service)
 # IMPORTANT: For CD deployment, database_id is injected from GitHub Secrets (CLOUDFLARE_D1_DATABASE_ID).
 # For local development, copy wrangler.local.toml.example to wrangler.local.toml and set your database_id.
 # Run local dev with: wrangler dev --config wrangler.local.toml
@@ -15,18 +15,11 @@ binding = "DB"
 database_name = "akamoney-clicks"
 database_id = ""
 
-# R2 Storage binding
-[[r2_buckets]]
-binding = "BUCKET"
-bucket_name = "akamoney-storage"
-preview_bucket_name = "akamoney-storage-preview"
-
-# Environment variables (secrets should be set via wrangler secret put)
+# Environment variables
 [vars]
 ENVIRONMENT = "development"
-JWT_EXPIRES_IN = "7d"
 
-# Routes for production (admin API - requires JWT authentication)
+# Routes for production (redirect service - public access, no authentication)
 # [[routes]]
-# pattern = "api.aka.money/*"
+# pattern = "go.aka.money/*"
 # zone_name = "aka.money"

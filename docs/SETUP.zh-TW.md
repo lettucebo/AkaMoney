@@ -2,6 +2,16 @@
 
 本指南將協助您在本地設定和執行 AkaMoney 網址縮短服務，並將其部署到 Cloudflare。
 
+## 架構概覽
+
+AkaMoney 使用分離式服務架構：
+
+| 服務 | 說明 | 驗證 |
+|------|------|------|
+| **重定向服務** (`akamoney-redirect`) | 公開網址重定向 | 無需驗證 |
+| **管理 API** (`akamoney-admin-api`) | 網址管理和分析 | 需要 JWT |
+| **前端** | 管理儀表板 | Entra ID |
+
 ## 前置需求
 
 - Node.js 24.x（LTS）
@@ -18,7 +28,7 @@
 git clone https://github.com/lettucebo/AkaMoney.git
 cd AkaMoney
 
-# 安裝所有專案的相依套件
+# 安裝所有專案的相依套件（前端、後端、重定向）
 npm run setup
 ```
 
@@ -35,7 +45,9 @@ cd src/backend
 wrangler d1 create akamoney-clicks
 ```
 
-此命令會輸出資料庫 ID。複製它並建立您的本地配置：
+此命令會輸出資料庫 ID。複製它並為兩個服務建立本地配置：
+
+**管理 API：**
 ```bash
 cp src/backend/wrangler.local.toml.example src/backend/wrangler.local.toml
 ```
@@ -48,7 +60,20 @@ database_name = "akamoney-clicks"
 database_id = "YOUR_DATABASE_ID_HERE"
 ```
 
-> **注意**：`wrangler.local.toml` 檔案已被 git 忽略，以防止敏感資訊洩漏。主要的 `wrangler.toml` 保留為範本，其中 `database_id` 為空，供 CD 部署時自動從 Secrets 注入。
+**重定向服務：**
+```bash
+cp src/redirect/wrangler.local.toml.example src/redirect/wrangler.local.toml
+```
+
+編輯 `src/redirect/wrangler.local.toml` 並設定相同的 database_id：
+```toml
+[[d1_databases]]
+binding = "DB"
+database_name = "akamoney-clicks"
+database_id = "YOUR_DATABASE_ID_HERE"
+```
+
+> **注意**：兩個 `wrangler.local.toml` 檔案都已被 git 忽略，以防止敏感資訊洩漏。主要的 `wrangler.toml` 保留為範本，其中 `database_id` 為空，供 CD 部署時自動從 Secrets 注入。
 
 #### 執行資料庫遷移
 ```bash
@@ -98,67 +123,100 @@ VITE_ENTRA_ID_CLIENT_ID=your_client_id
 VITE_ENTRA_ID_TENANT_ID=your_tenant_id
 VITE_ENTRA_ID_REDIRECT_URI=http://localhost:5173
 VITE_APP_NAME=AkaMoney
-VITE_SHORT_DOMAIN=http://localhost:8787
+VITE_SHORT_DOMAIN=http://localhost:8788
 ```
 
 ## 開發
 
 ### 本地執行
 
-> **重要**：對於使用 D1 資料庫的本地開發，請確保您已按照上述「建立 D1 資料庫」章節建立包含資料庫 ID 的 `wrangler.local.toml`。
+> **重要**：對於使用 D1 資料庫的本地開發，請確保您已為管理 API 和重定向服務按照上述「建立 D1 資料庫」章節建立包含資料庫 ID 的 `wrangler.local.toml`。
 
-#### 選項 1：同時執行前端和後端
+#### 選項 1：執行前端和管理 API
 ```bash
 npm run dev
 ```
 
 這將啟動：
 - 前端於 http://localhost:5173
-- 後端於 http://localhost:8787
+- 管理 API 於 http://localhost:8787
 
-#### 選項 2：分別執行
+#### 選項 2：分別執行所有服務
 ```bash
-# 終端機 1 - 後端（使用本地配置）
+# 終端機 1 - 管理 API（使用本地配置）
 cd src/backend
 wrangler dev --config wrangler.local.toml
 
-# 終端機 2 - 前端
+# 終端機 2 - 重定向服務（使用本地配置）
+cd src/redirect
+wrangler dev --config wrangler.local.toml --port 8788
+
+# 終端機 3 - 前端
 cd src/frontend
 npm run dev
 ```
 
-### 測試 API
+### 測試服務
 
-您可以使用 curl 測試後端 API：
+#### 測試重定向服務
+```bash
+# 健康檢查
+curl http://localhost:8788/health
+
+# 測試重定向（透過管理 API 建立短網址後）
+curl -L http://localhost:8788/YOUR_SHORT_CODE
+```
+
+#### 測試管理 API
 
 ```bash
 # 健康檢查
 curl http://localhost:8787/health
 
-# 建立短網址（無需驗證）
+# 建立短網址（公開建立無需驗證）
 curl -X POST http://localhost:8787/api/shorten \
   -H "Content-Type: application/json" \
   -d '{"original_url": "https://example.com"}'
-
-# 測試重定向
-curl -L http://localhost:8787/YOUR_SHORT_CODE
 ```
 
 ## 部署
 
-### 部署後端到 Cloudflare Workers
+AkaMoney 將三個獨立服務部署到 Cloudflare：
+
+| 服務 | 部署目標 | 命令 |
+|------|----------|------|
+| 管理 API | Cloudflare Workers | `npm run deploy:backend` |
+| 重定向服務 | Cloudflare Workers | `npm run deploy:redirect` |
+| 前端 | Cloudflare Pages | `npm run deploy:frontend` |
+
+### 部署所有服務
 
 ```bash
-cd backend
 npm run deploy
 ```
 
-這將把您的 worker 部署到 Cloudflare。記下 URL（例如：`https://akamoney-api.YOUR_SUBDOMAIN.workers.dev`）。
+### 部署管理 API 到 Cloudflare Workers
+
+```bash
+cd src/backend
+npm run deploy
+```
+
+這將把您的管理 API worker 部署到 Cloudflare。記下 URL（例如：`https://akamoney-admin-api.YOUR_SUBDOMAIN.workers.dev`）。
+
+### 部署重定向服務到 Cloudflare Workers
+
+```bash
+cd src/redirect
+npm run deploy
+```
+
+這將把您的重定向服務 worker 部署到 Cloudflare。記下 URL（例如：`https://akamoney-redirect.YOUR_SUBDOMAIN.workers.dev`）。
 
 ### 部署前端到 Cloudflare Pages
 
 ```bash
-cd frontend
+cd src/frontend
 
 # 建置前端
 npm run build
@@ -177,7 +235,7 @@ wrangler pages deploy dist
 
 ### 更新前端配置
 
-部署後端後，更新 `src/frontend/.env`（或 Cloudflare Pages 環境變數）：
+部署服務後，更新 `src/frontend/.env`（或 Cloudflare Pages 環境變數）：
 
 ```env
 VITE_API_URL=https://akamoney-api.YOUR_SUBDOMAIN.workers.dev
@@ -358,10 +416,17 @@ ENTRA_ID_CLIENT_ID=<您的應用程式用戶端ID>
 
 ## 自訂域名設定
 
-### 後端（Workers）
+### 重定向服務（Workers）
 
 1. 在 Cloudflare 儀表板中，前往 Workers & Pages
-2. 選擇您的 worker
+2. 選擇 `akamoney-redirect` worker
+3. 前往設定 > 觸發器
+4. 新增自訂域名（例如：`go.aka.money`）
+
+### 管理 API（Workers）
+
+1. 在 Cloudflare 儀表板中，前往 Workers & Pages
+2. 選擇 `akamoney-admin-api` worker
 3. 前往設定 > 觸發器
 4. 新增自訂域名（例如：`api.aka.money`）
 
@@ -370,19 +435,25 @@ ENTRA_ID_CLIENT_ID=<您的應用程式用戶端ID>
 1. 在 Cloudflare 儀表板中，前往 Pages
 2. 選擇您的專案
 3. 前往自訂域名
-4. 新增您的域名（例如：`aka.money`）
+4. 新增您的域名（例如：`admin.aka.money`）
 
 ### DNS 配置
 
 在 Cloudflare 中新增以下 DNS 記錄：
-- `aka.money` → CNAME 到您的 Pages 部署
-- `api.aka.money` → CNAME 到您的 Workers 部署
+- `go.aka.money` → CNAME 到您的重定向服務 worker
+- `api.aka.money` → CNAME 到您的管理 API worker
+- `admin.aka.money` → CNAME 到您的 Pages 部署
 
 ## 監控和日誌
 
 ### 查看 Worker 日誌
 ```bash
-cd backend
+# 管理 API 日誌
+cd src/backend
+wrangler tail
+
+# 重定向服務日誌
+cd src/redirect
 wrangler tail
 ```
 

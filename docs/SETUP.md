@@ -4,6 +4,16 @@ English | [繁體中文](SETUP.zh-TW.md)
 
 This guide will help you set up and run the AkaMoney URL shortening service locally and deploy it to Cloudflare.
 
+## Architecture Overview
+
+AkaMoney uses a separated services architecture:
+
+| Service | Description | Authentication |
+|---------|-------------|----------------|
+| **Redirect Service** (`akamoney-redirect`) | Public URL redirection | None required |
+| **Admin API** (`akamoney-admin-api`) | URL management and analytics | JWT required |
+| **Frontend** | Management dashboard | Entra ID |
+
 ## Prerequisites
 
 - Node.js 24.x (LTS)
@@ -20,7 +30,7 @@ This guide will help you set up and run the AkaMoney URL shortening service loca
 git clone https://github.com/lettucebo/AkaMoney.git
 cd AkaMoney
 
-# Install dependencies for all projects
+# Install dependencies for all projects (frontend, backend, redirect)
 npm run setup
 ```
 
@@ -37,7 +47,9 @@ cd src/backend
 wrangler d1 create akamoney-clicks
 ```
 
-This will output a database ID. Copy it and create your local configuration:
+This will output a database ID. Copy it and create local configurations for both services:
+
+**For Admin API:**
 ```bash
 cp src/backend/wrangler.local.toml.example src/backend/wrangler.local.toml
 ```
@@ -50,7 +62,20 @@ database_name = "akamoney-clicks"
 database_id = "YOUR_DATABASE_ID_HERE"
 ```
 
-> **Note**: The `wrangler.local.toml` file is ignored by git to prevent credential leaks. The main `wrangler.toml` is kept as a template with an empty `database_id` for CD deployment where secrets are injected automatically.
+**For Redirect Service:**
+```bash
+cp src/redirect/wrangler.local.toml.example src/redirect/wrangler.local.toml
+```
+
+Edit `src/redirect/wrangler.local.toml` and set the same database_id:
+```toml
+[[d1_databases]]
+binding = "DB"
+database_name = "akamoney-clicks"
+database_id = "YOUR_DATABASE_ID_HERE"
+```
+
+> **Note**: Both `wrangler.local.toml` files are ignored by git to prevent credential leaks. The main `wrangler.toml` files are kept as templates with empty `database_id` for CD deployment where secrets are injected automatically.
 
 #### Run Database Migrations
 ```bash
@@ -100,67 +125,100 @@ VITE_ENTRA_ID_CLIENT_ID=your_client_id
 VITE_ENTRA_ID_TENANT_ID=your_tenant_id
 VITE_ENTRA_ID_REDIRECT_URI=http://localhost:5173
 VITE_APP_NAME=AkaMoney
-VITE_SHORT_DOMAIN=http://localhost:8787
+VITE_SHORT_DOMAIN=http://localhost:8788
 ```
 
 ## Development
 
 ### Running Locally
 
-> **Important**: For local development with D1 database, make sure you have created `wrangler.local.toml` with your database ID as described in the "Create D1 Database" section above.
+> **Important**: For local development with D1 database, make sure you have created `wrangler.local.toml` for both the Admin API and Redirect Service with your database ID as described in the "Create D1 Database" section above.
 
-#### Option 1: Run Both Frontend and Backend
+#### Option 1: Run Frontend and Admin API
 ```bash
 npm run dev
 ```
 
 This will start:
 - Frontend at http://localhost:5173
-- Backend at http://localhost:8787
+- Admin API at http://localhost:8787
 
-#### Option 2: Run Separately
+#### Option 2: Run All Services Separately
 ```bash
-# Terminal 1 - Backend (using local config)
+# Terminal 1 - Admin API (using local config)
 cd src/backend
 wrangler dev --config wrangler.local.toml
 
-# Terminal 2 - Frontend
+# Terminal 2 - Redirect Service (using local config)
+cd src/redirect
+wrangler dev --config wrangler.local.toml --port 8788
+
+# Terminal 3 - Frontend
 cd src/frontend
 npm run dev
 ```
 
-### Testing the API
+### Testing the Services
 
-You can test the backend API using curl:
+#### Test Redirect Service
+```bash
+# Health check
+curl http://localhost:8788/health
+
+# Test redirect (after creating a short URL via Admin API)
+curl -L http://localhost:8788/YOUR_SHORT_CODE
+```
+
+#### Test Admin API
 
 ```bash
 # Health check
 curl http://localhost:8787/health
 
-# Create a short URL (no auth required)
+# Create a short URL (no auth required for public creation)
 curl -X POST http://localhost:8787/api/shorten \
   -H "Content-Type: application/json" \
   -d '{"original_url": "https://example.com"}'
-
-# Test redirect
-curl -L http://localhost:8787/YOUR_SHORT_CODE
 ```
 
 ## Deployment
 
-### Deploy Backend to Cloudflare Workers
+AkaMoney deploys three separate services to Cloudflare:
+
+| Service | Deployment Target | Command |
+|---------|-------------------|---------|
+| Admin API | Cloudflare Workers | `npm run deploy:backend` |
+| Redirect Service | Cloudflare Workers | `npm run deploy:redirect` |
+| Frontend | Cloudflare Pages | `npm run deploy:frontend` |
+
+### Deploy All Services
 
 ```bash
-cd backend
 npm run deploy
 ```
 
-This will deploy your worker to Cloudflare. Note the URL (e.g., `https://akamoney-api.YOUR_SUBDOMAIN.workers.dev`).
+### Deploy Admin API to Cloudflare Workers
+
+```bash
+cd src/backend
+npm run deploy
+```
+
+This will deploy your admin API worker to Cloudflare. Note the URL (e.g., `https://akamoney-admin-api.YOUR_SUBDOMAIN.workers.dev`).
+
+### Deploy Redirect Service to Cloudflare Workers
+
+```bash
+cd src/redirect
+npm run deploy
+```
+
+This will deploy your redirect service worker to Cloudflare. Note the URL (e.g., `https://akamoney-redirect.YOUR_SUBDOMAIN.workers.dev`).
 
 ### Deploy Frontend to Cloudflare Pages
 
 ```bash
-cd frontend
+cd src/frontend
 
 # Build the frontend
 npm run build
@@ -360,10 +418,17 @@ If you selected multi-tenant during registration:
 
 ## Custom Domain Setup
 
-### Backend (Workers)
+### Redirect Service (Workers)
 
 1. In Cloudflare Dashboard, go to Workers & Pages
-2. Select your worker
+2. Select `akamoney-redirect` worker
+3. Go to Settings > Triggers
+4. Add a custom domain (e.g., `go.aka.money`)
+
+### Admin API (Workers)
+
+1. In Cloudflare Dashboard, go to Workers & Pages
+2. Select `akamoney-admin-api` worker
 3. Go to Settings > Triggers
 4. Add a custom domain (e.g., `api.aka.money`)
 
@@ -372,19 +437,25 @@ If you selected multi-tenant during registration:
 1. In Cloudflare Dashboard, go to Pages
 2. Select your project
 3. Go to Custom domains
-4. Add your domain (e.g., `aka.money`)
+4. Add your domain (e.g., `admin.aka.money`)
 
 ### DNS Configuration
 
 Add the following DNS records in Cloudflare:
-- `aka.money` → CNAME to your Pages deployment
-- `api.aka.money` → CNAME to your Workers deployment
+- `go.aka.money` → CNAME to your Redirect Service worker
+- `api.aka.money` → CNAME to your Admin API worker
+- `admin.aka.money` → CNAME to your Pages deployment
 
 ## Monitoring and Logs
 
 ### View Worker Logs
 ```bash
-cd backend
+# Admin API logs
+cd src/backend
+wrangler tail
+
+# Redirect Service logs
+cd src/redirect
 wrangler tail
 ```
 

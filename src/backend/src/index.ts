@@ -5,13 +5,12 @@ import { errorMiddleware } from './middleware/error';
 import { authMiddleware, optionalAuthMiddleware, getAuthUser } from './middleware/auth';
 import {
   createUrl,
-  getUrlByShortCode,
   getUrlById,
   updateUrl,
   deleteUrl,
   getUserUrls
 } from './services/url';
-import { recordClick, getAnalytics } from './services/analytics';
+import { getAnalytics } from './services/analytics';
 import type { CreateUrlRequest, UpdateUrlRequest } from './types';
 
 const app = new Hono<{ Bindings: Env }>();
@@ -22,39 +21,12 @@ app.use('*', errorMiddleware);
 
 // Health check
 app.get('/health', (c) => {
-  return c.json({ status: 'ok', timestamp: Date.now() });
-});
-
-// Redirect endpoint (public)
-app.get('/:shortCode', async (c) => {
-  const shortCode = c.req.param('shortCode');
-  
-  // Check if it's an API route
-  if (shortCode === 'api' || shortCode === 'health') {
-    return c.notFound();
-  }
-
-  const url = await getUrlByShortCode(c.env.DB, shortCode);
-
-  if (!url) {
-    return c.json({ error: 'Not Found', message: 'Short URL not found' }, 404);
-  }
-
-  // Check if URL is expired
-  if (url.expires_at && url.expires_at < Date.now()) {
-    return c.json({ error: 'Gone', message: 'This short URL has expired' }, 410);
-  }
-
-  // Record click asynchronously
-  c.executionCtx.waitUntil(
-    recordClick(c.env.DB, c.req.raw, shortCode, url.id)
-  );
-
-  // Redirect to original URL
-  return c.redirect(url.original_url, 302);
+  return c.json({ status: 'ok', service: 'admin-api', timestamp: Date.now() });
 });
 
 // API Routes
+// Note: URL redirect functionality is handled by the separate redirect service (akamoney-redirect)
+// This admin API requires JWT authentication for all management endpoints
 
 // Create short URL (with optional auth)
 app.post('/api/shorten', optionalAuthMiddleware, async (c) => {
