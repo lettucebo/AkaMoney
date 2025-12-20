@@ -52,14 +52,17 @@ class AuthService {
   async login() {
     this.ensureConfigured();
     try {
-      const loginResponse = await this.msalInstance!.loginPopup({
+      const msalInstance = this.msalInstance!;
+      const loginResponse = await msalInstance.loginPopup({
         scopes: ['openid', 'profile', 'email']
       });
       
       if (loginResponse.account) {
-        this.msalInstance!.setActiveAccount(loginResponse.account);
-        // Store token for API requests
-        localStorage.setItem('auth_token', loginResponse.accessToken);
+        msalInstance.setActiveAccount(loginResponse.account);
+        // Store token for API requests if available
+        if (loginResponse.accessToken) {
+          localStorage.setItem('auth_token', loginResponse.accessToken);
+        }
         return loginResponse.account;
       }
     } catch (error) {
@@ -71,7 +74,8 @@ class AuthService {
   async loginRedirect() {
     this.ensureConfigured();
     try {
-      await this.msalInstance!.loginRedirect({
+      const msalInstance = this.msalInstance!;
+      await msalInstance.loginRedirect({
         scopes: ['openid', 'profile', 'email']
       });
     } catch (error) {
