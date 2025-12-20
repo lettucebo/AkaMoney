@@ -113,9 +113,10 @@ export interface LoginResponse {
 export interface JWTPayload {
   userId: string;
   email: string;
-  role: string;
-  iat: number;
-  exp: number;
+  name?: string;
+  role?: string;
+  iat?: number;
+  exp?: number;
 }
 
 export interface ApiError {
