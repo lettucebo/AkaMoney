@@ -161,7 +161,7 @@ describe('Auth Middleware', () => {
       
       const body = await res.json();
       expect(body.error).toBe('Unauthorized');
-      expect(body.message).toBe('Invalid token: missing user identifier');
+      expect(body.message).toBe('Invalid or expired token');
     });
 
     it('should return 500 when Entra ID configuration is missing', async () => {
