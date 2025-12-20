@@ -120,9 +120,20 @@ html {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-html *,
-html *::before,
-html *::after {
+/* Limit transitions to specific elements for better performance */
+.card,
+.modal,
+.dropdown-menu,
+.navbar,
+.btn,
+.form-control,
+.form-select,
+.alert,
+.badge,
+.list-group-item,
+.table,
+.progress,
+.footer {
   transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
 </style>

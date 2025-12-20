@@ -31,6 +31,7 @@
   --app-scrollbar-track: #f1f1f1;
   --app-scrollbar-thumb: #888;
   --app-scrollbar-thumb-hover: #555;
+  --app-display-text-color: #e9ecef;
 }
 
 /* Dark mode custom variables */
@@ -40,6 +41,7 @@
   --app-scrollbar-track: #2d2d2d;
   --app-scrollbar-thumb: #555;
   --app-scrollbar-thumb-hover: #777;
+  --app-display-text-color: #495057;
 }
 
 body {
@@ -122,7 +124,7 @@ body {
   }
 }
 
-/* Dark mode specific adjustments for 404 page */
-[data-bs-theme="dark"] .display-1 {
-  color: #495057;
+/* 404 page display text - uses CSS variable for theme consistency */
+.display-1 {
+  color: var(--app-display-text-color);
 }
