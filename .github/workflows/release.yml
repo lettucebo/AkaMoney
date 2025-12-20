@@ -151,6 +151,52 @@ jobs:
             echo "Bucket '$BUCKET_NAME' created successfully"
           fi
 
+      - name: Configure Worker secrets
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          SECRET_JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          SECRET_ENTRA_ID_TENANT_ID: ${{ secrets.ENTRA_ID_TENANT_ID }}
+          SECRET_ENTRA_ID_CLIENT_ID: ${{ secrets.ENTRA_ID_CLIENT_ID }}
+          SECRET_ENTRA_ID_CLIENT_SECRET: ${{ secrets.ENTRA_ID_CLIENT_SECRET }}
+          SECRET_SHORT_DOMAIN: ${{ secrets.SHORT_DOMAIN }}
+        run: |
+          set -e
+          cd src/backend
+          echo "Configuring Worker secrets..."
+
+          if [ -z "$SECRET_JWT_SECRET" ]; then
+            echo "Error: JWT_SECRET is not set in GitHub secrets"
+            exit 1
+          fi
+          printf '%s' "$SECRET_JWT_SECRET" | npx wrangler secret put JWT_SECRET
+
+          if [ -n "$SECRET_ENTRA_ID_TENANT_ID" ]; then
+            printf '%s' "$SECRET_ENTRA_ID_TENANT_ID" | npx wrangler secret put ENTRA_ID_TENANT_ID
+          else
+            echo "Warning: ENTRA_ID_TENANT_ID is not set, skipping..."
+          fi
+
+          if [ -n "$SECRET_ENTRA_ID_CLIENT_ID" ]; then
+            printf '%s' "$SECRET_ENTRA_ID_CLIENT_ID" | npx wrangler secret put ENTRA_ID_CLIENT_ID
+          else
+            echo "Warning: ENTRA_ID_CLIENT_ID is not set, skipping..."
+          fi
+
+          if [ -n "$SECRET_ENTRA_ID_CLIENT_SECRET" ]; then
+            printf '%s' "$SECRET_ENTRA_ID_CLIENT_SECRET" | npx wrangler secret put ENTRA_ID_CLIENT_SECRET
+          else
+            echo "Warning: ENTRA_ID_CLIENT_SECRET is not set, skipping..."
+          fi
+
+          if [ -n "$SECRET_SHORT_DOMAIN" ]; then
+            printf '%s' "$SECRET_SHORT_DOMAIN" | npx wrangler secret put SHORT_DOMAIN
+          else
+            echo "Warning: SHORT_DOMAIN is not set, skipping..."
+          fi
+
+          echo "Worker secrets configured successfully"
+
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:
