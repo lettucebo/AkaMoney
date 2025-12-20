@@ -179,28 +179,28 @@ jobs:
             echo "Error: JWT_SECRET is not set in GitHub secrets"
             exit 1
           fi
-          printf '%s' "$SECRET_JWT_SECRET" | npx wrangler secret put JWT_SECRET
+          npx wrangler secret put JWT_SECRET <<< "$SECRET_JWT_SECRET"
 
           if [ -n "$SECRET_ENTRA_ID_TENANT_ID" ]; then
-            printf '%s' "$SECRET_ENTRA_ID_TENANT_ID" | npx wrangler secret put ENTRA_ID_TENANT_ID
+            npx wrangler secret put ENTRA_ID_TENANT_ID <<< "$SECRET_ENTRA_ID_TENANT_ID"
           else
             echo "Warning: ENTRA_ID_TENANT_ID is not set, skipping..."
           fi
 
           if [ -n "$SECRET_ENTRA_ID_CLIENT_ID" ]; then
-            printf '%s' "$SECRET_ENTRA_ID_CLIENT_ID" | npx wrangler secret put ENTRA_ID_CLIENT_ID
+            npx wrangler secret put ENTRA_ID_CLIENT_ID <<< "$SECRET_ENTRA_ID_CLIENT_ID"
           else
             echo "Warning: ENTRA_ID_CLIENT_ID is not set, skipping..."
           fi
 
           if [ -n "$SECRET_ENTRA_ID_CLIENT_SECRET" ]; then
-            printf '%s' "$SECRET_ENTRA_ID_CLIENT_SECRET" | npx wrangler secret put ENTRA_ID_CLIENT_SECRET
+            npx wrangler secret put ENTRA_ID_CLIENT_SECRET <<< "$SECRET_ENTRA_ID_CLIENT_SECRET"
           else
             echo "Warning: ENTRA_ID_CLIENT_SECRET is not set, skipping..."
           fi
 
           if [ -n "$SECRET_SHORT_DOMAIN" ]; then
-            printf '%s' "$SECRET_SHORT_DOMAIN" | npx wrangler secret put SHORT_DOMAIN
+            npx wrangler secret put SHORT_DOMAIN <<< "$SECRET_SHORT_DOMAIN"
           else
             echo "Warning: SHORT_DOMAIN is not set, skipping..."
           fi
@@ -395,7 +395,7 @@ jobs:
           fi
   
           if [ -n "$SECRET_ENTRA_ID_CLIENT_ID" ]; then
-            npx wrangler pages secret put VENTRA_ID_CLIENT_ID --project-name="$PROJECT_NAME" <<< "$SECRET_ENTRA_ID_CLIENT_ID"
+            npx wrangler pages secret put ENTRA_ID_CLIENT_ID --project-name="$PROJECT_NAME" <<< "$SECRET_ENTRA_ID_CLIENT_ID"
             echo "Set VITE_ENTRA_ID_CLIENT_ID"
           else
             echo "Warning: ENTRA_ID_CLIENT_ID is not set, skipping..."
