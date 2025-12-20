@@ -40,6 +40,15 @@ describe('CORS Middleware', () => {
     expect(res.headers.get('Access-Control-Allow-Origin')).toBe('https://aka.money');
   });
 
+  it('should handle Cloudflare Pages deployment domain', async () => {
+    const res = await app.request('/test', {
+      headers: { Origin: 'https://akamoney-admin.pages.dev' }
+    });
+    
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBe('https://akamoney-admin.pages.dev');
+  });
+
   it('should return first allowed origin for unrecognized origin', async () => {
     const res = await app.request('/test', {
       headers: { Origin: 'https://malicious.com' }
