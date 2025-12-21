@@ -63,6 +63,12 @@
                         <i class="bi bi-graph-up"></i> Analytics
                       </router-link>
                       <button
+                        class="btn btn-sm btn-outline-secondary"
+                        @click="openEditModal(url)"
+                      >
+                        <i class="bi bi-pencil"></i> Edit
+                      </button>
+                      <button
                         class="btn btn-sm btn-outline-danger"
                         @click="confirmDelete(url.id)"
                       >
@@ -144,6 +150,133 @@
       </div>
     </div>
 
+    <!-- Edit URL Modal -->
+    <div v-if="showEditModal" class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5)">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">
+              <i class="bi bi-pencil me-2"></i>Edit URL
+            </h5>
+            <button
+              type="button"
+              class="btn-close"
+              @click="closeEditModal"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <form @submit.prevent="handleEditSubmit">
+              <!-- Short Code (Read-only) -->
+              <div class="mb-3">
+                <label for="editShortCode" class="form-label">Short Code</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="editShortCode"
+                  v-model="editForm.short_code"
+                  disabled
+                />
+                <small class="text-muted">Short code cannot be changed</small>
+              </div>
+
+              <!-- Original URL -->
+              <div class="mb-3">
+                <label for="editOriginalUrl" class="form-label">
+                  Original URL <span class="text-danger">*</span>
+                </label>
+                <input
+                  type="url"
+                  class="form-control"
+                  id="editOriginalUrl"
+                  v-model="editForm.original_url"
+                  required
+                  placeholder="https://example.com"
+                />
+              </div>
+
+              <!-- Title -->
+              <div class="mb-3">
+                <label for="editTitle" class="form-label">Title (Optional)</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="editTitle"
+                  v-model="editForm.title"
+                  placeholder="My Link"
+                />
+              </div>
+
+              <!-- Description -->
+              <div class="mb-3">
+                <label for="editDescription" class="form-label">Description (Optional)</label>
+                <textarea
+                  class="form-control"
+                  id="editDescription"
+                  v-model="editForm.description"
+                  rows="3"
+                  placeholder="Optional description"
+                ></textarea>
+              </div>
+
+              <!-- Active Status -->
+              <div class="mb-3 form-check">
+                <input
+                  type="checkbox"
+                  class="form-check-input"
+                  id="editIsActive"
+                  v-model="editForm.is_active"
+                />
+                <label class="form-check-label" for="editIsActive">
+                  Active (uncheck to disable this short URL)
+                </label>
+              </div>
+
+              <!-- Expiration Date -->
+              <div class="mb-3">
+                <label for="editExpiresAt" class="form-label">Expiration Date (Optional)</label>
+                <input
+                  type="datetime-local"
+                  class="form-control"
+                  id="editExpiresAt"
+                  v-model="editForm.expires_at_local"
+                />
+                <small class="text-muted">Leave empty for no expiration</small>
+              </div>
+
+              <!-- Error Display -->
+              <div v-if="editError" class="alert alert-danger" role="alert">
+                {{ editError }}
+              </div>
+
+              <!-- Submit Buttons -->
+              <div class="modal-footer">
+                <button
+                  type="button"
+                  class="btn btn-secondary"
+                  @click="closeEditModal"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  class="btn btn-primary"
+                  :disabled="editLoading"
+                >
+                  <span v-if="editLoading">
+                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                    Saving...
+                  </span>
+                  <span v-else>
+                    <i class="bi bi-check-lg me-2"></i>Save Changes
+                  </span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Success Toast -->
     <div v-if="showSuccessToast" class="position-fixed top-0 end-0 p-3" style="z-index: 11">
       <div class="toast show" role="alert">
@@ -170,11 +303,25 @@ const urlStore = useUrlStore();
 const shortDomain = import.meta.env.VITE_SHORT_DOMAIN || 'http://localhost:8787';
 
 const showCreateModal = ref(false);
+const showEditModal = ref(false);
 const deleteUrlId = ref<string | null>(null);
 const showDeleteModal = ref(false);
 const deleteError = ref<string | null>(null);
 const showSuccessToast = ref(false);
 const successMessage = ref('');
+
+// Edit modal state
+const editForm = ref({
+  id: '',
+  short_code: '',
+  original_url: '',
+  title: '',
+  description: '',
+  is_active: true,
+  expires_at_local: ''
+});
+const editLoading = ref(false);
+const editError = ref<string | null>(null);
 
 onMounted(() => {
   urlStore.fetchUrls();
@@ -222,6 +369,79 @@ const handleDelete = async () => {
   } catch (err: any) {
     deleteError.value = err.response?.data?.message || 'Failed to delete URL';
   }
+};
+
+// Open edit modal
+const openEditModal = (url: UrlResponse) => {
+  editForm.value = {
+    id: url.id,
+    short_code: url.short_code,
+    original_url: url.original_url,
+    title: url.title || '',
+    description: url.description || '',
+    is_active: url.is_active,
+    expires_at_local: url.expires_at ? timestampToLocalDatetime(url.expires_at) : ''
+  };
+  editError.value = null;
+  showEditModal.value = true;
+};
+
+// Close edit modal
+const closeEditModal = () => {
+  showEditModal.value = false;
+  editError.value = null;
+};
+
+// Handle edit form submission
+const handleEditSubmit = async () => {
+  try {
+    editLoading.value = true;
+    editError.value = null;
+
+    const updateData: any = {
+      original_url: editForm.value.original_url,
+      title: editForm.value.title || undefined,
+      description: editForm.value.description || undefined,
+      is_active: editForm.value.is_active
+    };
+
+    // Convert local datetime to timestamp if provided
+    if (editForm.value.expires_at_local) {
+      updateData.expires_at = new Date(editForm.value.expires_at_local).getTime();
+    } else {
+      updateData.expires_at = null;
+    }
+
+    await urlStore.updateUrl(editForm.value.id, updateData);
+    
+    // Close modal
+    closeEditModal();
+    
+    // Show success message
+    successMessage.value = `Successfully updated URL: ${editForm.value.short_code}`;
+    showSuccessToast.value = true;
+    
+    // Auto-hide toast after 3 seconds
+    setTimeout(() => {
+      showSuccessToast.value = false;
+    }, 3000);
+  } catch (err: any) {
+    editError.value = err.response?.data?.message || 'Failed to update URL';
+    console.error('Error updating URL:', err);
+  } finally {
+    editLoading.value = false;
+  }
+};
+
+// Helper function to convert timestamp to local datetime input format
+const timestampToLocalDatetime = (timestamp: number): string => {
+  const date = new Date(timestamp);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
 };
 
 const truncate = (str: string, length: number) => {
