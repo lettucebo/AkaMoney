@@ -54,7 +54,12 @@ class AuthService {
     try {
       const msalInstance = this.msalInstance!;
       const loginResponse = await msalInstance.loginPopup({
-        scopes: ['openid', 'profile', 'email']
+        scopes: [
+          'openid', 
+          'profile', 
+          'email',
+          `api://${clientId}/access_as_user`
+        ]
       });
       
       if (loginResponse.account) {
@@ -80,7 +85,12 @@ class AuthService {
     try {
       const msalInstance = this.msalInstance!;
       await msalInstance.loginRedirect({
-        scopes: ['openid', 'profile', 'email']
+        scopes: [
+          'openid', 
+          'profile', 
+          'email',
+          `api://${clientId}/access_as_user`
+        ]
       });
     } catch (error) {
       console.error('Login redirect failed:', error);
@@ -129,7 +139,12 @@ class AuthService {
 
     try {
       const response = await this.msalInstance.acquireTokenSilent({
-        scopes: ['openid', 'profile', 'email'],
+        scopes: [
+          'openid', 
+          'profile', 
+          'email',
+          `api://${clientId}/access_as_user`
+        ],
         account
       });
       return response.accessToken;
