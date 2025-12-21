@@ -398,7 +398,13 @@ const handleEditSubmit = async () => {
     editLoading.value = true;
     editError.value = null;
 
-    const updateData: any = {
+    const updateData: {
+      original_url: string;
+      title?: string;
+      description?: string;
+      is_active: boolean;
+      expires_at?: number | null;
+    } = {
       original_url: editForm.value.original_url,
       title: editForm.value.title || undefined,
       description: editForm.value.description || undefined,
@@ -436,12 +442,8 @@ const handleEditSubmit = async () => {
 // Helper function to convert timestamp to local datetime input format
 const timestampToLocalDatetime = (timestamp: number): string => {
   const date = new Date(timestamp);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
+  // Use toISOString and slice for datetime-local format (YYYY-MM-DDTHH:mm)
+  return date.toISOString().slice(0, 16);
 };
 
 const truncate = (str: string, length: number) => {
