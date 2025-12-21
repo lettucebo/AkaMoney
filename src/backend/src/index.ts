@@ -58,18 +58,12 @@ app.post('/api/shorten', optionalAuthMiddleware, async (c) => {
     return c.json(url, 201);
   } catch (error) {
     console.error('Error in POST /api/shorten:', error);
-    const errorResponse: any = {
+    return c.json({
       error: 'Internal Server Error',
       message: 'Failed to create short URL',
-      details: error instanceof Error ? error.message : String(error)
-    };
-    
-    // Include stack trace in non-production environments for debugging
-    if (c.env.ENVIRONMENT !== 'production' && error instanceof Error) {
-      errorResponse.stack = error.stack;
-    }
-    
-    return c.json(errorResponse, 500);
+      details: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    }, 500);
   }
 });
 
@@ -116,18 +110,12 @@ app.get('/api/urls', authMiddleware, async (c) => {
     });
   } catch (error) {
     console.error('Error in GET /api/urls:', error);
-    const errorResponse: any = {
+    return c.json({
       error: 'Internal Server Error',
       message: 'Failed to fetch URLs',
-      details: error instanceof Error ? error.message : String(error)
-    };
-    
-    // Include stack trace in non-production environments for debugging
-    if (c.env.ENVIRONMENT !== 'production' && error instanceof Error) {
-      errorResponse.stack = error.stack;
-    }
-    
-    return c.json(errorResponse, 500);
+      details: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    }, 500);
   }
 });
 
@@ -180,18 +168,12 @@ app.get('/api/urls/:id', authMiddleware, async (c) => {
     });
   } catch (error) {
     console.error('Error in GET /api/urls/:id:', error);
-    const errorResponse: any = {
+    return c.json({
       error: 'Internal Server Error',
       message: 'Failed to fetch URL',
-      details: error instanceof Error ? error.message : String(error)
-    };
-    
-    // Include stack trace in non-production environments for debugging
-    if (c.env.ENVIRONMENT !== 'production' && error instanceof Error) {
-      errorResponse.stack = error.stack;
-    }
-    
-    return c.json(errorResponse, 500);
+      details: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    }, 500);
   }
 });
 
@@ -225,18 +207,12 @@ app.put('/api/urls/:id', authMiddleware, async (c) => {
     return c.json(url);
   } catch (error) {
     console.error('Error in PUT /api/urls/:id:', error);
-    const errorResponse: any = {
+    return c.json({
       error: 'Internal Server Error',
       message: 'Failed to update URL',
-      details: error instanceof Error ? error.message : String(error)
-    };
-    
-    // Include stack trace in non-production environments for debugging
-    if (c.env.ENVIRONMENT !== 'production' && error instanceof Error) {
-      errorResponse.stack = error.stack;
-    }
-    
-    return c.json(errorResponse, 500);
+      details: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    }, 500);
   }
 });
 
@@ -269,18 +245,12 @@ app.delete('/api/urls/:id', authMiddleware, async (c) => {
     return c.json({ message: 'URL deleted successfully' });
   } catch (error) {
     console.error('Error in DELETE /api/urls/:id:', error);
-    const errorResponse: any = {
+    return c.json({
       error: 'Internal Server Error',
       message: 'Failed to delete URL',
-      details: error instanceof Error ? error.message : String(error)
-    };
-    
-    // Include stack trace in non-production environments for debugging
-    if (c.env.ENVIRONMENT !== 'production' && error instanceof Error) {
-      errorResponse.stack = error.stack;
-    }
-    
-    return c.json(errorResponse, 500);
+      details: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    }, 500);
   }
 });
 
@@ -317,18 +287,12 @@ app.get('/api/analytics/:shortCode', authMiddleware, async (c) => {
     return c.json(analytics);
   } catch (error) {
     console.error('Error in GET /api/analytics/:shortCode:', error);
-    const errorResponse: any = {
+    return c.json({
       error: 'Internal Server Error',
       message: 'Failed to fetch analytics',
-      details: error instanceof Error ? error.message : String(error)
-    };
-    
-    // Include stack trace in non-production environments for debugging
-    if (c.env.ENVIRONMENT !== 'production' && error instanceof Error) {
-      errorResponse.stack = error.stack;
-    }
-    
-    return c.json(errorResponse, 500);
+      details: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    }, 500);
   }
 });
 
@@ -364,19 +328,13 @@ app.onError((err, c) => {
     method: c.req.method
   });
 
-  const errorResponse: any = {
+  return c.json({
     error: 'Internal Server Error',
     message: 'An unexpected error occurred',
     details: err instanceof Error ? err.message : String(err),
+    stack: err instanceof Error ? err.stack : undefined,
     path: c.req.path
-  };
-  
-  // Include stack trace in non-production environments for debugging
-  if (c.env.ENVIRONMENT !== 'production' && err instanceof Error) {
-    errorResponse.stack = err.stack;
-  }
-
-  return c.json(errorResponse, 500);
+  }, 500);
 });
 
 export default app;

@@ -13,33 +13,21 @@ export async function errorMiddleware(c: Context, next: () => Promise<void>) {
     
     // Handle custom HTTP errors with status codes
     if (error instanceof HttpError) {
-      const errorResponse: any = {
+      return c.json({
         error: error.name.replace('Error', ''),
         message: error.message,
         code: error.code,
-        details: error.message
-      };
-      
-      // Include stack trace in non-production environments for debugging
-      if (c.env?.ENVIRONMENT !== 'production' && error instanceof Error) {
-        errorResponse.stack = error.stack;
-      }
-      
-      return c.json(errorResponse, error.statusCode);
+        details: error.message,
+        stack: error instanceof Error ? error.stack : undefined
+      }, error.statusCode);
     }
     
     // Handle generic errors
-    const errorResponse: any = {
+    return c.json({
       error: 'Internal Server Error',
       message: error instanceof Error ? error.message : 'An unexpected error occurred',
-      details: error instanceof Error ? error.message : String(error)
-    };
-    
-    // Include stack trace in non-production environments for debugging
-    if (c.env?.ENVIRONMENT !== 'production' && error instanceof Error) {
-      errorResponse.stack = error.stack;
-    }
-
-    return c.json(errorResponse, 500);
+      details: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    }, 500);
   }
 }
