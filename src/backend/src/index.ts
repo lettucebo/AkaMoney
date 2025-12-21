@@ -320,9 +320,10 @@ app.get('/api/public/analytics/:shortCode', async (c) => {
 app.post('/api/admin/cleanup', authMiddleware, async (c) => {
   const user = getAuthUser(c);
 
-  // TODO: Add admin role check here if needed
+  // Note: Currently all authenticated users can trigger cleanup.
+  // To restrict to admin users only, implement role-based access control:
   // if (user.role !== 'admin') {
-  //   return c.json({ error: 'Forbidden' }, 403);
+  //   return c.json({ error: 'Forbidden', message: 'Admin role required' }, 403);
   // }
 
   try {
@@ -407,7 +408,8 @@ export default {
       });
     } catch (error) {
       console.error('Cleanup failed:', error);
-      // Don't throw - we don't want to retry cron failures
+      // Don't throw - Cloudflare Workers automatically retries failed cron jobs,
+      // which could lead to duplicate cleanup attempts or cascading failures
     }
   }
 } satisfies ExportedHandler<Env>;

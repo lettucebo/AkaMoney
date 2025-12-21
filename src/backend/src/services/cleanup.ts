@@ -1,5 +1,8 @@
 import type { D1Database } from '@cloudflare/workers-types';
 
+// Constants
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
 /**
  * Clean up old click records
  * @param db D1 Database instance
@@ -20,7 +23,7 @@ export async function cleanupOldClickRecords(
     throw new Error('retentionDays cannot exceed 3650 (10 years)');
   }
 
-  const cutoffTimestamp = Date.now() - (retentionDays * 24 * 60 * 60 * 1000);
+  const cutoffTimestamp = Date.now() - (retentionDays * MS_PER_DAY);
   const cutoffDate = new Date(cutoffTimestamp);
 
   console.log(`Starting cleanup: deleting click records older than ${cutoffDate.toISOString()}`);
