@@ -7,7 +7,7 @@ All notable changes to the AkaMoney project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0] - 2025-12-17
+## [1.0.0] - 2025-12-21
 
 ### Added
 - Initial implementation of URL shortening service
@@ -72,9 +72,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Added missing bootstrap-icons dependency
-- Fixed CORS middleware to work correctly in Cloudflare Workers environment
+- Fixed CORS middleware to work correctly in Cloudflare Workers environment (#24)
 - Improved clipboard copy UX with visual feedback
 - Enhanced wrangler.toml documentation for database_id configuration
+- Fixed AADSTS900144 error when Entra ID client_id is not configured (#21)
+- Fixed frontend build environment variables injection (#23)
+- Fixed authentication flow to request custom API scope for backend authorization (#28)
+
+### Changed
+- Organized root directory files, moved most files to docs folder (#3)
+- Moved all source code to src folder (#7)
+- Split URL redirect service and admin API into separate Cloudflare Workers (#18)
+- Replaced custom JWT validation with Microsoft Entra ID token verification (#27)
+- Refactored Dashboard to be the home page with unified URL creation interface (#34)
+- Migrated non-sensitive config from Secrets to Variables in release workflow (#35)
+- Standardized worker secret configuration to use here-string syntax (#20)
+- Accepted both v1.0 and v2.0 Microsoft Entra ID token formats (#29)
+
+### Improved
+- Added test coverage (80%+) and GitHub Actions CI (#5)
+- Added CD workflow for automatic deployment to Cloudflare (#9)
+- Implemented secret-driven CD deployment to prevent sensitive info leaks in wrangler.toml (#11)
+- CD workflow auto-creates Cloudflare resources if not exists (#12)
+- Required authentication for all admin pages (#16)
+- Added CD workflow step to configure Worker secrets via wrangler (#19)
+- Added Cloudflare Pages origin to CORS allowlist (#24)
+- Added dark mode with theme switching functionality (#26)
+- Added detailed error responses and logging to auth middleware (#32)
+- Added comprehensive error handling with detailed diagnostics to API routes (#33)
 
 ## [Unreleased]
 
