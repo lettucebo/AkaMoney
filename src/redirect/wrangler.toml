@@ -17,7 +17,7 @@ database_id = ""
 
 # Environment variables
 # ARCHIVED_REDIRECT_URL - URL to redirect archived short links (default: https://aka.money/archived)
-# Set via: wrangler secret put ARCHIVED_REDIRECT_URL
+#   Set via: wrangler secret put ARCHIVED_REDIRECT_URL
 [vars]
 ENVIRONMENT = "development"
 

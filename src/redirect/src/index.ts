@@ -37,7 +37,7 @@ app.get('/:shortCode', async (c) => {
   }
 
   // Check if URL is archived (inactive)
-  if (!url.is_active) {
+  if (url.is_active === 0) {
     // Redirect to archived page WITHOUT recording click
     const archivedRedirectUrl = c.env.ARCHIVED_REDIRECT_URL || 'https://aka.money/archived';
     return c.redirect(archivedRedirectUrl, 302);
