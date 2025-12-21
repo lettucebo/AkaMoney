@@ -54,15 +54,15 @@ jobs:
       # They already run in CI workflow on PRs and main branch pushes
       # To force run tests, use workflow_dispatch with force-test=true or include 'force-test' in tag name
       - name: Run backend tests
-        if: github.event.inputs.force-test == 'true' || contains(github.ref, 'force-test')
+        if: (github.event.inputs.force-test == true) || contains(github.ref, 'force-test')
         run: cd src/backend && npm run test:coverage
 
       - name: Run frontend tests
-        if: github.event.inputs.force-test == 'true' || contains(github.ref, 'force-test')
+        if: (github.event.inputs.force-test == true) || contains(github.ref, 'force-test')
         run: cd src/frontend && npm run test:coverage
 
       - name: Run redirect tests
-        if: github.event.inputs.force-test == 'true' || contains(github.ref, 'force-test')
+        if: (github.event.inputs.force-test == true) || contains(github.ref, 'force-test')
         run: cd src/redirect && npm run test:coverage
 
       - name: Build frontend
