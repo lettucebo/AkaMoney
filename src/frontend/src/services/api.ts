@@ -1,3 +1,4 @@
+import authService from './auth';
 import axios, { AxiosInstance, AxiosError } from 'axios';
 import type {
   UrlResponse,
@@ -21,10 +22,20 @@ class ApiService {
 
     // Add request interceptor to include auth token
     this.api.interceptors.request.use(
-      (config) => {
-        const token = localStorage.getItem('auth_token');
+      async (config) => {
+        // Try to get a fresh token from MSAL
+        const token = await authService.getToken();
+        
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
+          // Update localStorage to keep it in sync
+          localStorage.setItem('auth_token', token);
+        } else {
+          // Fallback to cached token if MSAL fails
+          const cachedToken = localStorage.getItem('auth_token');
+          if (cachedToken) {
+            config.headers.Authorization = `Bearer ${cachedToken}`;
+          }
         }
         return config;
       },
