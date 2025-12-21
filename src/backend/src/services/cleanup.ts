@@ -25,29 +25,23 @@ export async function cleanupOldClickRecords(
 
   console.log(`Starting cleanup: deleting click records older than ${cutoffDate.toISOString()}`);
 
-  // Count records to be deleted (for logging)
-  const countResult = await db
-    .prepare('SELECT COUNT(*) as count FROM click_records WHERE clicked_at < ?')
-    .bind(cutoffTimestamp)
-    .first<{ count: number }>();
-
-  const recordsToDelete = countResult?.count || 0;
-
-  if (recordsToDelete === 0) {
-    console.log('No old records to delete');
-    return { deleted: 0, cutoffDate };
-  }
-
   // Delete old records
   const result = await db
     .prepare('DELETE FROM click_records WHERE clicked_at < ?')
     .bind(cutoffTimestamp)
     .run();
 
-  console.log(`Cleanup completed: ${recordsToDelete} records deleted`);
+  // D1 returns meta.changes with the number of affected rows
+  const deletedCount = result.meta?.changes || 0;
+
+  if (deletedCount === 0) {
+    console.log('No old records to delete');
+  } else {
+    console.log(`Cleanup completed: ${deletedCount} records deleted`);
+  }
 
   return {
-    deleted: recordsToDelete,
+    deleted: deletedCount,
     cutoffDate
   };
 }

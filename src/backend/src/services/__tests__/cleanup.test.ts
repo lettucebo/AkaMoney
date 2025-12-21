@@ -25,24 +25,16 @@ describe('Cleanup Service - cleanupOldClickRecords', () => {
   it('should delete old click records', async () => {
     const mockDb = createMockDb();
     
-    // Mock count result (5 records to delete)
-    mockDb._mockFirst.mockResolvedValue({ count: 5 });
-    
-    // Mock delete result
-    mockDb._mockRun.mockResolvedValue({ success: true });
+    // Mock delete result with meta.changes
+    mockDb._mockRun.mockResolvedValue({ meta: { changes: 5 } });
     
     const result = await cleanupOldClickRecords(mockDb as any, 365);
     
     expect(result.deleted).toBe(5);
     expect(result.cutoffDate).toBeInstanceOf(Date);
     
-    // Should prepare 2 queries: count and delete
-    expect(mockDb.prepare).toHaveBeenCalledTimes(2);
-    
-    // Verify count query
-    expect(mockDb.prepare).toHaveBeenCalledWith(
-      'SELECT COUNT(*) as count FROM click_records WHERE clicked_at < ?'
-    );
+    // Should prepare 1 query: delete
+    expect(mockDb.prepare).toHaveBeenCalledTimes(1);
     
     // Verify delete query
     expect(mockDb.prepare).toHaveBeenCalledWith(
@@ -53,23 +45,22 @@ describe('Cleanup Service - cleanupOldClickRecords', () => {
   it('should return 0 when no old records exist', async () => {
     const mockDb = createMockDb();
     
-    // Mock count result (0 records)
-    mockDb._mockFirst.mockResolvedValue({ count: 0 });
+    // Mock delete result with 0 changes
+    mockDb._mockRun.mockResolvedValue({ meta: { changes: 0 } });
     
     const result = await cleanupOldClickRecords(mockDb as any, 365);
     
     expect(result.deleted).toBe(0);
     
-    // Should only prepare count query, not delete
+    // Should prepare and run delete query
     expect(mockDb.prepare).toHaveBeenCalledTimes(1);
-    expect(mockDb._mockRun).not.toHaveBeenCalled();
+    expect(mockDb._mockRun).toHaveBeenCalled();
   });
 
   it('should use custom retention period', async () => {
     const mockDb = createMockDb();
     
-    mockDb._mockFirst.mockResolvedValue({ count: 3 });
-    mockDb._mockRun.mockResolvedValue({ success: true });
+    mockDb._mockRun.mockResolvedValue({ meta: { changes: 3 } });
     
     const customRetentionDays = 180;
     const result = await cleanupOldClickRecords(mockDb as any, customRetentionDays);
@@ -87,8 +78,7 @@ describe('Cleanup Service - cleanupOldClickRecords', () => {
   it('should use default retention period of 365 days', async () => {
     const mockDb = createMockDb();
     
-    mockDb._mockFirst.mockResolvedValue({ count: 10 });
-    mockDb._mockRun.mockResolvedValue({ success: true });
+    mockDb._mockRun.mockResolvedValue({ meta: { changes: 10 } });
     
     const result = await cleanupOldClickRecords(mockDb as any);
     
@@ -102,23 +92,21 @@ describe('Cleanup Service - cleanupOldClickRecords', () => {
     expect(Math.abs(actualCutoff - expectedCutoff)).toBeLessThan(1000);
   });
 
-  it('should handle null count result gracefully', async () => {
+  it('should handle null meta result gracefully', async () => {
     const mockDb = createMockDb();
     
-    // Mock null result
-    mockDb._mockFirst.mockResolvedValue(null);
+    // Mock result without meta
+    mockDb._mockRun.mockResolvedValue({});
     
     const result = await cleanupOldClickRecords(mockDb as any, 365);
     
     expect(result.deleted).toBe(0);
-    expect(mockDb._mockRun).not.toHaveBeenCalled();
   });
 
   it('should bind correct timestamp to queries', async () => {
     const mockDb = createMockDb();
     
-    mockDb._mockFirst.mockResolvedValue({ count: 1 });
-    mockDb._mockRun.mockResolvedValue({ success: true });
+    mockDb._mockRun.mockResolvedValue({ meta: { changes: 1 } });
     
     const retentionDays = 365;
     const beforeTimestamp = Date.now() - (retentionDays * 24 * 60 * 60 * 1000);

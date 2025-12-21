@@ -319,9 +319,6 @@ app.get('/api/public/analytics/:shortCode', async (c) => {
 // Manual cleanup trigger (for testing/admin)
 app.post('/api/admin/cleanup', authMiddleware, async (c) => {
   const user = getAuthUser(c);
-  if (!user) {
-    return c.json({ error: 'Unauthorized' }, 401);
-  }
 
   // TODO: Add admin role check here if needed
   // if (user.role !== 'admin') {
