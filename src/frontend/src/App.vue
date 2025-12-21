@@ -15,9 +15,6 @@
         </button>
         <div class="collapse navbar-collapse" id="navbarNav">
           <ul class="navbar-nav ms-auto">
-            <li class="nav-item">
-              <router-link to="/" class="nav-link">Home</router-link>
-            </li>
             <li v-if="authStore.isAuthenticated" class="nav-item">
               <router-link to="/dashboard" class="nav-link">Dashboard</router-link>
             </li>
@@ -84,7 +81,7 @@ onMounted(async () => {
 
 const handleLogout = async () => {
   await authStore.logout();
-  router.push('/');
+  router.push('/dashboard');
 };
 </script>
 

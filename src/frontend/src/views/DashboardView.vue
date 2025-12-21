@@ -114,47 +114,7 @@
             <button type="button" class="btn-close" @click="closeCreateModal"></button>
           </div>
           <div class="modal-body">
-            <form @submit.prevent="handleCreate">
-              <div class="mb-3">
-                <label for="originalUrl" class="form-label">Original URL *</label>
-                <input
-                  type="url"
-                  class="form-control"
-                  id="originalUrl"
-                  v-model="formData.original_url"
-                  required
-                />
-              </div>
-              <div class="mb-3">
-                <label for="shortCode" class="form-label">Custom Short Code</label>
-                <input
-                  type="text"
-                  class="form-control"
-                  id="shortCode"
-                  v-model="formData.short_code"
-                  pattern="[a-zA-Z0-9-_]{3,20}"
-                />
-              </div>
-              <div class="mb-3">
-                <label for="title" class="form-label">Title</label>
-                <input
-                  type="text"
-                  class="form-control"
-                  id="title"
-                  v-model="formData.title"
-                />
-              </div>
-              <div v-if="createError" class="alert alert-danger">{{ createError }}</div>
-              <div class="d-flex justify-content-end gap-2">
-                <button type="button" class="btn btn-secondary" @click="closeCreateModal">
-                  Cancel
-                </button>
-                <button type="submit" class="btn btn-primary" :disabled="creating">
-                  <span v-if="creating" class="spinner-border spinner-border-sm me-2"></span>
-                  Create
-                </button>
-              </div>
-            </form>
+            <UrlCreateForm mode="modal" @created="onUrlCreated" @cancel="closeCreateModal" />
           </div>
         </div>
       </div>
@@ -183,28 +143,38 @@
         </div>
       </div>
     </div>
+
+    <!-- Success Toast -->
+    <div v-if="showSuccessToast" class="position-fixed top-0 end-0 p-3" style="z-index: 11">
+      <div class="toast show" role="alert">
+        <div class="toast-header bg-success text-white">
+          <i class="bi bi-check-circle-fill me-2"></i>
+          <strong class="me-auto">Success</strong>
+          <button type="button" class="btn-close btn-close-white" @click="showSuccessToast = false"></button>
+        </div>
+        <div class="toast-body">
+          {{ successMessage }}
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useUrlStore } from '@/stores/url';
+import UrlCreateForm from '@/components/UrlCreateForm.vue';
+import type { UrlResponse } from '@/types';
 
 const urlStore = useUrlStore();
 const shortDomain = import.meta.env.VITE_SHORT_DOMAIN || 'http://localhost:8787';
 
-const formData = ref({
-  original_url: '',
-  short_code: '',
-  title: ''
-});
-
-const creating = ref(false);
-const createError = ref<string | null>(null);
 const showCreateModal = ref(false);
 const deleteUrlId = ref<string | null>(null);
 const showDeleteModal = ref(false);
 const deleteError = ref<string | null>(null);
+const showSuccessToast = ref(false);
+const successMessage = ref('');
 
 onMounted(() => {
   urlStore.fetchUrls();
@@ -216,26 +186,24 @@ const loadPage = (page: number) => {
 
 const openCreateModal = () => {
   showCreateModal.value = true;
-  createError.value = null;
 };
 
 const closeCreateModal = () => {
   showCreateModal.value = false;
-  formData.value = { original_url: '', short_code: '', title: '' };
 };
 
-const handleCreate = async () => {
-  creating.value = true;
-  createError.value = null;
-
-  try {
-    await urlStore.createUrl(formData.value);
-    closeCreateModal();
-  } catch (err: any) {
-    createError.value = err.response?.data?.message || 'Failed to create URL';
-  } finally {
-    creating.value = false;
-  }
+const onUrlCreated = async (url: UrlResponse) => {
+  closeCreateModal();
+  await urlStore.fetchUrls();
+  
+  // Show success toast notification
+  successMessage.value = `Successfully created short URL: ${url.short_code}`;
+  showSuccessToast.value = true;
+  
+  // Auto-hide toast after 3 seconds
+  setTimeout(() => {
+    showSuccessToast.value = false;
+  }, 3000);
 };
 
 const confirmDelete = (id: string) => {
