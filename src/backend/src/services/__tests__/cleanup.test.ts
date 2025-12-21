@@ -154,4 +154,12 @@ describe('Cleanup Service - cleanupOldClickRecords', () => {
       'retentionDays must be a positive number'
     );
   });
+
+  it('should throw error for NaN retention days', async () => {
+    const mockDb = createMockDb();
+    
+    await expect(cleanupOldClickRecords(mockDb as any, NaN)).rejects.toThrow(
+      'retentionDays must be a positive number'
+    );
+  });
 });

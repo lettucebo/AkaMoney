@@ -332,7 +332,7 @@ app.post('/api/admin/cleanup', authMiddleware, async (c) => {
     
     // Validate retention days parameter at API layer for better UX
     // Service layer also validates for defense in depth
-    if (isNaN(retentionDays) || retentionDays <= 0) {
+    if (!Number.isFinite(retentionDays) || retentionDays <= 0) {
       return c.json({
         error: 'Invalid parameter',
         message: 'days parameter must be a positive integer'
@@ -346,6 +346,7 @@ app.post('/api/admin/cleanup', authMiddleware, async (c) => {
       }, 400);
     }
     
+    console.log(`Manual cleanup triggered by user: ${user.userId}, retention days: ${retentionDays}`);
     const result = await cleanupOldClickRecords(c.env.DB, retentionDays);
 
     return c.json({

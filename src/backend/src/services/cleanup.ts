@@ -7,7 +7,7 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
  * Clean up old click records
  * @param db D1 Database instance
  * @param retentionDays Number of days to retain records (default: 365)
- * @returns Number of records deleted
+ * @returns An object containing the number of records deleted and the cutoff date used for deletion
  */
 export async function cleanupOldClickRecords(
   db: D1Database,
