@@ -35,20 +35,11 @@ async function verifyEntraIdToken(
     const v1Issuer = `https://sts.windows.net/${tenantId}/`;
     const v2Issuer = `https://login.microsoftonline.com/${tenantId}/v2.0`;
 
-    // Try v2.0 first, then v1.0
-    let payload;
-    try {
-      // Audience can be either clientId or api://{clientId}
-      const result = await jwtVerify(token, JWKS, {
-        issuer: [v2Issuer, v1Issuer],
-        audience: [clientId, `api://${clientId}`],
-      });
-      payload = result.payload;
-    } catch (error) {
-      // If verification fails, log the error and return null
-      console.error('Token verification failed:', error);
-      return null;
-    }
+    // Audience can be either clientId or api://{clientId}
+    const { payload } = await jwtVerify(token, JWKS, {
+      issuer: [v2Issuer, v1Issuer],
+      audience: [clientId, `api://${clientId}`],
+    });
 
     // Extract user information from token
     const userId = (payload.oid as string) || (payload.sub as string);
