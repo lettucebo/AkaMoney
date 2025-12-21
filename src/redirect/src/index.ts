@@ -36,12 +36,19 @@ app.get('/:shortCode', async (c) => {
     return c.json({ error: 'Not Found', message: 'Short URL not found' }, 404);
   }
 
+  // Check if URL is archived (inactive)
+  if (!url.is_active) {
+    // Redirect to archived page WITHOUT recording click
+    const archivedRedirectUrl = c.env.ARCHIVED_REDIRECT_URL || 'https://aka.money/archived';
+    return c.redirect(archivedRedirectUrl, 302);
+  }
+
   // Check if URL is expired
   if (url.expires_at && url.expires_at < Date.now()) {
     return c.json({ error: 'Gone', message: 'This short URL has expired' }, 410);
   }
 
-  // Record click asynchronously
+  // Record click asynchronously (ONLY for active URLs)
   c.executionCtx.waitUntil(
     recordClick(c.env.DB, c.req.raw, shortCode, url.id)
   );

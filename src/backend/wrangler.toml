@@ -22,6 +22,7 @@ bucket_name = "akamoney-storage"
 preview_bucket_name = "akamoney-storage-preview"
 
 # Environment variables (secrets should be set via wrangler secret put)
+# ARCHIVED_REDIRECT_URL - URL to redirect archived short links (default: https://aka.money/archived)
 [vars]
 ENVIRONMENT = "development"
 JWT_EXPIRES_IN = "7d"

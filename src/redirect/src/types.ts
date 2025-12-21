@@ -4,6 +4,7 @@
 export interface Env {
   DB: D1Database;
   ENVIRONMENT: string;
+  ARCHIVED_REDIRECT_URL?: string;
 }
 
 /**

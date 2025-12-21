@@ -234,6 +234,48 @@ Base URL: `https://api.aka.money` (or your admin API worker URL)
 ### Authentication
 - `POST /api/auth/login` - Get JWT token
 
+## URL Management
+
+### Archive vs Delete
+
+AkaMoney uses **soft delete (archive)** instead of permanent deletion:
+
+- **Archive**: URLs are marked as inactive but preserved in the database
+  - Archived URLs redirect to a configurable landing page
+  - Click statistics are preserved but no longer incremented
+  - Can be restored anytime
+  - Historical analytics remain accessible
+
+- **Active**: URLs work normally and count clicks
+
+### Archived URL Behavior
+
+When a visitor accesses an archived short URL:
+1. They are redirected to the configured archived page (default: `https://aka.money/archived`)
+2. The click is NOT counted in statistics
+3. The URL owner can still view historical analytics
+
+### Configuration
+
+Set the archived redirect URL using environment variables:
+
+**Backend/Redirect Worker:**
+```bash
+ARCHIVED_REDIRECT_URL=https://aka.money/archived
+```
+
+**Frontend:**
+```bash
+VITE_ARCHIVED_REDIRECT_URL=https://aka.money/archived
+```
+
+### Managing Archived URLs
+
+- **Archive**: Click the "Archive" button in the Dashboard
+- **Restore**: Toggle "Show All" and click "Restore" on archived URLs
+- **View Analytics**: Archived URLs still show historical analytics
+- **Edit**: Restore the URL first, then edit
+
 ## Database Schema
 
 ### URLs Table

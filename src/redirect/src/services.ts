@@ -15,7 +15,7 @@ export async function getUrlByShortCode(
   shortCode: string
 ): Promise<Url | null> {
   const result = await db
-    .prepare('SELECT * FROM urls WHERE short_code = ? AND is_active = 1')
+    .prepare('SELECT * FROM urls WHERE short_code = ?')
     .bind(shortCode)
     .first<Url>();
 
