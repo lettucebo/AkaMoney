@@ -329,7 +329,24 @@ app.post('/api/admin/cleanup', authMiddleware, async (c) => {
   // }
 
   try {
-    const retentionDays = parseInt(c.req.query('days') || '365');
+    const daysParam = c.req.query('days') || '365';
+    const retentionDays = parseInt(daysParam, 10);
+    
+    // Validate retention days parameter
+    if (isNaN(retentionDays) || retentionDays <= 0) {
+      return c.json({
+        error: 'Invalid parameter',
+        message: 'days parameter must be a positive integer'
+      }, 400);
+    }
+    
+    if (retentionDays > 3650) {
+      return c.json({
+        error: 'Invalid parameter',
+        message: 'days parameter cannot exceed 3650 (10 years)'
+      }, 400);
+    }
+    
     const result = await cleanupOldClickRecords(c.env.DB, retentionDays);
 
     return c.json({

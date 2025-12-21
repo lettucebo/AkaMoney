@@ -10,6 +10,21 @@ export async function cleanupOldClickRecords(
   db: D1Database,
   retentionDays: number = 365
 ): Promise<{ deleted: number; cutoffDate: Date }> {
+  // Validate retentionDays parameter
+  if (retentionDays <= 0 || !Number.isFinite(retentionDays)) {
+    throw new Error('retentionDays must be a positive number');
+  }
+  
+  // Prevent accidental deletion of all data (minimum 1 day retention)
+  if (retentionDays < 1) {
+    throw new Error('retentionDays must be at least 1');
+  }
+  
+  // Prevent extremely large values that could cause issues
+  if (retentionDays > 3650) { // Max 10 years
+    throw new Error('retentionDays cannot exceed 3650 (10 years)');
+  }
+
   const cutoffTimestamp = Date.now() - (retentionDays * 24 * 60 * 60 * 1000);
   const cutoffDate = new Date(cutoffTimestamp);
 

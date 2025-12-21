@@ -134,4 +134,36 @@ describe('Cleanup Service - cleanupOldClickRecords', () => {
     expect(boundTimestamp).toBeGreaterThanOrEqual(beforeTimestamp);
     expect(boundTimestamp).toBeLessThanOrEqual(afterTimestamp);
   });
+
+  it('should throw error for negative retention days', async () => {
+    const mockDb = createMockDb();
+    
+    await expect(cleanupOldClickRecords(mockDb as any, -1)).rejects.toThrow(
+      'retentionDays must be a positive number'
+    );
+  });
+
+  it('should throw error for zero retention days', async () => {
+    const mockDb = createMockDb();
+    
+    await expect(cleanupOldClickRecords(mockDb as any, 0)).rejects.toThrow(
+      'retentionDays must be a positive number'
+    );
+  });
+
+  it('should throw error for retention days exceeding maximum', async () => {
+    const mockDb = createMockDb();
+    
+    await expect(cleanupOldClickRecords(mockDb as any, 3651)).rejects.toThrow(
+      'retentionDays cannot exceed 3650 (10 years)'
+    );
+  });
+
+  it('should throw error for non-finite retention days', async () => {
+    const mockDb = createMockDb();
+    
+    await expect(cleanupOldClickRecords(mockDb as any, Infinity)).rejects.toThrow(
+      'retentionDays must be a positive number'
+    );
+  });
 });
