@@ -1,15 +1,51 @@
+/**
+ * AkaMoney Theme System
+ * 
+ * This file defines custom CSS variables and styles that work with Bootstrap 5's
+ * built-in dark mode support (data-bs-theme attribute).
+ * 
+ * Theme Management:
+ * - Theme is managed by the theme store (src/stores/theme.ts)
+ * - Preference is stored in localStorage under key 'akamoney-theme'
+ * - Defaults to OS preference if no stored preference exists
+ * - Toggle button is in the navbar for manual switching
+ * 
+ * How it works:
+ * - Bootstrap 5 uses `data-bs-theme="light"` or `data-bs-theme="dark"` on <html>
+ * - This automatically adjusts all Bootstrap components and utilities
+ * - Custom variables below extend Bootstrap's dark mode with app-specific styles
+ */
+
 :root {
+  /* Primary brand colors */
   --bs-primary: #0d6efd;
   --bs-secondary: #6c757d;
   --bs-success: #198754;
   --bs-danger: #dc3545;
   --bs-warning: #ffc107;
   --bs-info: #0dcaf0;
+
+  /* Custom app colors */
+  --app-shadow-color: rgba(0, 0, 0, 0.15);
+  --app-focus-shadow: rgba(13, 110, 253, 0.25);
+  --app-scrollbar-track: #f1f1f1;
+  --app-scrollbar-thumb: #888;
+  --app-scrollbar-thumb-hover: #555;
+  --app-display-text-color: #e9ecef;
+}
+
+/* Dark mode custom variables */
+[data-bs-theme="dark"] {
+  --app-shadow-color: rgba(0, 0, 0, 0.4);
+  --app-focus-shadow: rgba(13, 110, 253, 0.4);
+  --app-scrollbar-track: #2d2d2d;
+  --app-scrollbar-thumb: #555;
+  --app-scrollbar-thumb-hover: #777;
+  --app-display-text-color: #495057;
 }
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  background-color: #f8f9fa;
 }
 
 .navbar-brand {
@@ -22,7 +58,7 @@ body {
 }
 
 .shadow {
-  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+  box-shadow: 0 0.5rem 1rem var(--app-shadow-color) !important;
 }
 
 .btn {
@@ -32,7 +68,7 @@ body {
 .form-control:focus,
 .form-select:focus {
   border-color: var(--bs-primary);
-  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+  box-shadow: 0 0 0 0.2rem var(--app-focus-shadow);
 }
 
 /* Loading spinner */
@@ -49,16 +85,16 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: var(--app-scrollbar-track);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #888;
+  background: var(--app-scrollbar-thumb);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #555;
+  background: var(--app-scrollbar-thumb-hover);
 }
 
 /* Animations */
