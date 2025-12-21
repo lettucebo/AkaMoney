@@ -12,20 +12,18 @@ declare module 'vue-router' {
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
-    name: 'Home',
-    component: () => import('@/views/HomeView.vue'),
-    meta: { requiresAuth: true }
-  },
-  {
-    path: '/login',
-    name: 'Login',
-    component: () => import('@/views/LoginView.vue')
+    redirect: '/dashboard'
   },
   {
     path: '/dashboard',
     name: 'Dashboard',
     component: () => import('@/views/DashboardView.vue'),
     meta: { requiresAuth: true }
+  },
+  {
+    path: '/login',
+    name: 'Login',
+    component: () => import('@/views/LoginView.vue')
   },
   {
     path: '/analytics/:shortCode',
@@ -47,7 +45,7 @@ const router = createRouter({
 });
 
 // Navigation guard for authentication
-router.beforeEach(async (to, from, next) => {
+router.beforeEach(async (to, _from, next) => {
   const authStore = useAuthStore();
 
   // Wait for auth initialization if not already done
@@ -59,7 +57,7 @@ router.beforeEach(async (to, from, next) => {
     next({ name: 'Login', query: { redirect: to.fullPath } });
   } else if (to.name === 'Login' && authStore.isAuthenticated) {
     // Redirect authenticated users away from login page, preserving redirect target if present
-    const redirect = (to.query.redirect as string) || '/';
+    const redirect = (to.query.redirect as string) || '/dashboard';
     next(redirect);
   } else {
     next();
