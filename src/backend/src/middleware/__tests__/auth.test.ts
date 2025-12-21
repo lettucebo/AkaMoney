@@ -17,6 +17,7 @@ describe('Auth Middleware', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.spyOn(console, 'debug').mockImplementation(() => {});
   });
 
@@ -35,6 +36,7 @@ describe('Auth Middleware', () => {
       const body = await res.json();
       expect(body.error).toBe('Unauthorized');
       expect(body.message).toBe('Missing or invalid authorization header');
+      expect(body.details).toBe('Expected format: Authorization: Bearer <token>');
     });
 
     it('should reject request with invalid Authorization format', async () => {
@@ -69,6 +71,7 @@ describe('Auth Middleware', () => {
       const body = await res.json();
       expect(body.error).toBe('Unauthorized');
       expect(body.message).toBe('Invalid or expired token');
+      expect(body.details).toBe('Token verification failed - check server logs for details');
     });
 
     it('should allow request with valid token', async () => {
@@ -162,6 +165,7 @@ describe('Auth Middleware', () => {
       const body = await res.json();
       expect(body.error).toBe('Unauthorized');
       expect(body.message).toBe('Invalid or expired token');
+      expect(body.details).toBe('Token verification failed - check server logs for details');
     });
 
     it('should return 500 when Entra ID configuration is missing', async () => {
@@ -180,6 +184,7 @@ describe('Auth Middleware', () => {
       const body = await res.json();
       expect(body.error).toBe('Server Error');
       expect(body.message).toBe('Authentication is not properly configured');
+      expect(body.details).toBe('ENTRA_ID_TENANT_ID or ENTRA_ID_CLIENT_ID is missing');
     });
 
     it('should accept v1.0 token with sts.windows.net issuer', async () => {
