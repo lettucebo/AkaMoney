@@ -314,6 +314,124 @@ app.get('/api/public/analytics/:shortCode', async (c) => {
   });
 });
 
+// Get database usage statistics
+app.get('/api/stats/usage', authMiddleware, async (c) => {
+  try {
+    const user = getAuthUser(c);
+    if (!user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    // Total click records
+    const totalClicksResult = await c.env.DB
+      .prepare('SELECT COUNT(*) as count FROM click_records')
+      .first<{ count: number }>();
+    
+    const totalClicks = totalClicksResult?.count || 0;
+
+    // Today's clicks (UTC timezone)
+    const todayStart = new Date();
+    todayStart.setUTCHours(0, 0, 0, 0);
+    const todayStartTimestamp = todayStart.getTime();
+
+    const todayClicksResult = await c.env.DB
+      .prepare('SELECT COUNT(*) as count FROM click_records WHERE clicked_at >= ?')
+      .bind(todayStartTimestamp)
+      .first<{ count: number }>();
+    
+    const todayClicks = todayClicksResult?.count || 0;
+
+    // This month's clicks
+    const monthStart = new Date();
+    monthStart.setUTCDate(1);
+    monthStart.setUTCHours(0, 0, 0, 0);
+    const monthStartTimestamp = monthStart.getTime();
+
+    const monthClicksResult = await c.env.DB
+      .prepare('SELECT COUNT(*) as count FROM click_records WHERE clicked_at >= ?')
+      .bind(monthStartTimestamp)
+      .first<{ count: number }>();
+    
+    const monthClicks = monthClicksResult?.count || 0;
+
+    // Total URLs
+    const totalUrlsResult = await c.env.DB
+      .prepare('SELECT COUNT(*) as count FROM urls')
+      .first<{ count: number }>();
+    
+    const totalUrls = totalUrlsResult?.count || 0;
+
+    // Estimate database size (rough calculation)
+    // Each click record ~500 bytes, each URL ~300 bytes
+    const estimatedSizeBytes = (totalClicks * 500) + (totalUrls * 300);
+    const estimatedSizeMB = estimatedSizeBytes / (1024 * 1024);
+
+    // D1 Free tier limits
+    const freeStorageLimitGB = 5;
+    const freeStorageLimitMB = freeStorageLimitGB * 1024;
+    const storageUsagePercent = (estimatedSizeMB / freeStorageLimitMB) * 100;
+
+    const freeReadLimitPerDay = 5000000; // 5M reads/day
+    const freeWriteLimitPerDay = 100000; // 100K writes/day
+
+    // Estimate daily reads/writes based on current usage
+    const estimatedDailyReads = todayClicks * 3; // Each click: 1 read for URL + 2 for analytics
+    const estimatedDailyWrites = todayClicks; // Each click: 1 write
+
+    const readsUsagePercent = (estimatedDailyReads / freeReadLimitPerDay) * 100;
+    const writesUsagePercent = (estimatedDailyWrites / freeWriteLimitPerDay) * 100;
+
+    // Oldest record date
+    const oldestRecordResult = await c.env.DB
+      .prepare('SELECT MIN(clicked_at) as oldest FROM click_records')
+      .first<{ oldest: number }>();
+    
+    const oldestRecordDate = oldestRecordResult?.oldest 
+      ? new Date(oldestRecordResult.oldest).toISOString() 
+      : null;
+
+    return c.json({
+      totalClicks,
+      todayClicks,
+      monthClicks,
+      totalUrls,
+      database: {
+        estimatedSizeMB: parseFloat(estimatedSizeMB.toFixed(2)),
+        estimatedSizeGB: parseFloat((estimatedSizeMB / 1024).toFixed(4)),
+        storageLimitGB: freeStorageLimitGB,
+        storageUsagePercent: parseFloat(storageUsagePercent.toFixed(2))
+      },
+      limits: {
+        storage: {
+          used: parseFloat(estimatedSizeMB.toFixed(2)),
+          limit: freeStorageLimitMB,
+          unit: 'MB',
+          usagePercent: parseFloat(storageUsagePercent.toFixed(2))
+        },
+        reads: {
+          estimatedDaily: estimatedDailyReads,
+          limit: freeReadLimitPerDay,
+          usagePercent: parseFloat(readsUsagePercent.toFixed(2))
+        },
+        writes: {
+          estimatedDaily: estimatedDailyWrites,
+          limit: freeWriteLimitPerDay,
+          usagePercent: parseFloat(writesUsagePercent.toFixed(2))
+        }
+      },
+      oldestRecordDate,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error fetching usage stats:', error);
+    return c.json({
+      error: 'Internal Server Error',
+      message: 'Failed to fetch usage statistics',
+      details: error instanceof Error ? error.message : String(error)
+    }, 500);
+  }
+});
+
 // 404 handler
 app.notFound((c) => {
   return c.json({ error: 'Not Found', message: 'The requested resource was not found' }, 404);

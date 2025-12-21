@@ -6,7 +6,8 @@ import type {
   UpdateUrlRequest,
   AnalyticsResponse,
   PaginatedResponse,
-  ApiError
+  ApiError,
+  UsageStats
 } from '@/types';
 
 class ApiService {
@@ -104,6 +105,12 @@ class ApiService {
   // Health Check
   async healthCheck(): Promise<{ status: string; timestamp: number }> {
     const response = await this.api.get('/health');
+    return response.data;
+  }
+
+  // Usage Statistics
+  async getUsageStats(): Promise<UsageStats> {
+    const response = await this.api.get<UsageStats>('/api/stats/usage');
     return response.data;
   }
 }

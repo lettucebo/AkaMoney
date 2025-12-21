@@ -18,6 +18,12 @@
             <li v-if="authStore.isAuthenticated" class="nav-item">
               <router-link to="/dashboard" class="nav-link">Dashboard</router-link>
             </li>
+            <li v-if="authStore.isAuthenticated" class="nav-item">
+              <router-link to="/usage" class="nav-link">
+                <i class="bi bi-bar-chart-line me-1"></i>
+                Usage
+              </router-link>
+            </li>
             <li class="nav-item">
               <button
                 class="nav-link btn btn-link"

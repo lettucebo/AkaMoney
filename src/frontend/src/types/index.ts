@@ -81,3 +81,36 @@ export interface LoginResponse {
   token: string;
   user: User;
 }
+
+export interface UsageStats {
+  totalClicks: number;
+  todayClicks: number;
+  monthClicks: number;
+  totalUrls: number;
+  database: {
+    estimatedSizeMB: number;
+    estimatedSizeGB: number;
+    storageLimitGB: number;
+    storageUsagePercent: number;
+  };
+  limits: {
+    storage: {
+      used: number;
+      limit: number;
+      unit: string;
+      usagePercent: number;
+    };
+    reads: {
+      estimatedDaily: number;
+      limit: number;
+      usagePercent: number;
+    };
+    writes: {
+      estimatedDaily: number;
+      limit: number;
+      usagePercent: number;
+    };
+  };
+  oldestRecordDate: string | null;
+  timestamp: string;
+}
