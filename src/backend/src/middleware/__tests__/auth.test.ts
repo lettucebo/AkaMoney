@@ -181,6 +181,72 @@ describe('Auth Middleware', () => {
       expect(body.error).toBe('Server Error');
       expect(body.message).toBe('Authentication is not properly configured');
     });
+
+    it('should accept v1.0 token with sts.windows.net issuer', async () => {
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: {
+          iss: 'https://sts.windows.net/test-tenant-id/',
+          oid: 'user-789',
+          email: 'testv1@example.com',
+          name: 'Test V1 User',
+          iat: Math.floor(Date.now() / 1000),
+          exp: Math.floor(Date.now() / 1000) + 3600
+        },
+        protectedHeader: { alg: 'RS256' }
+      } as any);
+
+      const app = new Hono<{ Bindings: { ENTRA_ID_TENANT_ID: string; ENTRA_ID_CLIENT_ID: string } }>();
+      app.use('*', async (c, next) => {
+        (c.env as any) = { ENTRA_ID_TENANT_ID: TENANT_ID, ENTRA_ID_CLIENT_ID: CLIENT_ID };
+        await next();
+      });
+      app.get('/protected', authMiddleware, (c) => {
+        const user = getAuthUser(c);
+        return c.json({ success: true, userId: user?.userId });
+      });
+
+      const res = await app.request('/protected', {
+        headers: { Authorization: 'Bearer valid-v1-token' }
+      });
+      expect(res.status).toBe(200);
+      
+      const body = await res.json();
+      expect(body.success).toBe(true);
+      expect(body.userId).toBe('user-789');
+    });
+
+    it('should accept token with api://{clientId} audience format', async () => {
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: {
+          aud: 'api://test-client-id',
+          oid: 'user-999',
+          email: 'testapi@example.com',
+          name: 'Test API User',
+          iat: Math.floor(Date.now() / 1000),
+          exp: Math.floor(Date.now() / 1000) + 3600
+        },
+        protectedHeader: { alg: 'RS256' }
+      } as any);
+
+      const app = new Hono<{ Bindings: { ENTRA_ID_TENANT_ID: string; ENTRA_ID_CLIENT_ID: string } }>();
+      app.use('*', async (c, next) => {
+        (c.env as any) = { ENTRA_ID_TENANT_ID: TENANT_ID, ENTRA_ID_CLIENT_ID: CLIENT_ID };
+        await next();
+      });
+      app.get('/protected', authMiddleware, (c) => {
+        const user = getAuthUser(c);
+        return c.json({ success: true, userId: user?.userId });
+      });
+
+      const res = await app.request('/protected', {
+        headers: { Authorization: 'Bearer valid-api-token' }
+      });
+      expect(res.status).toBe(200);
+      
+      const body = await res.json();
+      expect(body.success).toBe(true);
+      expect(body.userId).toBe('user-999');
+    });
   });
 
   describe('optionalAuthMiddleware', () => {
