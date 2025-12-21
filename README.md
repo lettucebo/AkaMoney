@@ -262,11 +262,15 @@ curl -X POST "https://your-api.workers.dev/api/admin/cleanup?days=180" \
 **Testing locally:**
 
 ```bash
-# Start the worker
+# Option 1: Use the manual cleanup endpoint
 cd src/backend && wrangler dev
+# Then in another terminal:
+curl -X POST "http://localhost:8787/api/admin/cleanup" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
 
-# In another terminal, trigger the cron job manually
-npx wrangler dev --test-scheduled
+# Option 2: Test the cron trigger
+# Note: Cloudflare Workers cron triggers run in production/remote environment
+# For local testing, use the manual endpoint or deploy to a test environment
 ```
 
 ## Database Schema

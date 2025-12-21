@@ -15,11 +15,6 @@ export async function cleanupOldClickRecords(
     throw new Error('retentionDays must be a positive number');
   }
   
-  // Prevent accidental deletion of all data (minimum 1 day retention)
-  if (retentionDays < 1) {
-    throw new Error('retentionDays must be at least 1');
-  }
-  
   // Prevent extremely large values that could cause issues
   if (retentionDays > 3650) { // Max 10 years
     throw new Error('retentionDays cannot exceed 3650 (10 years)');

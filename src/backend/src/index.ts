@@ -332,7 +332,8 @@ app.post('/api/admin/cleanup', authMiddleware, async (c) => {
     const daysParam = c.req.query('days') || '365';
     const retentionDays = parseInt(daysParam, 10);
     
-    // Validate retention days parameter
+    // Validate retention days parameter at API layer for better UX
+    // Service layer also validates for defense in depth
     if (isNaN(retentionDays) || retentionDays <= 0) {
       return c.json({
         error: 'Invalid parameter',
