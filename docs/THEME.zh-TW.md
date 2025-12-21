@@ -111,16 +111,27 @@ localStorage.getItem('akamoney-theme')  // 'light' | 'dark' | null
 
 ## 平滑過渡 (Smooth Transitions)
 
-CSS 過渡效果定義於 `App.vue`：
+CSS 過渡效果定義於 `App.vue`，並僅套用在主要的 Bootstrap 元件上以避免影響效能：
 
 ```css
 html {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-html *,
-html *::before,
-html *::after {
+/* 限制過渡效果於特定元素以提升效能 */
+.card,
+.modal,
+.dropdown-menu,
+.navbar,
+.btn,
+.form-control,
+.form-select,
+.alert,
+.badge,
+.list-group-item,
+.table,
+.progress,
+.footer {
   transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
 ```

@@ -123,8 +123,3 @@ body {
     font-size: 2.5rem;
   }
 }
-
-/* 404 page display text - uses CSS variable for theme consistency */
-.display-1 {
-  color: var(--app-display-text-color);
-}

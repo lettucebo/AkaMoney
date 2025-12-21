@@ -28,5 +28,6 @@
 .display-1 {
   font-size: 8rem;
   font-weight: 700;
+  color: var(--app-display-text-color);
 }
 </style>
