@@ -39,7 +39,7 @@ describe('Redirect Services', () => {
 
       expect(result).toEqual(mockUrl);
       expect(mockDb.prepare).toHaveBeenCalledWith(
-        'SELECT * FROM urls WHERE short_code = ? AND is_active = 1'
+        'SELECT * FROM urls WHERE short_code = ?'
       );
       expect(mockDb.bind).toHaveBeenCalledWith('test123');
     });
