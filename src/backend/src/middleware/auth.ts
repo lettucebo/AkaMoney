@@ -130,12 +130,18 @@ export async function authMiddleware(c: Context<{ Bindings: Env }>, next: () => 
     await next();
   } catch (error) {
     console.error('Auth middleware error:', error);
-    return c.json({
+    const errorResponse: any = {
       error: 'Internal Server Error',
       message: 'Authentication failed',
-      details: error instanceof Error ? error.message : 'Unknown error occurred',
-      stack: error instanceof Error ? error.stack : undefined
-    }, 500);
+      details: error instanceof Error ? error.message : 'Unknown error occurred'
+    };
+    
+    // Only include stack trace in non-production environments
+    if (c.env.ENVIRONMENT !== 'production' && error instanceof Error) {
+      errorResponse.stack = error.stack;
+    }
+    
+    return c.json(errorResponse, 500);
   }
 }
 
