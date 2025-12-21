@@ -58,7 +58,7 @@ class AuthService {
           'openid', 
           'profile', 
           'email',
-          `api://${import.meta.env.VITE_ENTRA_ID_CLIENT_ID}/access_as_user`
+          `api://${clientId}/access_as_user`
         ]
       });
       
@@ -89,7 +89,7 @@ class AuthService {
           'openid', 
           'profile', 
           'email',
-          `api://${import.meta.env.VITE_ENTRA_ID_CLIENT_ID}/access_as_user`
+          `api://${clientId}/access_as_user`
         ]
       });
     } catch (error) {
@@ -143,7 +143,7 @@ class AuthService {
           'openid', 
           'profile', 
           'email',
-          `api://${import.meta.env.VITE_ENTRA_ID_CLIENT_ID}/access_as_user`
+          `api://${clientId}/access_as_user`
         ],
         account
       });
