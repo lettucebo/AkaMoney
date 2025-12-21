@@ -109,6 +109,20 @@ export class AzureStorageProvider implements StorageProvider {
     return `${this.baseUrl}/${this.containerName}/${encodeURIComponent(key)}`;
   }
 
+  /**
+   * Uploads an object to Azure Blob Storage.
+   *
+   * Note: When {@link data} is a {@link ReadableStream}, this implementation
+   * reads the entire stream into memory before uploading it as a single
+   * request. This differs from providers such as the R2StorageProvider that
+   * can stream uploads natively, and may have significant memory impact for
+   * large objects.
+   *
+   * @param key - Object key (blob name) within the container.
+   * @param data - String, ArrayBuffer, or ReadableStream containing the data
+   *   to upload. ReadableStreams are fully buffered in memory.
+   * @param options - Optional upload options.
+   */
   async put(key: string, data: string | ArrayBuffer | ReadableStream, options?: UploadOptions): Promise<void> {
     let bodyData: ArrayBuffer;
     
@@ -308,7 +322,8 @@ export class AzureStorageProvider implements StorageProvider {
     const lastModified = lastModifiedStr ? new Date(lastModifiedStr) : undefined;
 
     const contentLengthStr = response.headers.get('content-length');
-    const size = contentLengthStr ? parseInt(contentLengthStr, 10) : 0;
+    const parsedSize = contentLengthStr ? parseInt(contentLengthStr, 10) : 0;
+    const size = Number.isNaN(parsedSize) ? 0 : parsedSize;
 
     return {
       key,
@@ -337,7 +352,11 @@ export class AzureStorageProvider implements StorageProvider {
   }
 
   /**
-   * Extract text content from an XML element
+   * Extract text content from an XML element.
+   * 
+   * Note: This uses a simple regex pattern that doesn't handle nested elements
+   * with the same tag name. It's designed for parsing Azure's List Blobs API
+   * response structure where such nesting doesn't occur.
    */
   private extractXmlElement(xml: string, tagName: string): string | null {
     const regex = new RegExp(`<${tagName}>([\\s\\S]*?)<\\/${tagName}>`, 's');
@@ -356,10 +375,11 @@ export class AzureStorageProvider implements StorageProvider {
       const blobXml = blobMatch[1];
       
       const name = this.extractXmlElement(blobXml, 'Name');
-      const sizeStr = this.extractXmlElement(blobXml, 'Content-Length');
-      const lastModifiedStr = this.extractXmlElement(blobXml, 'Last-Modified');
-      const contentType = this.extractXmlElement(blobXml, 'Content-Type');
-      const etag = this.extractXmlElement(blobXml, 'Etag');
+      const propertiesXml = this.extractXmlElement(blobXml, 'Properties');
+      const sizeStr = propertiesXml ? this.extractXmlElement(propertiesXml, 'Content-Length') : null;
+      const lastModifiedStr = propertiesXml ? this.extractXmlElement(propertiesXml, 'Last-Modified') : null;
+      const contentType = propertiesXml ? this.extractXmlElement(propertiesXml, 'Content-Type') : null;
+      const etag = propertiesXml ? this.extractXmlElement(propertiesXml, 'Etag') : null;
 
       if (name) {
         objects.push({

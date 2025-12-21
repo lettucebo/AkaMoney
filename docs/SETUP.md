@@ -107,9 +107,12 @@ To use Azure Blob Storage instead of R2:
 4. Configure the environment variables:
 
 ```bash
-# Set the storage provider
-wrangler secret put STORAGE_PROVIDER
-# Enter: azure
+# Set the storage provider to Azure via configuration (not as a secret):
+# In wrangler.toml, under [vars], set:
+# STORAGE_PROVIDER = "azure"
+#
+# Alternatively, you can set it as an environment variable before running wrangler:
+# export STORAGE_PROVIDER=azure
 
 # Set Azure Storage credentials
 wrangler secret put AZURE_STORAGE_ACCOUNT_NAME

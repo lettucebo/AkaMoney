@@ -105,9 +105,12 @@ bucket_name = "akamoney-storage"
 4. 設定環境變數：
 
 ```bash
-# 設定儲存空間供應商
-wrangler secret put STORAGE_PROVIDER
-# 輸入：azure
+# 設定儲存空間供應商的方式（不是使用 secret）：
+# 在 wrangler.toml 的 [vars] 區段中設定：
+# STORAGE_PROVIDER = "azure"
+#
+# 或者，您可以在執行 wrangler 之前設定環境變數：
+# export STORAGE_PROVIDER=azure
 
 # 設定 Azure 儲存體憑證
 wrangler secret put AZURE_STORAGE_ACCOUNT_NAME
