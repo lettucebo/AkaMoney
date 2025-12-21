@@ -30,3 +30,7 @@ JWT_EXPIRES_IN = "7d"
 # [[routes]]
 # pattern = "api.aka.money/*"
 # zone_name = "aka.money"
+
+# Cron Triggers for scheduled tasks
+[triggers]
+crons = ["0 2 * * *"]  # Run daily at 02:00 UTC (10:00 Taiwan time)
