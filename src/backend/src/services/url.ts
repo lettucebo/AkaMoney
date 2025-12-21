@@ -292,25 +292,44 @@ export async function getUserUrls(
   page: number = 1,
   limit: number = 20
 ): Promise<{ urls: UrlResponse[], total: number }> {
-  const offset = (page - 1) * limit;
+  try {
+    console.log('getUserUrls called with:', { userId, page, limit });
 
-  const { results } = await db
-    .prepare(`
-      SELECT * FROM urls 
-      WHERE user_id = ? 
-      ORDER BY created_at DESC 
-      LIMIT ? OFFSET ?
-    `)
-    .bind(userId, limit, offset)
-    .all<Url>();
+    const offset = (page - 1) * limit;
 
-  const countResult = await db
-    .prepare('SELECT COUNT(*) as count FROM urls WHERE user_id = ?')
-    .bind(userId)
-    .first<{ count: number }>();
+    console.log('Executing SELECT query...');
+    const { results } = await db
+      .prepare(`
+        SELECT * FROM urls 
+        WHERE user_id = ? 
+        ORDER BY created_at DESC 
+        LIMIT ? OFFSET ?
+      `)
+      .bind(userId, limit, offset)
+      .all<Url>();
 
-  return {
-    urls: results.map(url => formatUrlResponse(url)),
-    total: countResult?.count || 0
-  };
+    console.log('SELECT query completed, rows:', results?.length || 0);
+
+    console.log('Executing COUNT query...');
+    const countResult = await db
+      .prepare('SELECT COUNT(*) as count FROM urls WHERE user_id = ?')
+      .bind(userId)
+      .first<{ count: number }>();
+
+    console.log('COUNT query completed:', countResult);
+
+    return {
+      urls: results.map(url => formatUrlResponse(url)),
+      total: countResult?.count || 0
+    };
+  } catch (error) {
+    console.error('Error in getUserUrls:', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      userId,
+      page,
+      limit
+    });
+    throw error;
+  }
 }
