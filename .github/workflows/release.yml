@@ -172,7 +172,6 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-          SECRET_JWT_SECRET: ${{ secrets.JWT_SECRET }}
           SECRET_ENTRA_ID_TENANT_ID: ${{ vars.ENTRA_ID_TENANT_ID }}
           SECRET_ENTRA_ID_CLIENT_ID: ${{ vars.ENTRA_ID_CLIENT_ID }}
           SECRET_ENTRA_ID_CLIENT_SECRET: ${{ secrets.ENTRA_ID_CLIENT_SECRET }}
@@ -181,12 +180,6 @@ jobs:
           set -e
           cd src/backend
           echo "Configuring Worker secrets..."
-
-          if [ -z "$SECRET_JWT_SECRET" ]; then
-            echo "Error: JWT_SECRET is not set in GitHub secrets"
-            exit 1
-          fi
-          npx wrangler secret put JWT_SECRET <<< "$SECRET_JWT_SECRET"
 
           if [ -n "$SECRET_ENTRA_ID_TENANT_ID" ]; then
             npx wrangler secret put ENTRA_ID_TENANT_ID <<< "$SECRET_ENTRA_ID_TENANT_ID"
