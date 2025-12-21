@@ -45,7 +45,7 @@ const router = createRouter({
 });
 
 // Navigation guard for authentication
-router.beforeEach(async (to, from, next) => {
+router.beforeEach(async (to, _from, next) => {
   const authStore = useAuthStore();
 
   // Wait for auth initialization if not already done

@@ -107,7 +107,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref } from 'vue';
 import { useUrlStore } from '@/stores/url';
 import type { UrlResponse } from '@/types';
 
@@ -115,7 +115,7 @@ interface Props {
   mode?: 'modal' | 'page';
 }
 
-const props = withDefaults(defineProps<Props>(), {
+withDefaults(defineProps<Props>(), {
   mode: 'page'
 });
 
