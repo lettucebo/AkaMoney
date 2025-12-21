@@ -5,6 +5,12 @@ on:
     tags:
       - '*'
   workflow_dispatch:
+    inputs:
+      force-test:
+        description: 'Force run tests (default: skip tests as they run in CI)'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -44,13 +50,19 @@ jobs:
       - name: Install redirect dependencies
         run: cd src/redirect && npm ci
 
+      # Tests are skipped by default to save deployment time
+      # They already run in CI workflow on PRs and main branch pushes
+      # To force run tests, use workflow_dispatch with force-test=true or include 'force-test' in tag name
       - name: Run backend tests
+        if: github.event.inputs.force-test == 'true' || contains(github.ref, 'force-test')
         run: cd src/backend && npm run test:coverage
 
       - name: Run frontend tests
+        if: github.event.inputs.force-test == 'true' || contains(github.ref, 'force-test')
         run: cd src/frontend && npm run test:coverage
 
       - name: Run redirect tests
+        if: github.event.inputs.force-test == 'true' || contains(github.ref, 'force-test')
         run: cd src/redirect && npm run test:coverage
 
       - name: Build frontend
