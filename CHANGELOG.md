@@ -78,6 +78,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Optimized release workflow to skip redundant tests during deployment
+  - Tests now skip by default in release workflow since they already run in CI on PRs
+  - Added `force-test` option in workflow_dispatch to force run tests when needed
+  - Tag names containing 'force-test' will also trigger test execution
+  - Reduces deployment time by ~5-10 minutes per release
+
 ### Planned Features
 - QR code generation for short URLs
 - Password-protected links
