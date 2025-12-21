@@ -13,7 +13,7 @@ import {
 import { getAnalytics } from './services/analytics';
 import { cleanupOldClickRecords } from './services/cleanup';
 import type { CreateUrlRequest, UpdateUrlRequest } from './types';
-import type { ExecutionContext } from '@cloudflare/workers-types';
+import type { ExecutionContext, ExportedHandler, ScheduledEvent } from '@cloudflare/workers-types';
 
 const app = new Hono<{ Bindings: Env }>();
 
