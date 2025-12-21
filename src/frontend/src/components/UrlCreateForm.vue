@@ -109,7 +109,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useUrlStore } from '@/stores/url';
-import type { UrlResponse } from '@/types';
+import type { UrlResponse, CreateUrlRequest } from '@/types';
 
 interface Props {
   mode?: 'modal' | 'page';
@@ -143,7 +143,7 @@ const handleSubmit = async () => {
   error.value = null;
 
   try {
-    const data: any = {
+    const data: CreateUrlRequest = {
       original_url: formData.value.original_url
     };
 
