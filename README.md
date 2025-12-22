@@ -259,7 +259,7 @@ When a visitor accesses an archived short URL:
 
 Set the archived redirect URL using environment variables:
 
-**Backend/Redirect Worker:**
+**Redirect Worker:**
 ```bash
 ARCHIVED_REDIRECT_URL=https://aka.money/archived
 ```

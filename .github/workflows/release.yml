@@ -61,6 +61,7 @@ jobs:
           VITE_API_URL: https://akamoney-admin-api.akamoney.workers.dev
           VITE_APP_NAME: AkaMoney
           VITE_SHORT_DOMAIN: ${{ vars.SHORT_DOMAIN }}
+          # GitHub repository variable ARCHIVED_REDIRECT_URL must be set to the production archived redirect URL
           VITE_ARCHIVED_REDIRECT_URL: ${{ vars.ARCHIVED_REDIRECT_URL }}
         run: cd src/frontend && npm run build
 

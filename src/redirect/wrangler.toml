@@ -16,10 +16,11 @@ database_name = "akamoney-clicks"
 database_id = ""
 
 # Environment variables
-# ARCHIVED_REDIRECT_URL - URL to redirect archived short links (default: https://aka.money/archived)
-#   Set via: wrangler secret put ARCHIVED_REDIRECT_URL
+# ARCHIVED_REDIRECT_URL - URL to redirect archived short links
+#   Configure in the [vars] section below (or in environment-specific Wrangler config files).
 [vars]
 ENVIRONMENT = "development"
+ARCHIVED_REDIRECT_URL = "https://aka.money/archived"
 
 # Routes for production (redirect service - public access, no authentication)
 # [[routes]]

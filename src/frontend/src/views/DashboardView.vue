@@ -11,7 +11,7 @@
               @click="toggleArchived"
             >
               <i class="bi bi-archive"></i>
-              {{ showArchived ? 'Hide Archived' : 'Show All' }}
+              {{ showArchived ? 'Show Active Only' : 'Show All' }}
               <span v-if="archivedCount > 0" class="badge bg-secondary ms-1">
                 {{ archivedCount }}
               </span>
@@ -399,9 +399,13 @@ const formatDate = (timestamp: number) => {
 
 <style scoped>
 .archived-url-card {
-  opacity: 0.7;
   background-color: #f8f9fa;
   border-left: 4px solid #ffc107;
+}
+
+.archived-url-card .card-title a,
+.archived-url-card .card-text {
+  color: #6c757d;
 }
 
 .archived-badge {
@@ -416,6 +420,6 @@ const formatDate = (timestamp: number) => {
 }
 
 .card {
-  transition: opacity 0.2s;
+  transition: background-color 0.2s;
 }
 </style>
