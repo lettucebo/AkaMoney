@@ -7,6 +7,28 @@ AkaMoney 專案的所有重要變更都將記錄在此檔案中。
 格式基於 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 此專案遵循 [語義化版本](https://semver.org/spec/v2.0.0.html)。
 
+## [1.1.2] - 2025-12-24
+
+### 修正
+- 修正 MSAL redirect 回調處理與狀態同步問題
+  - 在 initialize() 中正確處理 redirect promise 回應
+  - 在 redirect 回調後設定 active account
+  - 成功 redirect 後儲存 access token 到 localStorage
+  - 為 MSAL 初始化加入完整的錯誤處理
+  - 啟用 `storeAuthStateInCookie` 以防止狀態同步問題
+- 修正搜尋結果為 0 或資料不足時仍顯示分頁按鈕
+  - 根據實際資料筆數計算總頁數
+  - 資料為 0 筆時隱藏分頁
+  - 資料少於一頁時隱藏分頁
+  - 防止導向超出範圍的頁碼
+  - 搜尋條件改變時重置為第 1 頁
+  - 限制顯示的頁碼數量以改善使用體驗
+
+### 改進
+- 更好的驗證流程，使用 redirect 登入方式
+- 增強分頁使用體驗，正確計算頁數
+- 透過 cookie 儲存狀態減少瀏覽器擴充套件干擾
+
 ## [1.1.1] - 2025-12-24
 
 ### 修正

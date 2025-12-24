@@ -7,6 +7,28 @@ All notable changes to the AkaMoney project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.2] - 2025-12-24
+
+### Fixed
+- Fixed MSAL redirect callback handling and state synchronization issues
+  - Properly handle redirect promise response in initialize()
+  - Set active account after redirect callback
+  - Store access token to localStorage after successful redirect
+  - Add comprehensive error handling for MSAL initialization
+  - Enable `storeAuthStateInCookie` to prevent state sync issues
+- Fixed pagination buttons showing when search results are zero or insufficient
+  - Calculate total pages based on actual data count
+  - Hide pagination when data count is 0
+  - Hide pagination when data is less than one page
+  - Prevent out-of-range page navigation
+  - Reset to page 1 when search query changes
+  - Limit visible page numbers to improve UX
+
+### Improved
+- Better authentication flow with redirect-based login
+- Enhanced pagination UX with proper page calculation
+- Reduced browser extension interference with cookie-based state storage
+
 ## [1.1.1] - 2025-12-24
 
 ### Fixed
