@@ -8,14 +8,14 @@ function generateId(): string {
 }
 
 /**
- * Get URL by short code
+ * Get URL by short code (case-insensitive)
  */
 export async function getUrlByShortCode(
   db: D1Database,
   shortCode: string
 ): Promise<Url | null> {
   const result = await db
-    .prepare('SELECT * FROM urls WHERE short_code = ? AND is_active = 1')
+    .prepare('SELECT * FROM urls WHERE LOWER(short_code) = LOWER(?) AND is_active = 1')
     .bind(shortCode)
     .first<Url>();
 
