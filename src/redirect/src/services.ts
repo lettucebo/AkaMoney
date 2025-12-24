@@ -92,6 +92,7 @@ export async function recordClick(
   const clickRecord: ClickRecord = {
     id: generateId(),
     url_id: urlId,
+    short_code: shortCode,
     clicked_at: Date.now(),
     ip_address: request.headers.get('cf-connecting-ip') || null,
     user_agent: userAgent,
@@ -107,13 +108,14 @@ export async function recordClick(
   await db
     .prepare(`
       INSERT INTO click_records (
-        id, url_id, clicked_at, ip_address, user_agent, referer,
+        id, url_id, short_code, clicked_at, ip_address, user_agent, referer,
         country, city, device_type, browser, os
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
     .bind(
       clickRecord.id,
       clickRecord.url_id,
+      clickRecord.short_code,
       clickRecord.clicked_at,
       clickRecord.ip_address,
       clickRecord.user_agent,

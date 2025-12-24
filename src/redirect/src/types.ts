@@ -54,6 +54,7 @@ export interface Url {
 export interface ClickRecord {
   id: string;
   url_id: string;
+  short_code: string;
   clicked_at: number;
   ip_address: string | null;
   user_agent: string | null;
