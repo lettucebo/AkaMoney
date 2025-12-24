@@ -1,6 +1,6 @@
 {
   "name": "akamoney-backend",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "AkaMoney Backend API - Cloudflare Workers",
   "type": "module",
   "main": "src/index.ts",
