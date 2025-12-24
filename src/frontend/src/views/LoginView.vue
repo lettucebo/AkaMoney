@@ -38,7 +38,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { AuthConfigurationError } from '@/services/auth';
@@ -49,11 +49,6 @@ const authStore = useAuthStore();
 
 const loading = ref(false);
 const error = ref<string | null>(null);
-
-onMounted(() => {
-  // Router guard will automatically handle redirecting authenticated users
-  // No need to manually redirect here
-});
 
 const handleLogin = async () => {
   loading.value = true;

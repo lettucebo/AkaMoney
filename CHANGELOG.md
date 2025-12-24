@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.1.1] - 2025-12-24
 
 ### Fixed
-- Fixed infinite login loop by switching from popup to redirect authentication flow (#issue-number)
+- Fixed infinite login loop by switching from popup to redirect authentication flow
   - Changed from `loginPopup()` to `loginRedirect()` to avoid routing conflicts in popup window
   - Removed manual redirect logic in LoginView component (handled by router guard)
   - Prevents popup blocker issues
