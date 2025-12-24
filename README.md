@@ -8,6 +8,7 @@ English | [繁體中文](README.zh-TW.md)
 
 - 🔗 URL Shortening with custom short codes
 - 📊 Analytics and click tracking
+- 🧹 Automatic cleanup of old click records (365-day retention)
 - 🔐 JWT Authentication for API
 - 👤 Entra ID integration for management dashboard
 - 💾 D1 Database for data storage
@@ -230,9 +231,47 @@ Base URL: `https://api.aka.money` (or your admin API worker URL)
 | `DELETE /api/urls/:id` | ✅ JWT | Delete URL |
 | `GET /api/analytics/:shortCode` | ✅ JWT | Get analytics |
 | `GET /api/public/analytics/:shortCode` | ❌ | Get public analytics (limited) |
+| `POST /api/admin/cleanup` | ✅ JWT | Manually trigger cleanup of old click records |
 
 ### Authentication
 - `POST /api/auth/login` - Get JWT token
+
+### Automatic Data Cleanup
+
+The system automatically cleans up old click records to maintain database efficiency:
+
+- **Schedule**: Daily at 02:00 UTC (10:00 Taiwan time)
+- **Retention**: 365 days (1 year of historical data)
+- **Method**: Cloudflare Cron Triggers
+- **Database Impact**: Maintains stable database size within D1 free tier limits
+
+To manually trigger cleanup for testing:
+
+```bash
+curl -X POST "https://your-api.workers.dev/api/admin/cleanup" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+You can specify a custom retention period (in days):
+
+```bash
+curl -X POST "https://your-api.workers.dev/api/admin/cleanup?days=180" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+**Testing locally:**
+
+```bash
+# Option 1: Use the manual cleanup endpoint
+cd src/backend && wrangler dev
+# Then in another terminal:
+curl -X POST "http://localhost:8787/api/admin/cleanup" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+
+# Option 2: Test the cron trigger
+# Note: Cloudflare Workers cron triggers run in production/remote environment
+# For local testing, use the manual endpoint or deploy to a test environment
+```
 
 ## Database Schema
 

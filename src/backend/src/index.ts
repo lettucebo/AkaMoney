@@ -11,7 +11,9 @@ import {
   getUserUrls
 } from './services/url';
 import { getAnalytics } from './services/analytics';
+import { cleanupOldClickRecords } from './services/cleanup';
 import type { CreateUrlRequest, UpdateUrlRequest } from './types';
+import type { ExecutionContext, ExportedHandler, ScheduledEvent } from '@cloudflare/workers-types';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -314,6 +316,54 @@ app.get('/api/public/analytics/:shortCode', async (c) => {
   });
 });
 
+// Manual cleanup trigger (for testing/admin)
+app.post('/api/admin/cleanup', authMiddleware, async (c) => {
+  const user = getAuthUser(c);
+
+  // Note: Currently all authenticated users can trigger cleanup.
+  // To restrict to admin users only, implement role-based access control:
+  // if (user.role !== 'admin') {
+  //   return c.json({ error: 'Forbidden', message: 'Admin role required' }, 403);
+  // }
+
+  try {
+    const daysParam = c.req.query('days') || '365';
+    const retentionDays = parseInt(daysParam, 10);
+    
+    // Validate retention days parameter at API layer for better UX
+    // Service layer also validates for defense in depth
+    if (!Number.isFinite(retentionDays) || retentionDays <= 0) {
+      return c.json({
+        error: 'Invalid parameter',
+        message: 'days parameter must be a positive integer'
+      }, 400);
+    }
+    
+    if (retentionDays > 3650) {
+      return c.json({
+        error: 'Invalid parameter',
+        message: 'days parameter cannot exceed 3650 (10 years)'
+      }, 400);
+    }
+    
+    console.log(`Manual cleanup triggered by user: ${user.userId}, retention days: ${retentionDays}`);
+    const result = await cleanupOldClickRecords(c.env.DB, retentionDays);
+
+    return c.json({
+      message: 'Cleanup completed successfully',
+      deleted: result.deleted,
+      cutoffDate: result.cutoffDate.toISOString(),
+      retentionDays
+    });
+  } catch (error) {
+    console.error('Manual cleanup failed:', error);
+    return c.json({
+      error: 'Cleanup failed',
+      details: error instanceof Error ? error.message : String(error)
+    }, 500);
+  }
+});
+
 // 404 handler
 app.notFound((c) => {
   return c.json({ error: 'Not Found', message: 'The requested resource was not found' }, 404);
@@ -337,4 +387,30 @@ app.onError((err, c) => {
   }, 500);
 });
 
-export default app;
+// Export app for testing
+export { app };
+
+export default {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    return app.fetch(request, env, ctx);
+  },
+
+  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    console.log('Cron trigger fired:', new Date(event.scheduledTime).toISOString());
+    
+    try {
+      const result = await cleanupOldClickRecords(env.DB, 365);
+      
+      console.log('Cleanup summary:', {
+        deleted: result.deleted,
+        cutoffDate: result.cutoffDate.toISOString(),
+        scheduledTime: new Date(event.scheduledTime).toISOString(),
+        cron: event.cron
+      });
+    } catch (error) {
+      console.error('Cleanup failed:', error);
+      // Don't throw - Cloudflare Workers automatically retries failed cron jobs,
+      // which could lead to duplicate cleanup attempts or cascading failures
+    }
+  }
+} satisfies ExportedHandler<Env>;

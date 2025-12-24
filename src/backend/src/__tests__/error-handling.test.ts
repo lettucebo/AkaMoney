@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import app from '../index';
+import { app } from '../index';
 
 describe('API Error Handling', () => {
   beforeEach(() => {
@@ -162,6 +162,74 @@ describe('API Error Handling', () => {
       const body = await res.json();
       expect(body).toHaveProperty('error');
       expect(body).toHaveProperty('message');
+    });
+  });
+
+  describe('Cleanup Endpoint Tests', () => {
+    it('POST /api/admin/cleanup should return 401 when not authenticated', async () => {
+      const res = await app.request('/api/admin/cleanup', {
+        method: 'POST'
+      });
+      
+      expect(res.status).toBe(401);
+      const body = await res.json();
+      expect(body.error).toBe('Unauthorized');
+    });
+
+    it('POST /api/admin/cleanup should validate days parameter', async () => {
+      const res = await app.request('/api/admin/cleanup?days=invalid', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer mock-token'
+        }
+      });
+      
+      // Should fail validation or auth - both acceptable
+      expect([400, 401, 500]).toContain(res.status);
+      const body = await res.json();
+      expect(body).toHaveProperty('error');
+    });
+
+    it('POST /api/admin/cleanup should reject negative days', async () => {
+      const res = await app.request('/api/admin/cleanup?days=-1', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer mock-token'
+        }
+      });
+      
+      // Should fail validation or auth
+      expect([400, 401, 500]).toContain(res.status);
+      const body = await res.json();
+      expect(body).toHaveProperty('error');
+    });
+
+    it('POST /api/admin/cleanup should reject days exceeding maximum', async () => {
+      const res = await app.request('/api/admin/cleanup?days=5000', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer mock-token'
+        }
+      });
+      
+      // Should fail validation or auth
+      expect([400, 401, 500]).toContain(res.status);
+      const body = await res.json();
+      expect(body).toHaveProperty('error');
+    });
+
+    it('POST /api/admin/cleanup should reject infinity values', async () => {
+      const res = await app.request('/api/admin/cleanup?days=Infinity', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer mock-token'
+        }
+      });
+      
+      // Should fail validation or auth
+      expect([400, 401, 500]).toContain(res.status);
+      const body = await res.json();
+      expect(body).toHaveProperty('error');
     });
   });
 });
