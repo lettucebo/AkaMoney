@@ -53,6 +53,9 @@
           </div>
           <small v-if="searchQuery" class="text-muted">
             Found {{ filteredUrls.length }} of {{ urlStore.urls.length }} URLs
+            <span v-if="urlStore.pagination.total_pages > 1" class="d-block">
+              (Searching current page only)
+            </span>
           </small>
         </div>
 
@@ -81,6 +84,9 @@
                         :aria-label="copiedId === url.id ? 'Copied!' : 'Copy short URL'"
                       >
                         <i :class="copiedId === url.id ? 'bi bi-check2' : 'bi bi-clipboard'"></i>
+                        <span class="visually-hidden" role="status" aria-live="polite">
+                          {{ copiedId === url.id ? 'Short URL copied to clipboard.' : '' }}
+                        </span>
                       </button>
                     </div>
                     <p class="card-text text-muted small mb-0">
@@ -333,17 +339,35 @@
         </div>
       </div>
     </div>
+
+    <!-- Error Toast -->
+    <div v-if="showErrorToast" class="position-fixed top-0 end-0 p-3" style="z-index: 11">
+      <div class="toast show" role="alert">
+        <div class="toast-header bg-danger text-white">
+          <i class="bi bi-exclamation-circle-fill me-2"></i>
+          <strong class="me-auto">Error</strong>
+          <button type="button" class="btn-close btn-close-white" @click="showErrorToast = false"></button>
+        </div>
+        <div class="toast-body">
+          {{ errorMessage }}
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useUrlStore } from '@/stores/url';
 import UrlCreateForm from '@/components/UrlCreateForm.vue';
 import type { UrlResponse, UpdateUrlRequest } from '@/types';
 
 const urlStore = useUrlStore();
 const shortDomain = import.meta.env.VITE_SHORT_DOMAIN || 'http://localhost:8787';
+
+// Timeout constants
+const COPY_FEEDBACK_DURATION = 2000;
+const TOAST_DISPLAY_DURATION = 5000;
 
 // Search functionality
 const searchQuery = ref('');
@@ -363,15 +387,17 @@ const filteredUrls = computed(() => {
 
 // Copy to clipboard functionality
 const copiedId = ref<string | null>(null);
+const timeoutIds: number[] = [];
 
 const copyToClipboard = async (text: string, id: string) => {
   // Check if clipboard API is available
   if (!navigator.clipboard) {
-    successMessage.value = 'Clipboard API not available. Please copy the URL manually.';
-    showSuccessToast.value = true;
-    setTimeout(() => {
-      showSuccessToast.value = false;
-    }, 5000);
+    errorMessage.value = 'Clipboard API not available. Please copy the URL manually.';
+    showErrorToast.value = true;
+    const timeoutId = window.setTimeout(() => {
+      showErrorToast.value = false;
+    }, TOAST_DISPLAY_DURATION);
+    timeoutIds.push(timeoutId);
     return;
   }
   
@@ -379,17 +405,19 @@ const copyToClipboard = async (text: string, id: string) => {
     await navigator.clipboard.writeText(text);
     copiedId.value = id;
     
-    // Reset after 2 seconds
-    setTimeout(() => {
+    // Reset after configured duration
+    const timeoutId = window.setTimeout(() => {
       copiedId.value = null;
-    }, 2000);
+    }, COPY_FEEDBACK_DURATION);
+    timeoutIds.push(timeoutId);
   } catch (error) {
     console.error('Failed to copy:', error);
-    successMessage.value = 'Failed to copy to clipboard. Please copy the URL manually.';
-    showSuccessToast.value = true;
-    setTimeout(() => {
-      showSuccessToast.value = false;
-    }, 5000);
+    errorMessage.value = 'Failed to copy to clipboard. Please copy the URL manually.';
+    showErrorToast.value = true;
+    const timeoutId = window.setTimeout(() => {
+      showErrorToast.value = false;
+    }, TOAST_DISPLAY_DURATION);
+    timeoutIds.push(timeoutId);
   }
 };
 
@@ -400,6 +428,13 @@ const showDeleteModal = ref(false);
 const deleteError = ref<string | null>(null);
 const showSuccessToast = ref(false);
 const successMessage = ref('');
+const showErrorToast = ref(false);
+const errorMessage = ref('');
+
+// Cleanup timeouts on unmount to prevent memory leaks
+onBeforeUnmount(() => {
+  timeoutIds.forEach(id => window.clearTimeout(id));
+});
 
 // Edit modal state
 const editForm = ref({
@@ -438,10 +473,11 @@ const onUrlCreated = async (url: UrlResponse) => {
   successMessage.value = `Successfully created short URL: ${url.short_code}`;
   showSuccessToast.value = true;
   
-  // Auto-hide toast after 3 seconds
-  setTimeout(() => {
+  // Auto-hide toast after configured duration
+  const timeoutId = window.setTimeout(() => {
     showSuccessToast.value = false;
-  }, 3000);
+  }, TOAST_DISPLAY_DURATION);
+  timeoutIds.push(timeoutId);
 };
 
 const confirmDelete = (id: string) => {
@@ -512,10 +548,11 @@ const handleEditSubmit = async () => {
     successMessage.value = `Successfully updated URL: ${editForm.value.short_code}`;
     showSuccessToast.value = true;
     
-    // Auto-hide toast after 3 seconds
-    setTimeout(() => {
+    // Auto-hide toast after configured duration
+    const timeoutId = window.setTimeout(() => {
       showSuccessToast.value = false;
-    }, 3000);
+    }, TOAST_DISPLAY_DURATION);
+    timeoutIds.push(timeoutId);
   } catch (err: any) {
     editError.value = err.response?.data?.message || 'Failed to update URL';
     console.error('Error updating URL:', err);
@@ -561,7 +598,7 @@ const formatDate = (timestamp: number) => {
 
 /* Copy button animation */
 .btn-outline-secondary i.bi-check2 {
-  color: #198754;
+  color: var(--bs-success);
   font-weight: bold;
 }
 
