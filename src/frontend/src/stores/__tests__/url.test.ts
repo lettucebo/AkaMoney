@@ -182,6 +182,49 @@ describe('URL Store', () => {
       expect(store.currentUrl).toBeNull();
     });
 
+    it('should update pagination statistics after successful delete', async () => {
+      const existingUrl = { id: '1', short_code: 'abc', original_url: 'https://example.com' };
+      vi.mocked(apiService.deleteUrl).mockResolvedValue(undefined);
+      
+      const store = useUrlStore();
+      store.urls = [existingUrl as any];
+      store.pagination = { page: 1, limit: 20, total: 5, total_pages: 1 };
+      
+      await store.deleteUrl('1');
+      
+      expect(store.pagination.total).toBe(4);
+      expect(store.pagination.total_pages).toBe(1);
+    });
+
+    it('should recalculate total_pages correctly after delete', async () => {
+      const existingUrl = { id: '1', short_code: 'abc', original_url: 'https://example.com' };
+      vi.mocked(apiService.deleteUrl).mockResolvedValue(undefined);
+      
+      const store = useUrlStore();
+      store.urls = [existingUrl as any];
+      // 21 items with limit 20 = 2 pages, after delete = 20 items = 1 page
+      store.pagination = { page: 1, limit: 20, total: 21, total_pages: 2 };
+      
+      await store.deleteUrl('1');
+      
+      expect(store.pagination.total).toBe(20);
+      expect(store.pagination.total_pages).toBe(1);
+    });
+
+    it('should not update pagination if total is already 0', async () => {
+      const existingUrl = { id: '1', short_code: 'abc', original_url: 'https://example.com' };
+      vi.mocked(apiService.deleteUrl).mockResolvedValue(undefined);
+      
+      const store = useUrlStore();
+      store.urls = [existingUrl as any];
+      store.pagination = { page: 1, limit: 20, total: 0, total_pages: 0 };
+      
+      await store.deleteUrl('1');
+      
+      expect(store.pagination.total).toBe(0);
+      expect(store.pagination.total_pages).toBe(0);
+    });
+
     it('should handle delete URL error', async () => {
       const mockError = { response: { data: { message: 'Delete failed' } } };
       vi.mocked(apiService.deleteUrl).mockRejectedValue(mockError);

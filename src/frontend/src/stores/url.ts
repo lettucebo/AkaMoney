@@ -110,6 +110,11 @@ export const useUrlStore = defineStore('url', {
         if (this.currentUrl?.id === id) {
           this.currentUrl = null;
         }
+        // Update pagination statistics after successful deletion
+        if (this.pagination.total > 0) {
+          this.pagination.total -= 1;
+          this.pagination.total_pages = Math.ceil(this.pagination.total / this.pagination.limit);
+        }
       } catch (error: any) {
         this.error = error.response?.data?.message || 'Failed to delete URL';
         console.error('Error deleting URL:', error);
