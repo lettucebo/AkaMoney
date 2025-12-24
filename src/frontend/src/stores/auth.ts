@@ -59,6 +59,18 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
+    async loginRedirect() {
+      this.loading = true;
+      try {
+        await authService.loginRedirect();
+        // Page will redirect, code after this won't execute
+      } catch (error) {
+        console.error('Login redirect error:', error);
+        this.loading = false;
+        throw error;
+      }
+    },
+
     async logout() {
       this.loading = true;
       try {

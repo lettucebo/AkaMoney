@@ -8,6 +8,7 @@ vi.mock('@/services/auth', () => ({
   default: {
     initialize: vi.fn(),
     login: vi.fn(),
+    loginRedirect: vi.fn(),
     logout: vi.fn(),
     getAccount: vi.fn()
   },
@@ -167,6 +168,47 @@ describe('Auth Store', () => {
       
       try {
         await store.login();
+        expect.fail('Expected AuthConfigurationError to be thrown');
+      } catch (thrownError) {
+        expect(thrownError).toBeInstanceOf(AuthConfigurationError);
+        expect((thrownError as AuthConfigurationError).name).toBe('AuthConfigurationError');
+        expect((thrownError as AuthConfigurationError).message).toBe('Entra ID client is not configured');
+      }
+      expect(store.loading).toBe(false);
+    });
+  });
+
+  describe('loginRedirect', () => {
+    it('should call loginRedirect on auth service', async () => {
+      vi.mocked(authService.loginRedirect).mockResolvedValue(undefined);
+      
+      const store = useAuthStore();
+      await store.loginRedirect();
+      
+      expect(authService.loginRedirect).toHaveBeenCalled();
+      expect(store.loading).toBe(true); // Loading stays true since redirect happens
+    });
+
+    it('should handle loginRedirect error', async () => {
+      const error = new Error('Redirect failed');
+      vi.mocked(authService.loginRedirect).mockRejectedValue(error);
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      
+      const store = useAuthStore();
+      
+      await expect(store.loginRedirect()).rejects.toThrow('Redirect failed');
+      expect(store.loading).toBe(false);
+    });
+
+    it('should handle AuthConfigurationError on redirect', async () => {
+      const error = new AuthConfigurationError('Entra ID client is not configured');
+      vi.mocked(authService.loginRedirect).mockRejectedValue(error);
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      
+      const store = useAuthStore();
+      
+      try {
+        await store.loginRedirect();
         expect.fail('Expected AuthConfigurationError to be thrown');
       } catch (thrownError) {
         expect(thrownError).toBeInstanceOf(AuthConfigurationError);
