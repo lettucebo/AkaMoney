@@ -133,6 +133,39 @@ describe('Redirect Services', () => {
       expect(mockDb.run).toHaveBeenCalled();
     });
 
+    it('should include short_code in the insert statement', async () => {
+      mockDb.run.mockResolvedValue({ success: true });
+
+      const mockRequest = {
+        headers: {
+          get: vi.fn((header: string) => {
+            const headers: Record<string, string> = {
+              'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+              'cf-connecting-ip': '10.0.0.1',
+            };
+            return headers[header] || null;
+          }),
+        },
+        cf: {
+          country: 'TW',
+          city: 'Taipei',
+        },
+      } as unknown as Request;
+
+      await recordClick(mockDb as any, mockRequest, 'mycode', 'url-123');
+
+      // Verify short_code is included in the SQL statement
+      const prepareCall = mockDb.prepare.mock.calls.find(
+        (call) => call[0].includes('INSERT INTO click_records')
+      );
+      expect(prepareCall).toBeDefined();
+      expect(prepareCall[0]).toContain('short_code');
+
+      // Verify short_code value is bound to the statement
+      const bindCall = mockDb.bind.mock.calls[0];
+      expect(bindCall).toContain('mycode');
+    });
+
     it('should handle missing headers gracefully', async () => {
       mockDb.run.mockResolvedValue({ success: true });
 
