@@ -28,18 +28,67 @@
           <p class="text-muted">Create your first shortened URL to get started</p>
         </div>
 
+        <!-- Search Box -->
+        <div v-if="!urlStore.loading && urlStore.urls.length > 0" class="mb-4">
+          <div class="input-group">
+            <span class="input-group-text">
+              <i class="bi bi-search"></i>
+            </span>
+            <input 
+              type="text" 
+              class="form-control" 
+              placeholder="Search by short code, URL, or title..." 
+              v-model="searchQuery"
+              aria-label="Search URLs"
+            >
+            <button 
+              v-if="searchQuery" 
+              class="btn btn-outline-secondary" 
+              @click="searchQuery = ''"
+              type="button"
+              aria-label="Clear search"
+            >
+              <i class="bi bi-x-lg"></i>
+            </button>
+          </div>
+          <small v-if="searchQuery" class="text-muted">
+            Found {{ filteredUrls.length }} of {{ urlStore.urls.length }} URLs
+            <span v-if="urlStore.pagination.total_pages > 1" class="d-block">
+              (Searching current page only)
+            </span>
+          </small>
+        </div>
+
         <!-- URLs List -->
-        <div v-else class="row">
-          <div v-for="url in urlStore.urls" :key="url.id" class="col-12 mb-3">
+        <div v-if="!urlStore.loading && urlStore.urls.length > 0" class="row">
+          <div v-for="url in filteredUrls" :key="url.id" class="col-12 mb-3">
             <div class="card">
               <div class="card-body">
                 <div class="row align-items-center">
                   <div class="col-md-6">
-                    <h5 class="card-title mb-1">
-                      <a :href="`${shortDomain}/${url.short_code}`" target="_blank" class="text-decoration-none">
-                        {{ shortDomain }}/{{ url.short_code }}
-                      </a>
-                    </h5>
+                    <!-- Short URL with Copy Button -->
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                      <h5 class="card-title mb-0">
+                        <a 
+                          :href="`${shortDomain}/${url.short_code}`" 
+                          target="_blank" 
+                          class="text-decoration-none"
+                        >
+                          {{ shortDomain }}/{{ url.short_code }}
+                        </a>
+                      </h5>
+                      <button 
+                        class="btn btn-sm btn-outline-secondary"
+                        @click="copyToClipboard(`${shortDomain}/${url.short_code}`, url.id)"
+                        :title="copiedId === url.id ? 'Copied!' : 'Copy short URL'"
+                        :aria-label="copiedId === url.id ? 'Copied!' : 'Copy short URL'"
+                      >
+                        <i :class="copiedId === url.id ? 'bi bi-check2' : 'bi bi-clipboard'"></i>
+                        <span class="visually-hidden" role="status" aria-live="polite">
+                          {{ copiedId === url.id ? 'Short URL copied to clipboard.' : '' }}
+                        </span>
+                      </button>
+                    </div>
                     <p class="card-text text-muted small mb-0">
                       {{ truncate(url.original_url, 60) }}
                     </p>
@@ -290,17 +339,87 @@
         </div>
       </div>
     </div>
+
+    <!-- Error Toast -->
+    <div v-if="showErrorToast" class="position-fixed top-0 end-0 p-3" style="z-index: 11">
+      <div class="toast show" role="alert">
+        <div class="toast-header bg-danger text-white">
+          <i class="bi bi-exclamation-circle-fill me-2"></i>
+          <strong class="me-auto">Error</strong>
+          <button type="button" class="btn-close btn-close-white" @click="showErrorToast = false"></button>
+        </div>
+        <div class="toast-body">
+          {{ errorMessage }}
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useUrlStore } from '@/stores/url';
 import UrlCreateForm from '@/components/UrlCreateForm.vue';
 import type { UrlResponse, UpdateUrlRequest } from '@/types';
 
 const urlStore = useUrlStore();
 const shortDomain = import.meta.env.VITE_SHORT_DOMAIN || 'http://localhost:8787';
+
+// Timeout constants
+const COPY_FEEDBACK_DURATION = 2000;
+const TOAST_DISPLAY_DURATION = 5000;
+
+// Search functionality
+const searchQuery = ref('');
+
+const filteredUrls = computed(() => {
+  if (!searchQuery.value) {
+    return urlStore.urls;
+  }
+  
+  const query = searchQuery.value.toLowerCase();
+  return urlStore.urls.filter(url => 
+    url.short_code.toLowerCase().includes(query) ||
+    url.original_url.toLowerCase().includes(query) ||
+    (url.title && url.title.toLowerCase().includes(query))
+  );
+});
+
+// Copy to clipboard functionality
+const copiedId = ref<string | null>(null);
+const timeoutIds: number[] = [];
+
+const copyToClipboard = async (text: string, id: string) => {
+  // Check if clipboard API is available
+  if (!navigator.clipboard) {
+    errorMessage.value = 'Clipboard API not available. Please copy the URL manually.';
+    showErrorToast.value = true;
+    const timeoutId = window.setTimeout(() => {
+      showErrorToast.value = false;
+    }, TOAST_DISPLAY_DURATION);
+    timeoutIds.push(timeoutId);
+    return;
+  }
+  
+  try {
+    await navigator.clipboard.writeText(text);
+    copiedId.value = id;
+    
+    // Reset after configured duration
+    const timeoutId = window.setTimeout(() => {
+      copiedId.value = null;
+    }, COPY_FEEDBACK_DURATION);
+    timeoutIds.push(timeoutId);
+  } catch (error) {
+    console.error('Failed to copy:', error);
+    errorMessage.value = 'Failed to copy to clipboard. Please copy the URL manually.';
+    showErrorToast.value = true;
+    const timeoutId = window.setTimeout(() => {
+      showErrorToast.value = false;
+    }, TOAST_DISPLAY_DURATION);
+    timeoutIds.push(timeoutId);
+  }
+};
 
 const showCreateModal = ref(false);
 const showEditModal = ref(false);
@@ -309,6 +428,13 @@ const showDeleteModal = ref(false);
 const deleteError = ref<string | null>(null);
 const showSuccessToast = ref(false);
 const successMessage = ref('');
+const showErrorToast = ref(false);
+const errorMessage = ref('');
+
+// Cleanup timeouts on unmount to prevent memory leaks
+onBeforeUnmount(() => {
+  timeoutIds.forEach(id => window.clearTimeout(id));
+});
 
 // Edit modal state
 const editForm = ref({
@@ -347,10 +473,11 @@ const onUrlCreated = async (url: UrlResponse) => {
   successMessage.value = `Successfully created short URL: ${url.short_code}`;
   showSuccessToast.value = true;
   
-  // Auto-hide toast after 3 seconds
-  setTimeout(() => {
+  // Auto-hide toast after configured duration
+  const timeoutId = window.setTimeout(() => {
     showSuccessToast.value = false;
-  }, 3000);
+  }, TOAST_DISPLAY_DURATION);
+  timeoutIds.push(timeoutId);
 };
 
 const confirmDelete = (id: string) => {
@@ -421,10 +548,11 @@ const handleEditSubmit = async () => {
     successMessage.value = `Successfully updated URL: ${editForm.value.short_code}`;
     showSuccessToast.value = true;
     
-    // Auto-hide toast after 3 seconds
-    setTimeout(() => {
+    // Auto-hide toast after configured duration
+    const timeoutId = window.setTimeout(() => {
       showSuccessToast.value = false;
-    }, 3000);
+    }, TOAST_DISPLAY_DURATION);
+    timeoutIds.push(timeoutId);
   } catch (err: any) {
     editError.value = err.response?.data?.message || 'Failed to update URL';
     console.error('Error updating URL:', err);
@@ -454,3 +582,41 @@ const formatDate = (timestamp: number) => {
   return new Date(timestamp).toLocaleDateString();
 };
 </script>
+
+<style scoped>
+.card {
+  transition: box-shadow 0.2s;
+}
+
+.card:hover {
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.btn-sm i {
+  font-size: 0.875rem;
+}
+
+/* Copy button animation */
+.btn-outline-secondary i.bi-check2 {
+  color: var(--bs-success);
+  font-weight: bold;
+}
+
+/* Search box styling */
+.input-group-text {
+  background-color: #f8f9fa;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .btn-group {
+    flex-direction: column;
+    width: 100%;
+  }
+  
+  .btn-group > * {
+    width: 100%;
+    margin-bottom: 0.25rem;
+  }
+}
+</style>
