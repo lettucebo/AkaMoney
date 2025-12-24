@@ -125,6 +125,33 @@ describe('URL Store', () => {
       expect(store.urls[0]).toEqual(newUrl);
     });
 
+    it('should update pagination statistics after successful create', async () => {
+      const newUrl = { id: '2', short_code: 'xyz', original_url: 'https://new.com', is_active: true, click_count: 0 };
+      vi.mocked(apiService.createUrl).mockResolvedValue(newUrl as any);
+      
+      const store = useUrlStore();
+      store.pagination = { page: 1, limit: 20, total: 5, total_pages: 1 };
+      
+      await store.createUrl({ original_url: 'https://new.com' });
+      
+      expect(store.pagination.total).toBe(6);
+      expect(store.pagination.total_pages).toBe(1);
+    });
+
+    it('should recalculate total_pages correctly after create', async () => {
+      const newUrl = { id: '2', short_code: 'xyz', original_url: 'https://new.com', is_active: true, click_count: 0 };
+      vi.mocked(apiService.createUrl).mockResolvedValue(newUrl as any);
+      
+      const store = useUrlStore();
+      // 20 items with limit 20 = 1 page, after create = 21 items = 2 pages
+      store.pagination = { page: 1, limit: 20, total: 20, total_pages: 1 };
+      
+      await store.createUrl({ original_url: 'https://new.com' });
+      
+      expect(store.pagination.total).toBe(21);
+      expect(store.pagination.total_pages).toBe(2);
+    });
+
     it('should handle create URL error', async () => {
       const mockError = { response: { data: { message: 'Invalid URL' } } };
       vi.mocked(apiService.createUrl).mockRejectedValue(mockError);

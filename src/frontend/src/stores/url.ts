@@ -67,6 +67,9 @@ export const useUrlStore = defineStore('url', {
       try {
         const newUrl = await apiService.createUrl(data);
         this.urls.unshift(newUrl);
+        // Update pagination statistics after successful creation
+        this.pagination.total += 1;
+        this.pagination.total_pages = Math.ceil(this.pagination.total / this.pagination.limit);
         return newUrl;
       } catch (error: any) {
         this.error = error.response?.data?.message || 'Failed to create short URL';
