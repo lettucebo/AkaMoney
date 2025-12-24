@@ -7,6 +7,27 @@ All notable changes to the AkaMoney project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2025-12-24
+
+### Added
+- Copy button for short URLs in Dashboard with visual feedback
+  - One-click clipboard copy functionality
+  - Visual confirmation with checkmark icon when copied
+  - Accessibility features with screen reader support
+- Search functionality in Dashboard URL list
+  - Search by short code, URL, or title
+  - Real-time filtering of URL list
+  - Clear button to reset search
+  - Shows result count and pagination note
+- Enhanced accessibility improvements
+  - ARIA labels for interactive elements
+  - Screen reader announcements for copy actions
+  - Keyboard-friendly navigation
+
+### Improved
+- Dashboard UI enhancements for better user experience
+- Better visual feedback for user actions
+
 ## [1.0.0] - 2025-12-21
 
 ### Added
