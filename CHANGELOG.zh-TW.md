@@ -7,6 +7,16 @@ AkaMoney 專案的所有重要變更都將記錄在此檔案中。
 格式基於 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 此專案遵循 [語義化版本](https://semver.org/spec/v2.0.0.html)。
 
+## [1.1.1] - 2025-12-24
+
+### 修正
+- 修正登入時無窮迴圈的問題，改用重新導向驗證流程取代彈出視窗
+  - 從 `loginPopup()` 改為 `loginRedirect()` 以避免彈出視窗內的路由衝突
+  - 移除 LoginView 元件中的手動導向邏輯（由 router guard 處理）
+  - 避免彈出視窗被瀏覽器封鎖的問題
+  - 提供更好的使用者體驗，使用整頁重新導向流程
+  - 符合 Microsoft 驗證的最佳實踐建議
+
 ## [1.1.0] - 2025-12-24
 
 ### 新增

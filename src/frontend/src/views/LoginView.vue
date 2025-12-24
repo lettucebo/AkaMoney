@@ -38,7 +38,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { AuthConfigurationError } from '@/services/auth';
@@ -50,22 +50,15 @@ const authStore = useAuthStore();
 const loading = ref(false);
 const error = ref<string | null>(null);
 
-onMounted(() => {
-  // If already authenticated, redirect to dashboard
-  if (authStore.isAuthenticated) {
-    const redirect = (route.query.redirect as string) || '/dashboard';
-    router.push(redirect);
-  }
-});
-
 const handleLogin = async () => {
   loading.value = true;
   error.value = null;
 
   try {
-    await authStore.login();
-    const redirect = (route.query.redirect as string) || '/dashboard';
-    router.push(redirect);
+    // Use loginRedirect instead of login (loginPopup)
+    await authStore.loginRedirect();
+    // Note: Code after this won't execute when using redirect
+    // because the page will redirect
   } catch (err) {
     if (err instanceof AuthConfigurationError) {
       error.value =

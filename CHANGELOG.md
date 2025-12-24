@@ -7,6 +7,16 @@ All notable changes to the AkaMoney project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2025-12-24
+
+### Fixed
+- Fixed infinite login loop by switching from popup to redirect authentication flow
+  - Changed from `loginPopup()` to `loginRedirect()` to avoid routing conflicts in popup window
+  - Removed manual redirect logic in LoginView component (handled by router guard)
+  - Prevents popup blocker issues
+  - Better user experience with full-page redirect flow
+  - Follows Microsoft's best practices for authentication
+
 ## [1.1.0] - 2025-12-24
 
 ### Added
