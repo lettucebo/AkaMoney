@@ -70,7 +70,7 @@
                     <div class="d-flex align-items-center gap-2 mb-1">
                       <h5 class="card-title mb-0">
                         <a 
-                          :href="`${shortDomain}/${url.short_code}`" 
+                          :href="`https://${shortDomain}/${url.short_code}`" 
                           target="_blank" 
                           class="text-decoration-none"
                         >
