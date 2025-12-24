@@ -28,18 +28,58 @@
           <p class="text-muted">Create your first shortened URL to get started</p>
         </div>
 
+        <!-- Search Box -->
+        <div v-if="!urlStore.loading && urlStore.urls.length > 0" class="mb-4">
+          <div class="input-group">
+            <span class="input-group-text">
+              <i class="bi bi-search"></i>
+            </span>
+            <input 
+              type="text" 
+              class="form-control" 
+              placeholder="Search by short code, URL, or title..." 
+              v-model="searchQuery"
+            >
+            <button 
+              v-if="searchQuery" 
+              class="btn btn-outline-secondary" 
+              @click="searchQuery = ''"
+              type="button"
+            >
+              <i class="bi bi-x-lg"></i>
+            </button>
+          </div>
+          <small v-if="searchQuery" class="text-muted">
+            Found {{ filteredUrls.length }} of {{ urlStore.urls.length }} URLs
+          </small>
+        </div>
+
         <!-- URLs List -->
         <div v-else class="row">
-          <div v-for="url in urlStore.urls" :key="url.id" class="col-12 mb-3">
+          <div v-for="url in filteredUrls" :key="url.id" class="col-12 mb-3">
             <div class="card">
               <div class="card-body">
                 <div class="row align-items-center">
                   <div class="col-md-6">
-                    <h5 class="card-title mb-1">
-                      <a :href="`${shortDomain}/${url.short_code}`" target="_blank" class="text-decoration-none">
-                        {{ shortDomain }}/{{ url.short_code }}
-                      </a>
-                    </h5>
+                    <!-- Short URL with Copy Button -->
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                      <h5 class="card-title mb-0">
+                        <a 
+                          :href="`${redirectDomain}/${url.short_code}`" 
+                          target="_blank" 
+                          class="text-decoration-none"
+                        >
+                          {{ displayDomain }}/{{ url.short_code }}
+                        </a>
+                      </h5>
+                      <button 
+                        class="btn btn-sm btn-outline-secondary"
+                        @click="copyToClipboard(`${redirectDomain}/${url.short_code}`, url.id)"
+                        :title="copiedId === url.id ? 'Copied!' : 'Copy short URL'"
+                      >
+                        <i :class="copiedId === url.id ? 'bi bi-check2' : 'bi bi-clipboard'"></i>
+                      </button>
+                    </div>
                     <p class="card-text text-muted small mb-0">
                       {{ truncate(url.original_url, 60) }}
                     </p>
@@ -294,13 +334,51 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useUrlStore } from '@/stores/url';
 import UrlCreateForm from '@/components/UrlCreateForm.vue';
 import type { UrlResponse, UpdateUrlRequest } from '@/types';
 
 const urlStore = useUrlStore();
 const shortDomain = import.meta.env.VITE_SHORT_DOMAIN || 'http://localhost:8787';
+
+// Domain configuration
+const displayDomain = import.meta.env.VITE_DISPLAY_DOMAIN || 'localhost:8787';
+const redirectDomain = import.meta.env.VITE_SHORT_DOMAIN || 'http://localhost:8787';
+
+// Search functionality
+const searchQuery = ref('');
+
+const filteredUrls = computed(() => {
+  if (!searchQuery.value) {
+    return urlStore.urls;
+  }
+  
+  const query = searchQuery.value.toLowerCase();
+  return urlStore.urls.filter(url => 
+    url.short_code.toLowerCase().includes(query) ||
+    url.original_url.toLowerCase().includes(query) ||
+    (url.title && url.title.toLowerCase().includes(query))
+  );
+});
+
+// Copy to clipboard functionality
+const copiedId = ref<string | null>(null);
+
+const copyToClipboard = async (text: string, id: string) => {
+  try {
+    await navigator.clipboard.writeText(text);
+    copiedId.value = id;
+    
+    // Reset after 2 seconds
+    setTimeout(() => {
+      copiedId.value = null;
+    }, 2000);
+  } catch (error) {
+    console.error('Failed to copy:', error);
+    alert('Failed to copy to clipboard');
+  }
+};
 
 const showCreateModal = ref(false);
 const showEditModal = ref(false);
@@ -454,3 +532,41 @@ const formatDate = (timestamp: number) => {
   return new Date(timestamp).toLocaleDateString();
 };
 </script>
+
+<style scoped>
+.card {
+  transition: box-shadow 0.2s;
+}
+
+.card:hover {
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.btn-sm i {
+  font-size: 0.875rem;
+}
+
+/* Copy button animation */
+.btn-outline-secondary i.bi-check2 {
+  color: #198754;
+  font-weight: bold;
+}
+
+/* Search box styling */
+.input-group-text {
+  background-color: #f8f9fa;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .btn-group {
+    flex-direction: column;
+    width: 100%;
+  }
+  
+  .btn-group > * {
+    width: 100%;
+    margin-bottom: 0.25rem;
+  }
+}
+</style>
