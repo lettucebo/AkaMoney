@@ -39,7 +39,7 @@ describe('Redirect Services', () => {
 
       expect(result).toEqual(mockUrl);
       expect(mockDb.prepare).toHaveBeenCalledWith(
-        'SELECT * FROM urls WHERE short_code = ? AND is_active = 1'
+        'SELECT * FROM urls WHERE LOWER(short_code) = LOWER(?) AND is_active = 1'
       );
       expect(mockDb.bind).toHaveBeenCalledWith('test123');
     });
@@ -50,6 +50,58 @@ describe('Redirect Services', () => {
       const result = await getUrlByShortCode(mockDb as any, 'nonexistent');
 
       expect(result).toBeNull();
+    });
+
+    it('should perform case-insensitive lookup', async () => {
+      const mockUrl = {
+        id: 'test-id',
+        short_code: 'az-220',
+        original_url: 'https://example.com',
+        user_id: null,
+        title: null,
+        description: null,
+        created_at: Date.now(),
+        updated_at: Date.now(),
+        expires_at: null,
+        is_active: 1,
+        click_count: 0,
+      };
+
+      mockDb.first.mockResolvedValue(mockUrl);
+
+      const result = await getUrlByShortCode(mockDb as any, 'AZ-220');
+
+      expect(result).toEqual(mockUrl);
+      expect(mockDb.prepare).toHaveBeenCalledWith(
+        'SELECT * FROM urls WHERE LOWER(short_code) = LOWER(?) AND is_active = 1'
+      );
+      expect(mockDb.bind).toHaveBeenCalledWith('AZ-220');
+    });
+
+    it('should handle mixed case short codes', async () => {
+      const mockUrl = {
+        id: 'test-id-2',
+        short_code: 'MyLink',
+        original_url: 'https://example.com/mylink',
+        user_id: null,
+        title: null,
+        description: null,
+        created_at: Date.now(),
+        updated_at: Date.now(),
+        expires_at: null,
+        is_active: 1,
+        click_count: 0,
+      };
+
+      mockDb.first.mockResolvedValue(mockUrl);
+
+      const result = await getUrlByShortCode(mockDb as any, 'mylink');
+
+      expect(result).toEqual(mockUrl);
+      expect(mockDb.prepare).toHaveBeenCalledWith(
+        'SELECT * FROM urls WHERE LOWER(short_code) = LOWER(?) AND is_active = 1'
+      );
+      expect(mockDb.bind).toHaveBeenCalledWith('mylink');
     });
   });
 
