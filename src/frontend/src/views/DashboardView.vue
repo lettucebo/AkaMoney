@@ -52,10 +52,7 @@
             </button>
           </div>
           <small v-if="searchQuery" class="text-muted">
-            Found {{ filteredUrls.length }} of {{ urlStore.urls.length }} URLs
-            <span v-if="urlStore.pagination.total_pages > 1" class="d-block">
-              (Searching current page only)
-            </span>
+            Found {{ totalFilteredCount }} of {{ urlStore.urls.length }} URLs
           </small>
         </div>
 
@@ -132,26 +129,26 @@
         </div>
 
         <!-- Pagination -->
-        <nav v-if="urlStore.pagination.total_pages > 1" class="mt-4">
+        <nav v-if="shouldShowPagination" class="mt-4" aria-label="Pagination">
           <ul class="pagination justify-content-center">
-            <li class="page-item" :class="{ disabled: urlStore.pagination.page === 1 }">
-              <a class="page-link" href="#" @click.prevent="loadPage(urlStore.pagination.page - 1)">
+            <li class="page-item" :class="{ disabled: currentPage === 1 }">
+              <a class="page-link" href="#" @click.prevent="goToPage(currentPage - 1)" :aria-disabled="currentPage === 1">
                 Previous
               </a>
             </li>
             <li
-              v-for="page in urlStore.pagination.total_pages"
+              v-for="page in totalPages"
               :key="page"
               class="page-item"
-              :class="{ active: page === urlStore.pagination.page }"
+              :class="{ active: page === currentPage }"
             >
-              <a class="page-link" href="#" @click.prevent="loadPage(page)">{{ page }}</a>
+              <a class="page-link" href="#" @click.prevent="goToPage(page)">{{ page }}</a>
             </li>
             <li
               class="page-item"
-              :class="{ disabled: urlStore.pagination.page === urlStore.pagination.total_pages }"
+              :class="{ disabled: currentPage === totalPages }"
             >
-              <a class="page-link" href="#" @click.prevent="loadPage(urlStore.pagination.page + 1)">
+              <a class="page-link" href="#" @click.prevent="goToPage(currentPage + 1)" :aria-disabled="currentPage === totalPages">
                 Next
               </a>
             </li>
@@ -357,7 +354,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import { useUrlStore } from '@/stores/url';
 import UrlCreateForm from '@/components/UrlCreateForm.vue';
 import type { UrlResponse, UpdateUrlRequest } from '@/types';
@@ -371,6 +368,13 @@ const TOAST_DISPLAY_DURATION = 5000;
 
 // Search functionality
 const searchQuery = ref('');
+const searchCurrentPage = ref(1);
+const searchPageSize = 20;
+
+// Watch search query and reset page when it changes
+watch(searchQuery, () => {
+  searchCurrentPage.value = 1;
+});
 
 const filteredUrls = computed(() => {
   if (!searchQuery.value) {
@@ -378,11 +382,51 @@ const filteredUrls = computed(() => {
   }
   
   const query = searchQuery.value.toLowerCase();
-  return urlStore.urls.filter(url => 
+  const filtered = urlStore.urls.filter(url => 
     url.short_code.toLowerCase().includes(query) ||
     url.original_url.toLowerCase().includes(query) ||
     (url.title && url.title.toLowerCase().includes(query))
   );
+  
+  // Apply client-side pagination when searching
+  const start = (searchCurrentPage.value - 1) * searchPageSize;
+  const end = start + searchPageSize;
+  return filtered.slice(start, end);
+});
+
+// Compute total filtered count (before pagination)
+const totalFilteredCount = computed(() => {
+  if (!searchQuery.value) {
+    return urlStore.urls.length;
+  }
+  
+  const query = searchQuery.value.toLowerCase();
+  return urlStore.urls.filter(url => 
+    url.short_code.toLowerCase().includes(query) ||
+    url.original_url.toLowerCase().includes(query) ||
+    (url.title && url.title.toLowerCase().includes(query))
+  ).length;
+});
+
+// Compute total pages for search results
+const searchTotalPages = computed(() => {
+  if (!searchQuery.value) {
+    return 0;
+  }
+  return Math.ceil(totalFilteredCount.value / searchPageSize);
+});
+
+// Unified pagination info
+const currentPage = computed(() => {
+  return searchQuery.value ? searchCurrentPage.value : urlStore.pagination.page;
+});
+
+const totalPages = computed(() => {
+  return searchQuery.value ? searchTotalPages.value : urlStore.pagination.total_pages;
+});
+
+const shouldShowPagination = computed(() => {
+  return totalPages.value > 1;
 });
 
 // Copy to clipboard functionality
@@ -455,6 +499,21 @@ onMounted(() => {
 
 const loadPage = (page: number) => {
   urlStore.fetchUrls(page);
+};
+
+const goToPage = (page: number) => {
+  // Prevent navigating to invalid pages
+  if (page < 1 || page > totalPages.value) {
+    return;
+  }
+  
+  if (searchQuery.value) {
+    // Handle search pagination (client-side)
+    searchCurrentPage.value = page;
+  } else {
+    // Handle regular pagination (server-side)
+    loadPage(page);
+  }
 };
 
 const openCreateModal = () => {
