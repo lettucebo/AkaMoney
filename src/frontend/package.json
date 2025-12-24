@@ -1,6 +1,6 @@
 {
   "name": "akamoney-frontend",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "AkaMoney Frontend - URL Shortening Service",
   "type": "module",
   "scripts": {
