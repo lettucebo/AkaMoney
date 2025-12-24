@@ -69,7 +69,9 @@ export const useUrlStore = defineStore('url', {
         this.urls.unshift(newUrl);
         // Update pagination statistics after successful creation
         this.pagination.total += 1;
-        this.pagination.total_pages = Math.ceil(this.pagination.total / this.pagination.limit);
+        if (this.pagination.limit > 0) {
+          this.pagination.total_pages = Math.ceil(this.pagination.total / this.pagination.limit);
+        }
         return newUrl;
       } catch (error: any) {
         this.error = error.response?.data?.message || 'Failed to create short URL';
@@ -116,7 +118,9 @@ export const useUrlStore = defineStore('url', {
         // Update pagination statistics after successful deletion
         if (this.pagination.total > 0) {
           this.pagination.total -= 1;
-          this.pagination.total_pages = Math.ceil(this.pagination.total / this.pagination.limit);
+          if (this.pagination.limit > 0) {
+            this.pagination.total_pages = Math.ceil(this.pagination.total / this.pagination.limit);
+          }
         }
       } catch (error: any) {
         this.error = error.response?.data?.message || 'Failed to delete URL';
