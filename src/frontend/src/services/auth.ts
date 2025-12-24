@@ -17,7 +17,7 @@ const msalConfig: Configuration = {
   },
   cache: {
     cacheLocation: 'localStorage',
-    storeAuthStateInCookie: false
+    storeAuthStateInCookie: true
   }
 };
 
@@ -45,8 +45,32 @@ class AuthService {
       // Skip initialization if not configured - login will show proper error
       return;
     }
-    await this.msalInstance.initialize();
-    await this.msalInstance.handleRedirectPromise();
+    
+    try {
+      await this.msalInstance.initialize();
+      
+      // Handle redirect callback and set account/token
+      const response = await this.msalInstance.handleRedirectPromise();
+      
+      if (response && response.account) {
+        // Set active account
+        this.msalInstance.setActiveAccount(response.account);
+        
+        // Store token for API usage
+        if (response.accessToken) {
+          localStorage.setItem('auth_token', response.accessToken);
+        } else {
+          console.warn(
+            'Redirect response received but no access token was returned. Subsequent API calls may fail.'
+          );
+        }
+      }
+    } catch (error) {
+      console.error('MSAL initialization error:', error);
+      // Clean up potentially corrupted state
+      localStorage.removeItem('auth_token');
+      // Don't throw - let the application continue
+    }
   }
 
   async login() {
