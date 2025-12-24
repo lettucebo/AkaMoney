@@ -62,9 +62,9 @@ export async function createUrl(
       throw new ValidationError('Invalid short code format. Use 3-20 alphanumeric characters, hyphens, or underscores.');
     }
     
-    // Check if short code already exists
+    // Check if short code already exists (case-insensitive)
     const existing = await db
-      .prepare('SELECT id FROM urls WHERE short_code = ?')
+      .prepare('SELECT id FROM urls WHERE LOWER(short_code) = LOWER(?)')
       .bind(shortCode)
       .first();
     
@@ -77,7 +77,7 @@ export async function createUrl(
     while (attempts < MAX_SHORT_CODE_GENERATION_ATTEMPTS) {
       shortCode = generateShortCode();
       const existing = await db
-        .prepare('SELECT id FROM urls WHERE short_code = ?')
+        .prepare('SELECT id FROM urls WHERE LOWER(short_code) = LOWER(?)')
         .bind(shortCode)
         .first();
       

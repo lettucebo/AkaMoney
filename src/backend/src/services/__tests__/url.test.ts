@@ -218,6 +218,21 @@ describe('URL Service - Database Functions', () => {
       })).rejects.toThrow(ConflictError);
     });
 
+    it('should throw ConflictError when custom short code exists with different case', async () => {
+      const mockDb = createMockDb();
+      mockDb._mockFirst.mockResolvedValue({ id: 'existing-id' });
+      
+      await expect(createUrl(mockDb as any, {
+        original_url: 'https://example.com',
+        short_code: 'EXISTING'
+      })).rejects.toThrow(ConflictError);
+      
+      // Verify case-insensitive query was used
+      expect(mockDb.prepare).toHaveBeenCalledWith(
+        'SELECT id FROM urls WHERE LOWER(short_code) = LOWER(?)'
+      );
+    });
+
     it('should create URL with custom short code', async () => {
       const mockDb = createMockDb();
       mockDb._mockFirst.mockResolvedValue(null);
