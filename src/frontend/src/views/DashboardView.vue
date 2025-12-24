@@ -358,7 +358,7 @@ const filteredUrls = computed(() => {
   return urlStore.urls.filter(url => 
     url.short_code.toLowerCase().includes(query) ||
     url.original_url.toLowerCase().includes(query) ||
-    (url.title && url.title.toLowerCase().includes(query))
+    (url.title && typeof url.title === 'string' && url.title.toLowerCase().includes(query))
   );
 });
 
@@ -366,6 +366,16 @@ const filteredUrls = computed(() => {
 const copiedId = ref<string | null>(null);
 
 const copyToClipboard = async (text: string, id: string) => {
+  // Check if clipboard API is available
+  if (!navigator.clipboard) {
+    successMessage.value = 'Clipboard API not available. Please copy manually: ' + text;
+    showSuccessToast.value = true;
+    setTimeout(() => {
+      showSuccessToast.value = false;
+    }, 5000);
+    return;
+  }
+  
   try {
     await navigator.clipboard.writeText(text);
     copiedId.value = id;
@@ -376,7 +386,11 @@ const copyToClipboard = async (text: string, id: string) => {
     }, 2000);
   } catch (error) {
     console.error('Failed to copy:', error);
-    alert('Failed to copy to clipboard');
+    successMessage.value = 'Failed to copy to clipboard. Please copy manually: ' + text;
+    showSuccessToast.value = true;
+    setTimeout(() => {
+      showSuccessToast.value = false;
+    }, 5000);
   }
 };
 
