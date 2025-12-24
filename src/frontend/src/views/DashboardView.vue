@@ -132,7 +132,7 @@
         <nav v-if="shouldShowPagination" class="mt-4" aria-label="Pagination">
           <ul class="pagination justify-content-center">
             <li class="page-item" :class="{ disabled: currentPage === 1 }">
-              <a class="page-link" href="#" @click.prevent="goToPage(currentPage - 1)" :aria-disabled="currentPage === 1">
+              <a class="page-link" href="#" @click.prevent="goToPage(currentPage - 1)" :aria-disabled="currentPage === 1 ? 'true' : 'false'">
                 Previous
               </a>
             </li>
@@ -148,7 +148,7 @@
               class="page-item"
               :class="{ disabled: currentPage === totalPages }"
             >
-              <a class="page-link" href="#" @click.prevent="goToPage(currentPage + 1)" :aria-disabled="currentPage === totalPages">
+              <a class="page-link" href="#" @click.prevent="goToPage(currentPage + 1)" :aria-disabled="currentPage === totalPages ? 'true' : 'false'">
                 Next
               </a>
             </li>
@@ -366,38 +366,22 @@ const shortDomain = import.meta.env.VITE_SHORT_DOMAIN || 'http://localhost:8787'
 const COPY_FEEDBACK_DURATION = 2000;
 const TOAST_DISPLAY_DURATION = 5000;
 
+// Pagination constants
+const PAGE_SIZE = 20;
+
 // Search functionality
 const searchQuery = ref('');
 const searchCurrentPage = ref(1);
-const searchPageSize = 20;
 
 // Watch search query and reset page when it changes
 watch(searchQuery, () => {
   searchCurrentPage.value = 1;
 });
 
-const filteredUrls = computed(() => {
+// Shared filtered results (before pagination)
+const allFilteredUrls = computed(() => {
   if (!searchQuery.value) {
     return urlStore.urls;
-  }
-  
-  const query = searchQuery.value.toLowerCase();
-  const filtered = urlStore.urls.filter(url => 
-    url.short_code.toLowerCase().includes(query) ||
-    url.original_url.toLowerCase().includes(query) ||
-    (url.title && url.title.toLowerCase().includes(query))
-  );
-  
-  // Apply client-side pagination when searching
-  const start = (searchCurrentPage.value - 1) * searchPageSize;
-  const end = start + searchPageSize;
-  return filtered.slice(start, end);
-});
-
-// Compute total filtered count (before pagination)
-const totalFilteredCount = computed(() => {
-  if (!searchQuery.value) {
-    return urlStore.urls.length;
   }
   
   const query = searchQuery.value.toLowerCase();
@@ -405,7 +389,26 @@ const totalFilteredCount = computed(() => {
     url.short_code.toLowerCase().includes(query) ||
     url.original_url.toLowerCase().includes(query) ||
     (url.title && url.title.toLowerCase().includes(query))
-  ).length;
+  );
+});
+
+// Paginated filtered results for display
+const filteredUrls = computed(() => {
+  const filtered = allFilteredUrls.value;
+  
+  if (!searchQuery.value) {
+    return filtered;
+  }
+  
+  // Apply client-side pagination when searching
+  const start = (searchCurrentPage.value - 1) * PAGE_SIZE;
+  const end = start + PAGE_SIZE;
+  return filtered.slice(start, end);
+});
+
+// Total filtered count (before pagination)
+const totalFilteredCount = computed(() => {
+  return allFilteredUrls.value.length;
 });
 
 // Compute total pages for search results
@@ -413,7 +416,7 @@ const searchTotalPages = computed(() => {
   if (!searchQuery.value) {
     return 0;
   }
-  return Math.ceil(totalFilteredCount.value / searchPageSize);
+  return Math.ceil(totalFilteredCount.value / PAGE_SIZE);
 });
 
 // Unified pagination info
