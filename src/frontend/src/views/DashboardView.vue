@@ -52,10 +52,7 @@
             </button>
           </div>
           <small v-if="searchQuery" class="text-muted">
-            Found {{ filteredUrls.length }} of {{ urlStore.urls.length }} URLs
-            <span v-if="urlStore.pagination.total_pages > 1" class="d-block">
-              (Searching current page only)
-            </span>
+            Found {{ totalFilteredCount }} of {{ urlStore.urls.length }} URLs
           </small>
         </div>
 
@@ -132,26 +129,26 @@
         </div>
 
         <!-- Pagination -->
-        <nav v-if="urlStore.pagination.total_pages > 1" class="mt-4">
+        <nav v-if="shouldShowPagination" class="mt-4" aria-label="Pagination">
           <ul class="pagination justify-content-center">
-            <li class="page-item" :class="{ disabled: urlStore.pagination.page === 1 }">
-              <a class="page-link" href="#" @click.prevent="loadPage(urlStore.pagination.page - 1)">
+            <li class="page-item" :class="{ disabled: currentPage === 1 }">
+              <a class="page-link" href="#" @click.prevent="goToPage(currentPage - 1)" :aria-disabled="currentPage === 1 ? 'true' : 'false'">
                 Previous
               </a>
             </li>
             <li
-              v-for="page in urlStore.pagination.total_pages"
+              v-for="page in visiblePages"
               :key="page"
               class="page-item"
-              :class="{ active: page === urlStore.pagination.page }"
+              :class="{ active: page === currentPage }"
             >
-              <a class="page-link" href="#" @click.prevent="loadPage(page)">{{ page }}</a>
+              <a class="page-link" href="#" @click.prevent="goToPage(page)">{{ page }}</a>
             </li>
             <li
               class="page-item"
-              :class="{ disabled: urlStore.pagination.page === urlStore.pagination.total_pages }"
+              :class="{ disabled: currentPage === totalPages }"
             >
-              <a class="page-link" href="#" @click.prevent="loadPage(urlStore.pagination.page + 1)">
+              <a class="page-link" href="#" @click.prevent="goToPage(currentPage + 1)" :aria-disabled="currentPage === totalPages ? 'true' : 'false'">
                 Next
               </a>
             </li>
@@ -357,7 +354,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import { useUrlStore } from '@/stores/url';
 import UrlCreateForm from '@/components/UrlCreateForm.vue';
 import type { UrlResponse, UpdateUrlRequest } from '@/types';
@@ -369,10 +366,27 @@ const shortDomain = import.meta.env.VITE_SHORT_DOMAIN || 'http://localhost:8787'
 const COPY_FEEDBACK_DURATION = 2000;
 const TOAST_DISPLAY_DURATION = 5000;
 
+// Pagination constants
+const PAGE_SIZE = 20;
+
 // Search functionality
 const searchQuery = ref('');
+const searchCurrentPage = ref(1);
 
-const filteredUrls = computed(() => {
+// Watch search query and reset page when it changes
+watch(searchQuery, (newQuery, oldQuery) => {
+  // Always reset local search pagination when the query changes
+  searchCurrentPage.value = 1;
+  
+  // If the user clears the search (non-empty -> empty),
+  // also reset the server-side pagination to page 1 to keep them in sync
+  if (!newQuery && oldQuery) {
+    loadPage(1);
+  }
+});
+
+// Shared filtered results (before pagination)
+const allFilteredUrls = computed(() => {
   if (!searchQuery.value) {
     return urlStore.urls;
   }
@@ -383,6 +397,77 @@ const filteredUrls = computed(() => {
     url.original_url.toLowerCase().includes(query) ||
     (url.title && url.title.toLowerCase().includes(query))
   );
+});
+
+// Paginated filtered results for display
+const filteredUrls = computed(() => {
+  const filtered = allFilteredUrls.value;
+  
+  // When not searching, return the server-side paginated results
+  if (!searchQuery.value) {
+    return filtered;
+  }
+  
+  // Apply client-side pagination when searching
+  const start = (searchCurrentPage.value - 1) * PAGE_SIZE;
+  const end = start + PAGE_SIZE;
+  return filtered.slice(start, end);
+});
+
+// Total filtered count (before pagination)
+const totalFilteredCount = computed(() => {
+  return allFilteredUrls.value.length;
+});
+
+// Compute total pages for search results
+const searchTotalPages = computed(() => {
+  if (!searchQuery.value) {
+    return 0;
+  }
+  return Math.ceil(totalFilteredCount.value / PAGE_SIZE);
+});
+
+// Unified pagination info
+const currentPage = computed(() => {
+  return searchQuery.value ? searchCurrentPage.value : urlStore.pagination.page;
+});
+
+const totalPages = computed(() => {
+  return searchQuery.value ? searchTotalPages.value : urlStore.pagination.total_pages;
+});
+
+const shouldShowPagination = computed(() => {
+  return totalPages.value > 1;
+});
+
+// Compute visible page numbers for windowed pagination
+const visiblePages = computed(() => {
+  const pages: number[] = [];
+  const total = totalPages.value;
+  const current = currentPage.value;
+  const maxVisible = 5; // Maximum number of page buttons to show
+  
+  if (total <= maxVisible) {
+    // Show all pages if total is within the limit
+    for (let i = 1; i <= total; i++) {
+      pages.push(i);
+    }
+  } else {
+    // Calculate window around current page
+    let start = Math.max(1, current - Math.floor(maxVisible / 2));
+    let end = Math.min(total, start + maxVisible - 1);
+    
+    // Adjust start if we're near the end
+    if (end - start + 1 < maxVisible) {
+      start = Math.max(1, end - maxVisible + 1);
+    }
+    
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+  }
+  
+  return pages;
 });
 
 // Copy to clipboard functionality
@@ -455,6 +540,21 @@ onMounted(() => {
 
 const loadPage = (page: number) => {
   urlStore.fetchUrls(page);
+};
+
+const goToPage = (page: number) => {
+  // Prevent navigating to invalid pages
+  if (page < 1 || page > totalPages.value) {
+    return;
+  }
+  
+  if (searchQuery.value) {
+    // Handle search pagination (client-side)
+    searchCurrentPage.value = page;
+  } else {
+    // Handle regular pagination (server-side)
+    loadPage(page);
+  }
 };
 
 const openCreateModal = () => {
