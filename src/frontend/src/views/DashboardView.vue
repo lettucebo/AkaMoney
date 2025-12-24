@@ -39,12 +39,14 @@
               class="form-control" 
               placeholder="Search by short code, URL, or title..." 
               v-model="searchQuery"
+              aria-label="Search URLs"
             >
             <button 
               v-if="searchQuery" 
               class="btn btn-outline-secondary" 
               @click="searchQuery = ''"
               type="button"
+              aria-label="Clear search"
             >
               <i class="bi bi-x-lg"></i>
             </button>
@@ -55,7 +57,7 @@
         </div>
 
         <!-- URLs List -->
-        <div v-else class="row">
+        <div v-if="!urlStore.loading && urlStore.urls.length > 0" class="row">
           <div v-for="url in filteredUrls" :key="url.id" class="col-12 mb-3">
             <div class="card">
               <div class="card-body">
@@ -65,17 +67,18 @@
                     <div class="d-flex align-items-center gap-2 mb-1">
                       <h5 class="card-title mb-0">
                         <a 
-                          :href="`${redirectDomain}/${url.short_code}`" 
+                          :href="`${shortDomain}/${url.short_code}`" 
                           target="_blank" 
                           class="text-decoration-none"
                         >
-                          {{ displayDomain }}/{{ url.short_code }}
+                          {{ shortDomain }}/{{ url.short_code }}
                         </a>
                       </h5>
                       <button 
                         class="btn btn-sm btn-outline-secondary"
-                        @click="copyToClipboard(`${redirectDomain}/${url.short_code}`, url.id)"
+                        @click="copyToClipboard(`${shortDomain}/${url.short_code}`, url.id)"
                         :title="copiedId === url.id ? 'Copied!' : 'Copy short URL'"
+                        :aria-label="copiedId === url.id ? 'Copied!' : 'Copy short URL'"
                       >
                         <i :class="copiedId === url.id ? 'bi bi-check2' : 'bi bi-clipboard'"></i>
                       </button>
@@ -342,10 +345,6 @@ import type { UrlResponse, UpdateUrlRequest } from '@/types';
 const urlStore = useUrlStore();
 const shortDomain = import.meta.env.VITE_SHORT_DOMAIN || 'http://localhost:8787';
 
-// Domain configuration
-const displayDomain = import.meta.env.VITE_DISPLAY_DOMAIN || 'localhost:8787';
-const redirectDomain = import.meta.env.VITE_SHORT_DOMAIN || 'http://localhost:8787';
-
 // Search functionality
 const searchQuery = ref('');
 
@@ -358,7 +357,7 @@ const filteredUrls = computed(() => {
   return urlStore.urls.filter(url => 
     url.short_code.toLowerCase().includes(query) ||
     url.original_url.toLowerCase().includes(query) ||
-    (url.title && typeof url.title === 'string' && url.title.toLowerCase().includes(query))
+    (url.title && url.title.toLowerCase().includes(query))
   );
 });
 
@@ -368,7 +367,7 @@ const copiedId = ref<string | null>(null);
 const copyToClipboard = async (text: string, id: string) => {
   // Check if clipboard API is available
   if (!navigator.clipboard) {
-    successMessage.value = 'Clipboard API not available. Please copy manually: ' + text;
+    successMessage.value = 'Clipboard API not available. Please copy the URL manually.';
     showSuccessToast.value = true;
     setTimeout(() => {
       showSuccessToast.value = false;
@@ -386,7 +385,7 @@ const copyToClipboard = async (text: string, id: string) => {
     }, 2000);
   } catch (error) {
     console.error('Failed to copy:', error);
-    successMessage.value = 'Failed to copy to clipboard. Please copy manually: ' + text;
+    successMessage.value = 'Failed to copy to clipboard. Please copy the URL manually.';
     showSuccessToast.value = true;
     setTimeout(() => {
       showSuccessToast.value = false;
