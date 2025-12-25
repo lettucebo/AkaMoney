@@ -77,7 +77,7 @@ export async function fetchD1Analytics(
         }
       }
     }
-  `.trim();
+  `;
 
   try {
     const response = await fetch('https://api.cloudflare.com/client/v4/graphql', {

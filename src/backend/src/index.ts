@@ -369,14 +369,14 @@ app.get('/api/stats/d1', authMiddleware, async (c) => {
     // Check if all required credentials are available
     if (accountId && databaseId && apiToken) {
       try {
-        console.log('Fetching real D1 analytics from Cloudflare GraphQL API...');
+        console.info('Fetching real D1 analytics from Cloudflare GraphQL API...');
         const analytics = await fetchD1Analytics(accountId, databaseId, apiToken);
         
         actualDailyReads = analytics.readQueries;
         actualDailyWrites = analytics.writeQueries;
         dataSource = 'cloudflare';
         
-        console.log('Successfully fetched D1 analytics:', { 
+        console.info('Successfully fetched D1 analytics:', { 
           readQueries: actualDailyReads, 
           writeQueries: actualDailyWrites 
         });
@@ -399,7 +399,7 @@ app.get('/api/stats/d1', authMiddleware, async (c) => {
       }
     } else {
       // Credentials not configured, use estimation
-      console.log('Cloudflare credentials not configured, using estimation');
+      console.info('Cloudflare credentials not configured, using estimation');
       fallbackReason = 'Cloudflare API credentials not configured';
       
       const todayStart = new Date();
