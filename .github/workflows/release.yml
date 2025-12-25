@@ -3,7 +3,7 @@ name: Release
 # This workflow deploys the application to production.
 # It skips redundant testing since code is already tested in CI workflow during PR.
 # It only deploys services that have changed since the last release tag or commit.
-# Supports both tag-based and manual deployments via workflow_dispatch.
+# Supports automatic tag-based deployments and manual deployments via workflow_dispatch on any branch or tag.
 
 on:
   push:
