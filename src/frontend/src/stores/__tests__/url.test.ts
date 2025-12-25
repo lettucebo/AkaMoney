@@ -194,6 +194,66 @@ describe('URL Store', () => {
     });
   });
 
+  describe('archiveUrl', () => {
+    it('should archive URL successfully', async () => {
+      const existingUrl = { id: '1', short_code: 'abc', original_url: 'https://example.com', is_active: true, click_count: 10 };
+      const archivedUrl = { ...existingUrl, is_active: false, updated_at: Date.now() };
+      
+      vi.mocked(apiService.updateUrl).mockResolvedValue(archivedUrl as any);
+      
+      const store = useUrlStore();
+      store.urls = [existingUrl as any];
+      store.currentUrl = existingUrl as any;
+      
+      const result = await store.archiveUrl('1');
+      
+      expect(result.is_active).toBe(false);
+      expect(store.urls[0].is_active).toBe(false);
+      expect(store.currentUrl?.is_active).toBe(false);
+    });
+
+    it('should handle archive URL error', async () => {
+      const mockError = { response: { data: { message: 'Archive failed' } } };
+      vi.mocked(apiService.updateUrl).mockRejectedValue(mockError);
+      
+      const store = useUrlStore();
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      
+      await expect(store.archiveUrl('1')).rejects.toEqual(mockError);
+      expect(store.error).toBe('Archive failed');
+    });
+  });
+
+  describe('restoreUrl', () => {
+    it('should restore URL successfully', async () => {
+      const existingUrl = { id: '1', short_code: 'abc', original_url: 'https://example.com', is_active: false, click_count: 10 };
+      const restoredUrl = { ...existingUrl, is_active: true, updated_at: Date.now() };
+      
+      vi.mocked(apiService.updateUrl).mockResolvedValue(restoredUrl as any);
+      
+      const store = useUrlStore();
+      store.urls = [existingUrl as any];
+      store.currentUrl = existingUrl as any;
+      
+      const result = await store.restoreUrl('1');
+      
+      expect(result.is_active).toBe(true);
+      expect(store.urls[0].is_active).toBe(true);
+      expect(store.currentUrl?.is_active).toBe(true);
+    });
+
+    it('should handle restore URL error', async () => {
+      const mockError = { response: { data: { message: 'Restore failed' } } };
+      vi.mocked(apiService.updateUrl).mockRejectedValue(mockError);
+      
+      const store = useUrlStore();
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      
+      await expect(store.restoreUrl('1')).rejects.toEqual(mockError);
+      expect(store.error).toBe('Restore failed');
+    });
+  });
+
   describe('clearError', () => {
     it('should clear error', () => {
       const store = useUrlStore();

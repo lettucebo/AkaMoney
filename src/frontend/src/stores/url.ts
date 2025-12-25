@@ -119,6 +119,52 @@ export const useUrlStore = defineStore('url', {
       }
     },
 
+    async archiveUrl(id: string) {
+      this.loading = true;
+      this.error = null;
+      
+      try {
+        const updatedUrl = await apiService.updateUrl(id, { is_active: false });
+        const index = this.urls.findIndex(u => u.id === id);
+        if (index !== -1) {
+          this.urls[index] = updatedUrl;
+        }
+        if (this.currentUrl?.id === id) {
+          this.currentUrl = updatedUrl;
+        }
+        return updatedUrl;
+      } catch (error: any) {
+        this.error = error.response?.data?.message || 'Failed to archive URL';
+        console.error('Error archiving URL:', error);
+        throw error;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async restoreUrl(id: string) {
+      this.loading = true;
+      this.error = null;
+      
+      try {
+        const updatedUrl = await apiService.updateUrl(id, { is_active: true });
+        const index = this.urls.findIndex(u => u.id === id);
+        if (index !== -1) {
+          this.urls[index] = updatedUrl;
+        }
+        if (this.currentUrl?.id === id) {
+          this.currentUrl = updatedUrl;
+        }
+        return updatedUrl;
+      } catch (error: any) {
+        this.error = error.response?.data?.message || 'Failed to restore URL';
+        console.error('Error restoring URL:', error);
+        throw error;
+      } finally {
+        this.loading = false;
+      }
+    },
+
     clearError() {
       this.error = null;
     }
