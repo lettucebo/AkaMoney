@@ -287,15 +287,16 @@ class ApiService {
           usagePercent: 0.05
         },
         reads: {
-          estimatedDaily: 1368,
+          daily: 1368,
           limitPerDay: 5000000,
           usagePercent: 0.03
         },
         writes: {
-          estimatedDaily: 456,
+          daily: 456,
           limitPerDay: 100000,
           usagePercent: 0.46
         },
+        dataSource: 'cloudflare',
         timestamp: new Date().toISOString()
       };
     }
