@@ -690,6 +690,7 @@ const handleUrlStatusChange = async (
   urlId: string | null,
   storeAction: (id: string) => Promise<any>,
   successMsg: string,
+  actionVerb: string,
   errorRef: { value: string | null },
   modalRef: { value: boolean },
   urlIdRef: { value: string | null }
@@ -709,7 +710,7 @@ const handleUrlStatusChange = async (
     }, TOAST_DISPLAY_DURATION);
     timeoutIds.push(timeoutId);
   } catch (err: any) {
-    errorRef.value = err.response?.data?.message || `Failed to ${successMsg.split(' ')[1]}`;
+    errorRef.value = err.response?.data?.message || `Failed to ${actionVerb} URL`;
   }
 };
 
@@ -718,6 +719,7 @@ const handleArchive = async () => {
     archiveUrlId.value,
     urlStore.archiveUrl.bind(urlStore),
     'URL archived successfully',
+    'archive',
     archiveError,
     showArchiveModal,
     archiveUrlId
@@ -729,6 +731,7 @@ const handleRestore = async () => {
     restoreUrlId.value,
     urlStore.restoreUrl.bind(urlStore),
     'URL restored successfully',
+    'restore',
     restoreError,
     showRestoreModal,
     restoreUrlId
@@ -847,29 +850,44 @@ const formatDate = (timestamp: number) => {
 }
 
 /* Dark mode styling for archived URLs */
-@media (prefers-color-scheme: dark) {
-  .archived-url-card {
+@media (prefers-color-scheme: dark), (min-width: 0) {
+  :is([data-bs-theme="dark"], html:has([data-bs-theme="dark"])) .archived-url-card {
     opacity: 0.65;
     background-color: rgba(108, 117, 125, 0.15);
     border-left: 4px solid rgba(255, 193, 7, 0.5);
   }
 
-  .archived-badge {
+  :is([data-bs-theme="dark"], html:has([data-bs-theme="dark"])) .archived-badge {
     background-color: rgba(255, 193, 7, 0.25);
     color: #ffc107;
   }
 }
 
-/* Dark mode override when Bootstrap dark mode is active */
-[data-bs-theme="dark"] .archived-url-card {
-  opacity: 0.65;
-  background-color: rgba(108, 117, 125, 0.15);
-  border-left: 4px solid rgba(255, 193, 7, 0.5);
-}
+/* Fallback for browsers that don't support :has() */
+@supports not selector(:has(*)) {
+  @media (prefers-color-scheme: dark) {
+    .archived-url-card {
+      opacity: 0.65;
+      background-color: rgba(108, 117, 125, 0.15);
+      border-left: 4px solid rgba(255, 193, 7, 0.5);
+    }
 
-[data-bs-theme="dark"] .archived-badge {
-  background-color: rgba(255, 193, 7, 0.25);
-  color: #ffc107;
+    .archived-badge {
+      background-color: rgba(255, 193, 7, 0.25);
+      color: #ffc107;
+    }
+  }
+
+  [data-bs-theme="dark"] .archived-url-card {
+    opacity: 0.65;
+    background-color: rgba(108, 117, 125, 0.15);
+    border-left: 4px solid rgba(255, 193, 7, 0.5);
+  }
+
+  [data-bs-theme="dark"] .archived-badge {
+    background-color: rgba(255, 193, 7, 0.25);
+    color: #ffc107;
+  }
 }
 
 .btn-sm i {
