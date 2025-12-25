@@ -1,15 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { app } from '../index';
 
-describe('Database Usage Stats API', () => {
+describe('D1 Database Usage Stats API', () => {
   beforeEach(() => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     vi.spyOn(console, 'log').mockImplementation(() => {});
   });
 
-  describe('GET /api/stats/usage', () => {
+  describe('GET /api/stats/d1', () => {
     it('should require authentication', async () => {
-      const res = await app.request('/api/stats/usage', {
+      const res = await app.request('/api/stats/d1', {
         method: 'GET'
       });
       
@@ -18,11 +18,11 @@ describe('Database Usage Stats API', () => {
       expect(body.error).toBe('Unauthorized');
     });
 
-    it('should return usage statistics when authenticated', async () => {
+    it('should return D1 usage statistics when authenticated', async () => {
       // Create a mock JWT token (in a real scenario, use the jwt service)
       const mockToken = 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJ0ZXN0LXVzZXIiLCJlbWFpbCI6InRlc3RAZXhhbXBsZS5jb20ifQ.mock';
       
-      const res = await app.request('/api/stats/usage', {
+      const res = await app.request('/api/stats/d1', {
         method: 'GET',
         headers: {
           'Authorization': mockToken

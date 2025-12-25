@@ -316,8 +316,8 @@ app.get('/api/public/analytics/:shortCode', async (c) => {
   });
 });
 
-// Get database usage statistics
-app.get('/api/stats/usage', authMiddleware, async (c) => {
+// Get D1 database usage statistics
+app.get('/api/stats/d1', authMiddleware, async (c) => {
   try {
     const user = getAuthUser(c);
     if (!user) {

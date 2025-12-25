@@ -241,7 +241,7 @@ const fetchUsageStats = async () => {
       return;
     }
 
-    const response = await axios.get(`${apiUrl}/api/stats/usage`, {
+    const response = await axios.get(`${apiUrl}/api/stats/d1`, {
       headers: {
         Authorization: `Bearer ${token}`
       }
