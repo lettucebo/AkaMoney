@@ -680,50 +680,59 @@ const confirmArchive = (id: string) => {
   archiveError.value = null;
 };
 
-const handleArchive = async () => {
-  if (!archiveUrlId.value) return;
-  
-  try {
-    await urlStore.archiveUrl(archiveUrlId.value);
-    showArchiveModal.value = false;
-    archiveUrlId.value = null;
-    
-    // Show success toast
-    successMessage.value = 'URL archived successfully';
-    showSuccessToast.value = true;
-    const timeoutId = window.setTimeout(() => {
-      showSuccessToast.value = false;
-    }, TOAST_DISPLAY_DURATION);
-    timeoutIds.push(timeoutId);
-  } catch (err: any) {
-    archiveError.value = err.response?.data?.message || 'Failed to archive URL';
-  }
-};
-
 const confirmRestore = (id: string) => {
   restoreUrlId.value = id;
   showRestoreModal.value = true;
   restoreError.value = null;
 };
 
-const handleRestore = async () => {
-  if (!restoreUrlId.value) return;
+const handleUrlStatusChange = async (
+  urlId: string | null,
+  storeAction: (id: string) => Promise<any>,
+  successMsg: string,
+  errorRef: { value: string | null },
+  modalRef: { value: boolean },
+  urlIdRef: { value: string | null }
+) => {
+  if (!urlId) return;
   
   try {
-    await urlStore.restoreUrl(restoreUrlId.value);
-    showRestoreModal.value = false;
-    restoreUrlId.value = null;
+    await storeAction(urlId);
+    modalRef.value = false;
+    urlIdRef.value = null;
     
     // Show success toast
-    successMessage.value = 'URL restored successfully';
+    successMessage.value = successMsg;
     showSuccessToast.value = true;
     const timeoutId = window.setTimeout(() => {
       showSuccessToast.value = false;
     }, TOAST_DISPLAY_DURATION);
     timeoutIds.push(timeoutId);
   } catch (err: any) {
-    restoreError.value = err.response?.data?.message || 'Failed to restore URL';
+    errorRef.value = err.response?.data?.message || `Failed to ${successMsg.split(' ')[1]}`;
   }
+};
+
+const handleArchive = async () => {
+  await handleUrlStatusChange(
+    archiveUrlId.value,
+    urlStore.archiveUrl.bind(urlStore),
+    'URL archived successfully',
+    archiveError,
+    showArchiveModal,
+    archiveUrlId
+  );
+};
+
+const handleRestore = async () => {
+  await handleUrlStatusChange(
+    restoreUrlId.value,
+    urlStore.restoreUrl.bind(urlStore),
+    'URL restored successfully',
+    restoreError,
+    showRestoreModal,
+    restoreUrlId
+  );
 };
 
 // Open edit modal
@@ -835,6 +844,32 @@ const formatDate = (timestamp: number) => {
   font-size: 0.75rem;
   font-weight: 600;
   margin-left: 0.5rem;
+}
+
+/* Dark mode styling for archived URLs */
+@media (prefers-color-scheme: dark) {
+  .archived-url-card {
+    opacity: 0.65;
+    background-color: rgba(108, 117, 125, 0.15);
+    border-left: 4px solid rgba(255, 193, 7, 0.5);
+  }
+
+  .archived-badge {
+    background-color: rgba(255, 193, 7, 0.25);
+    color: #ffc107;
+  }
+}
+
+/* Dark mode override when Bootstrap dark mode is active */
+[data-bs-theme="dark"] .archived-url-card {
+  opacity: 0.65;
+  background-color: rgba(108, 117, 125, 0.15);
+  border-left: 4px solid rgba(255, 193, 7, 0.5);
+}
+
+[data-bs-theme="dark"] .archived-badge {
+  background-color: rgba(255, 193, 7, 0.25);
+  color: #ffc107;
 }
 
 .btn-sm i {

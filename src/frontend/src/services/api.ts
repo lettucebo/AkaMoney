@@ -20,6 +20,7 @@ import type {
  * - demo1: Example website with 42 clicks
  * - github: AkaMoney repository link with 128 clicks
  * - docs: Documentation page with 256 clicks
+ * - archived: Archived content example with 89 clicks
  * 
  * **Note:** This array is mutable - created/updated/deleted URLs will modify it.
  * The state persists for the duration of the browser session but resets on page refresh.
