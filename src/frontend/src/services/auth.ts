@@ -14,10 +14,10 @@ const skipAuth = import.meta.env.VITE_SKIP_AUTH === 'true' && import.meta.env.DE
 
 // Mock user account for development mode with skipped authentication
 const mockAccount: AccountInfo = {
-  homeAccountId: 'dev-mock-account-id',
-  localAccountId: 'dev-local-account-id',
-  environment: 'login.microsoftonline.com',
-  tenantId: 'dev-tenant-id',
+  homeAccountId: 'mock-home-account-id',
+  localAccountId: 'mock-local-account-id',
+  environment: 'development.local',
+  tenantId: 'mock-tenant-id',
   username: 'dev@localhost',
   name: 'Development User'
 };

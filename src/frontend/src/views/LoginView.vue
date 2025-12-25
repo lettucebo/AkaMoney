@@ -64,6 +64,9 @@ onMounted(async () => {
       await authStore.login();
       const redirect = (route.query.redirect as string) || '/dashboard';
       router.push(redirect);
+    } catch (err) {
+      console.error('Auto-login failed:', err);
+      error.value = 'Auto-login failed. Please try manual login.';
     } finally {
       loading.value = false;
     }
