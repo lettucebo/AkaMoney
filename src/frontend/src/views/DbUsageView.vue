@@ -35,6 +35,9 @@
                   <p class="text-muted mb-0">
                     ({{ stats.storage.estimatedSizeGB }} GB of {{ stats.storage.limitGB }} GB limit)
                   </p>
+                  <p class="text-success mb-0 small">
+                    <i class="bi bi-check-circle me-1"></i>{{ getRemainingStorage }} GB remaining
+                  </p>
                 </div>
                 <div class="col-md-6 text-end">
                   <span class="badge" :class="getUsageBadgeClass(stats.storage.usagePercent)">
@@ -78,6 +81,9 @@
                     <p class="text-muted mb-0 small">
                       {{ stats.reads.estimatedDaily.toLocaleString() }} / {{ stats.reads.limitPerDay.toLocaleString() }}
                     </p>
+                    <p class="text-success mb-0 small">
+                      <i class="bi bi-check-circle me-1"></i>{{ getRemainingReads }} reads remaining today
+                    </p>
                   </div>
                   <span class="badge" :class="getUsageBadgeClass(stats.reads.usagePercent)">
                     {{ stats.reads.usagePercent.toFixed(2) }}%
@@ -109,6 +115,9 @@
                     <strong>Write Operations (Today)</strong>
                     <p class="text-muted mb-0 small">
                       {{ stats.writes.estimatedDaily.toLocaleString() }} / {{ stats.writes.limitPerDay.toLocaleString() }}
+                    </p>
+                    <p class="text-success mb-0 small">
+                      <i class="bi bi-check-circle me-1"></i>{{ getRemainingWrites }} writes remaining today
                     </p>
                   </div>
                   <span class="badge" :class="getUsageBadgeClass(stats.writes.usagePercent)">
@@ -175,7 +184,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import axios from 'axios';
 import type { D1UsageStats } from '@/types';
 
@@ -209,6 +218,25 @@ const fetchUsageStats = async () => {
     loading.value = false;
   }
 };
+
+// Computed properties for remaining capacity
+const getRemainingStorage = computed(() => {
+  if (!stats.value) return '0';
+  const remaining = stats.value.storage.limitGB - stats.value.storage.estimatedSizeGB;
+  return remaining.toFixed(4);
+});
+
+const getRemainingReads = computed(() => {
+  if (!stats.value) return '0';
+  const remaining = stats.value.reads.limitPerDay - stats.value.reads.estimatedDaily;
+  return remaining.toLocaleString();
+});
+
+const getRemainingWrites = computed(() => {
+  if (!stats.value) return '0';
+  const remaining = stats.value.writes.limitPerDay - stats.value.writes.estimatedDaily;
+  return remaining.toLocaleString();
+});
 
 const getProgressBarClass = (percent: number): string => {
   if (percent >= 90) return 'bg-danger';
