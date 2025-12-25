@@ -82,29 +82,22 @@ export interface LoginResponse {
   user: User;
 }
 
-export interface UsageStats {
-  totalClicks: number;
-  todayClicks: number;
-  monthClicks: number;
-  totalUrls: number;
-  database: {
+export interface D1UsageStats {
+  storage: {
     estimatedSizeMB: number;
     estimatedSizeGB: number;
-    storageLimitGB: number;
-    storageUsagePercent: number;
+    limitGB: number;
+    usagePercent: number;
   };
-  limits: {
-    reads: {
-      estimatedDaily: number;
-      limit: number;
-      usagePercent: number;
-    };
-    writes: {
-      estimatedDaily: number;
-      limit: number;
-      usagePercent: number;
-    };
+  reads: {
+    estimatedDaily: number;
+    limitPerDay: number;
+    usagePercent: number;
   };
-  oldestRecordDate: string | null;
+  writes: {
+    estimatedDaily: number;
+    limitPerDay: number;
+    usagePercent: number;
+  };
   timestamp: string;
 }

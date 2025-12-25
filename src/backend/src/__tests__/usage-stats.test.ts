@@ -37,35 +37,22 @@ describe('D1 Database Usage Stats API', () => {
       // This tests the expected response structure
       // In a real implementation, we would use a valid test token
       const expectedStructure = {
-        totalClicks: expect.any(Number),
-        todayClicks: expect.any(Number),
-        monthClicks: expect.any(Number),
-        totalUrls: expect.any(Number),
-        database: {
+        storage: {
           estimatedSizeMB: expect.any(Number),
           estimatedSizeGB: expect.any(Number),
-          storageLimitGB: expect.any(Number),
-          storageUsagePercent: expect.any(Number)
+          limitGB: expect.any(Number),
+          usagePercent: expect.any(Number)
         },
-        limits: {
-          storage: {
-            used: expect.any(Number),
-            limit: expect.any(Number),
-            unit: expect.any(String),
-            usagePercent: expect.any(Number)
-          },
-          reads: {
-            estimatedDaily: expect.any(Number),
-            limit: expect.any(Number),
-            usagePercent: expect.any(Number)
-          },
-          writes: {
-            estimatedDaily: expect.any(Number),
-            limit: expect.any(Number),
-            usagePercent: expect.any(Number)
-          }
+        reads: {
+          estimatedDaily: expect.any(Number),
+          limitPerDay: expect.any(Number),
+          usagePercent: expect.any(Number)
         },
-        oldestRecordDate: expect.anything(),
+        writes: {
+          estimatedDaily: expect.any(Number),
+          limitPerDay: expect.any(Number),
+          usagePercent: expect.any(Number)
+        },
         timestamp: expect.any(String)
       };
 

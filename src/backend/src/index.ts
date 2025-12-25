@@ -330,14 +330,20 @@ app.get('/api/stats/d1', authMiddleware, async (c) => {
     const READS_PER_CLICK = 3;            // Each click: 1 read for URL + 2 for analytics
     const WRITES_PER_CLICK = 1;           // Each click: 1 write to click_records
 
-    // Total click records
+    // Get total record counts for size estimation
     const totalClicksResult = await c.env.DB
       .prepare('SELECT COUNT(*) as count FROM click_records')
       .first<{ count: number }>();
     
     const totalClicks = totalClicksResult?.count || 0;
 
-    // Today's clicks (UTC timezone)
+    const totalUrlsResult = await c.env.DB
+      .prepare('SELECT COUNT(*) as count FROM urls')
+      .first<{ count: number }>();
+    
+    const totalUrls = totalUrlsResult?.count || 0;
+
+    // Today's operations count for daily limits (UTC timezone)
     const todayStart = new Date();
     todayStart.setUTCHours(0, 0, 0, 0);
     const todayStartTimestamp = todayStart.getTime();
@@ -348,26 +354,6 @@ app.get('/api/stats/d1', authMiddleware, async (c) => {
       .first<{ count: number }>();
     
     const todayClicks = todayClicksResult?.count || 0;
-
-    // This month's clicks
-    const monthStart = new Date();
-    monthStart.setUTCDate(1);
-    monthStart.setUTCHours(0, 0, 0, 0);
-    const monthStartTimestamp = monthStart.getTime();
-
-    const monthClicksResult = await c.env.DB
-      .prepare('SELECT COUNT(*) as count FROM click_records WHERE clicked_at >= ?')
-      .bind(monthStartTimestamp)
-      .first<{ count: number }>();
-    
-    const monthClicks = monthClicksResult?.count || 0;
-
-    // Total URLs
-    const totalUrlsResult = await c.env.DB
-      .prepare('SELECT COUNT(*) as count FROM urls')
-      .first<{ count: number }>();
-    
-    const totalUrls = totalUrlsResult?.count || 0;
 
     // Estimate database size (rough calculation)
     const estimatedSizeBytes = (totalClicks * BYTES_PER_CLICK_RECORD) + (totalUrls * BYTES_PER_URL);
@@ -388,46 +374,30 @@ app.get('/api/stats/d1', authMiddleware, async (c) => {
     const readsUsagePercent = (estimatedDailyReads / freeReadLimitPerDay) * 100;
     const writesUsagePercent = (estimatedDailyWrites / freeWriteLimitPerDay) * 100;
 
-    // Oldest record date
-    const oldestRecordResult = await c.env.DB
-      .prepare('SELECT MIN(clicked_at) as oldest FROM click_records')
-      .first<{ oldest: number }>();
-    
-    const oldestRecordDate = oldestRecordResult?.oldest 
-      ? new Date(oldestRecordResult.oldest).toISOString() 
-      : null;
-
     return c.json({
-      totalClicks,
-      todayClicks,
-      monthClicks,
-      totalUrls,
-      database: {
+      storage: {
         estimatedSizeMB: parseFloat(estimatedSizeMB.toFixed(2)),
         estimatedSizeGB: parseFloat((estimatedSizeMB / 1024).toFixed(4)),
-        storageLimitGB: freeStorageLimitGB,
-        storageUsagePercent: parseFloat(storageUsagePercent.toFixed(2))
+        limitGB: freeStorageLimitGB,
+        usagePercent: parseFloat(storageUsagePercent.toFixed(2))
       },
-      limits: {
-        reads: {
-          estimatedDaily: estimatedDailyReads,
-          limit: freeReadLimitPerDay,
-          usagePercent: parseFloat(readsUsagePercent.toFixed(2))
-        },
-        writes: {
-          estimatedDaily: estimatedDailyWrites,
-          limit: freeWriteLimitPerDay,
-          usagePercent: parseFloat(writesUsagePercent.toFixed(2))
-        }
+      reads: {
+        estimatedDaily: estimatedDailyReads,
+        limitPerDay: freeReadLimitPerDay,
+        usagePercent: parseFloat(readsUsagePercent.toFixed(2))
       },
-      oldestRecordDate,
+      writes: {
+        estimatedDaily: estimatedDailyWrites,
+        limitPerDay: freeWriteLimitPerDay,
+        usagePercent: parseFloat(writesUsagePercent.toFixed(2))
+      },
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error('Error fetching usage stats:', error);
+    console.error('Error fetching D1 stats:', error);
     return c.json({
       error: 'Internal Server Error',
-      message: 'Failed to fetch usage statistics',
+      message: 'Failed to fetch D1 statistics',
       details: error instanceof Error ? error.message : String(error)
     }, 500);
   }
