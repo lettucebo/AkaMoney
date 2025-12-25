@@ -38,8 +38,8 @@ jobs:
         run: |
           # For workflow_dispatch or tags, we check changes from the previous tag
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [[ "${{ github.ref }}" == refs/tags/* ]]; then
-            # Get the previous tag
-            PREV_TAG=$(git tag --sort=-creatordate | sed -n '2p')
+            # Get the previous tag using version sorting
+            PREV_TAG=$(git tag --sort=-version:refname | sed -n '2p')
             if [ -z "$PREV_TAG" ]; then
               # No previous tag, deploy everything
               echo "No previous tag found, deploying all services"
@@ -48,20 +48,23 @@ jobs:
               echo "redirect=true" >> "$GITHUB_OUTPUT"
             else
               echo "Comparing changes from $PREV_TAG to current ref"
+              # Get the diff once and store it
+              CHANGED_FILES=$(git diff --name-only "$PREV_TAG" HEAD)
+
               # Check for changes in each service
-              if git diff --name-only "$PREV_TAG" HEAD | grep -qE '^src/backend/|^package\.json|^package-lock\.json'; then
+              if echo "$CHANGED_FILES" | grep -qE '^src/backend/|^package\.json|^package-lock\.json'; then
                 echo "backend=true" >> "$GITHUB_OUTPUT"
               else
                 echo "backend=false" >> "$GITHUB_OUTPUT"
               fi
 
-              if git diff --name-only "$PREV_TAG" HEAD | grep -qE '^src/frontend/|^package\.json|^package-lock\.json'; then
+              if echo "$CHANGED_FILES" | grep -qE '^src/frontend/|^package\.json|^package-lock\.json'; then
                 echo "frontend=true" >> "$GITHUB_OUTPUT"
               else
                 echo "frontend=false" >> "$GITHUB_OUTPUT"
               fi
 
-              if git diff --name-only "$PREV_TAG" HEAD | grep -qE '^src/redirect/|^package\.json|^package-lock\.json'; then
+              if echo "$CHANGED_FILES" | grep -qE '^src/redirect/|^package\.json|^package-lock\.json'; then
                 echo "redirect=true" >> "$GITHUB_OUTPUT"
               else
                 echo "redirect=false" >> "$GITHUB_OUTPUT"
