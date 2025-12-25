@@ -54,15 +54,15 @@ jobs:
         run: cd src/redirect && npm ci
 
       - name: Run backend tests
-        if: github.event.inputs && github.event.inputs.run_tests == true
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_tests == 'true'
         run: cd src/backend && npm run test:coverage
 
       - name: Run frontend tests
-        if: github.event.inputs && github.event.inputs.run_tests == true
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_tests == 'true'
         run: cd src/frontend && npm run test:coverage
 
       - name: Run redirect tests
-        if: github.event.inputs && github.event.inputs.run_tests == true
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_tests == 'true'
         run: cd src/redirect && npm run test:coverage
 
       - name: Build frontend
