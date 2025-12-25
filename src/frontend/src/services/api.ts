@@ -9,8 +9,24 @@ import type {
   ApiError
 } from '@/types';
 
-// Mock data for development mode with skipped authentication
-const mockUrls: UrlResponse[] = [
+/**
+ * Mock URL data for development mode with skipped authentication.
+ * 
+ * This data is only used when `VITE_SKIP_AUTH=true` is set in development mode.
+ * It provides sample URL entries for testing, screenshots, and UI demos
+ * without requiring a real backend server.
+ * 
+ * **Mock Entries:**
+ * - demo1: Example website with 42 clicks
+ * - github: AkaMoney repository link with 128 clicks
+ * - docs: Documentation page with 256 clicks
+ * 
+ * **Note:** This array is mutable - created/updated/deleted URLs will modify it.
+ * The state persists for the duration of the browser session but resets on page refresh.
+ * 
+ * To add or modify mock data for different testing scenarios, edit the entries below.
+ */
+const getInitialMockUrls = (): UrlResponse[] => [
   {
     id: 'mock-url-1',
     short_code: 'demo1',
@@ -48,6 +64,30 @@ const mockUrls: UrlResponse[] = [
     click_count: 256
   }
 ];
+
+// Mutable mock data store - initialized with default mock URLs
+let mockUrls: UrlResponse[] = getInitialMockUrls();
+
+/**
+ * Resets mock URL data to initial state.
+ * Useful for testing scenarios that need a fresh state.
+ */
+export function resetMockUrls(): void {
+  mockUrls = getInitialMockUrls();
+}
+
+/**
+ * Creates an error object that matches the structure expected by error handlers.
+ * This ensures mock errors behave consistently with real API errors.
+ */
+function createMockApiError(message: string, status: number = 404): Error {
+  const error = new Error(message) as Error & { response?: { data?: { message: string }; status: number } };
+  error.response = {
+    data: { message },
+    status
+  };
+  return error;
+}
 
 class ApiService {
   private api: AxiosInstance;
@@ -116,6 +156,7 @@ class ApiService {
         description: data.description,
         created_at: Date.now(),
         updated_at: Date.now(),
+        expires_at: data.expires_at,
         is_active: true,
         click_count: 0
       };
@@ -154,7 +195,7 @@ class ApiService {
     if (isAuthSkipped()) {
       const url = mockUrls.find(u => u.id === id);
       if (url) return url;
-      throw new Error('URL not found');
+      throw createMockApiError('URL not found', 404);
     }
 
     const response = await this.api.get<UrlResponse>(`/api/urls/${id}`);
@@ -169,7 +210,7 @@ class ApiService {
         mockUrls[index] = { ...mockUrls[index], ...data, updated_at: Date.now() };
         return mockUrls[index];
       }
-      throw new Error('URL not found');
+      throw createMockApiError('URL not found', 404);
     }
 
     const response = await this.api.put<UrlResponse>(`/api/urls/${id}`, data);
@@ -209,7 +250,7 @@ class ApiService {
           recent_clicks: []
         };
       }
-      throw new Error('URL not found');
+      throw createMockApiError('URL not found', 404);
     }
 
     const response = await this.api.get<AnalyticsResponse>(`/api/analytics/${shortCode}`);

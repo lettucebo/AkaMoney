@@ -66,7 +66,8 @@ onMounted(async () => {
       router.push(redirect);
     } catch (err) {
       console.error('Auto-login failed:', err);
-      error.value = 'Auto-login failed. Please try manual login.';
+      error.value =
+        'Development configuration error: auto-login failed in skip-auth mode. Check console for details.';
     } finally {
       loading.value = false;
     }

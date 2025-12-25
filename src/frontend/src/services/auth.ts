@@ -9,10 +9,34 @@ export class AuthConfigurationError extends Error {
 
 const clientId = import.meta.env.VITE_ENTRA_ID_CLIENT_ID || '';
 
-// Skip authentication in development mode when VITE_SKIP_AUTH is set
+/**
+ * Flag to skip authentication in development mode.
+ * 
+ * This feature is controlled by the `VITE_SKIP_AUTH` environment variable
+ * and only activates when running in development mode (`import.meta.env.DEV`).
+ * 
+ * **Security Notice:** This should NEVER be enabled in production.
+ * 
+ * **Use Cases:**
+ * - Automated testing and screenshots
+ * - UI demos and development without real authentication
+ * - Local development workflow improvements
+ */
 const skipAuth = import.meta.env.VITE_SKIP_AUTH === 'true' && import.meta.env.DEV;
 
-// Mock user account for development mode with skipped authentication
+// Runtime warning when authentication is bypassed
+if (skipAuth) {
+  // eslint-disable-next-line no-console
+  console.warn(
+    '[Auth] Authentication is DISABLED because VITE_SKIP_AUTH is true in development. ' +
+      'Do NOT enable this mode in production.'
+  );
+}
+
+/**
+ * Mock user account for development mode with skipped authentication.
+ * Contains realistic but clearly fake data for testing purposes.
+ */
 const mockAccount: AccountInfo = {
   homeAccountId: 'mock-home-account-id',
   localAccountId: 'mock-local-account-id',
@@ -22,6 +46,16 @@ const mockAccount: AccountInfo = {
   name: 'Development User'
 };
 
+/**
+ * Checks if authentication is currently being skipped.
+ * 
+ * @returns `true` if `VITE_SKIP_AUTH=true` and running in development mode, `false` otherwise.
+ * 
+ * This function is used to determine if mock data should be returned
+ * instead of making real API calls or authentication requests.
+ * 
+ * **Security:** Only returns `true` in development mode (`import.meta.env.DEV`).
+ */
 export function isAuthSkipped(): boolean {
   return skipAuth;
 }
