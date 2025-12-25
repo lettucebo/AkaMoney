@@ -2,13 +2,16 @@ name: Release
 
 # This workflow deploys the application to production.
 # It skips redundant testing since code is already tested in CI workflow during PR.
-# It only deploys services that have changed since the last release tag.
+# It only deploys services that have changed since the last release tag or commit.
+# Supports both tag-based and branch-based deployments.
 # To force deployment of all services, trigger manually via workflow_dispatch.
 
 on:
   push:
     tags:
       - '*'
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -26,7 +29,7 @@ jobs:
       backend: ${{ steps.filter.outputs.backend }}
       frontend: ${{ steps.filter.outputs.frontend }}
       redirect: ${{ steps.filter.outputs.redirect }}
-      any: ${{ steps.filter.outputs.backend == 'true' || steps.filter.outputs.frontend == 'true' || steps.filter.outputs.redirect == 'true' }}
+      any: ${{ steps.filter.outputs.any }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -36,45 +39,91 @@ jobs:
       - name: Detect changes
         id: filter
         run: |
-          # For workflow_dispatch or tags, we check changes from the previous tag
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [[ "${{ github.ref }}" == refs/tags/* ]]; then
-            # Get the previous tag using version sorting
+          # Determine comparison base based on trigger type
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            # For tag push, compare with previous tag
+            echo "Trigger: Tag push"
             PREV_TAG=$(git tag --sort=-version:refname | sed -n '2p')
             if [ -z "$PREV_TAG" ]; then
-              # No previous tag, deploy everything
               echo "No previous tag found, deploying all services"
-              echo "backend=true" >> "$GITHUB_OUTPUT"
-              echo "frontend=true" >> "$GITHUB_OUTPUT"
-              echo "redirect=true" >> "$GITHUB_OUTPUT"
+              COMPARE_BASE=""
             else
-              echo "Comparing changes from $PREV_TAG to current ref"
-              # Get the diff once and store it
-              CHANGED_FILES=$(git diff --name-only "$PREV_TAG" HEAD)
-
-              # Check for changes in each service
-              if echo "$CHANGED_FILES" | grep -qE '^src/backend/|^package\.json|^package-lock\.json'; then
-                echo "backend=true" >> "$GITHUB_OUTPUT"
+              echo "Comparing with previous tag: $PREV_TAG"
+              COMPARE_BASE="$PREV_TAG"
+            fi
+          elif [[ "${{ github.ref }}" == refs/heads/* ]]; then
+            # For branch push, compare with previous commit
+            echo "Trigger: Branch push (${{ github.ref_name }})"
+            if git rev-parse HEAD~1 >/dev/null 2>&1; then
+              COMPARE_BASE="HEAD~1"
+              echo "Comparing with previous commit: $COMPARE_BASE"
+            else
+              echo "No previous commit found (first commit?), deploying all services"
+              COMPARE_BASE=""
+            fi
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            # For manual trigger, try to find a reasonable comparison base
+            echo "Trigger: Manual workflow dispatch"
+            if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+              PREV_TAG=$(git tag --sort=-version:refname | sed -n '2p')
+              COMPARE_BASE="${PREV_TAG:-}"
+            else
+              # For branch manual trigger, compare with previous commit
+              if git rev-parse HEAD~1 >/dev/null 2>&1; then
+                COMPARE_BASE="HEAD~1"
               else
-                echo "backend=false" >> "$GITHUB_OUTPUT"
-              fi
-
-              if echo "$CHANGED_FILES" | grep -qE '^src/frontend/|^package\.json|^package-lock\.json'; then
-                echo "frontend=true" >> "$GITHUB_OUTPUT"
-              else
-                echo "frontend=false" >> "$GITHUB_OUTPUT"
-              fi
-
-              if echo "$CHANGED_FILES" | grep -qE '^src/redirect/|^package\.json|^package-lock\.json'; then
-                echo "redirect=true" >> "$GITHUB_OUTPUT"
-              else
-                echo "redirect=false" >> "$GITHUB_OUTPUT"
+                COMPARE_BASE=""
               fi
             fi
+            echo "Comparison base: ${COMPARE_BASE:-none (deploy all)}"
           else
-            # For other triggers, deploy everything
+            echo "Unknown trigger type, deploying all services"
+            COMPARE_BASE=""
+          fi
+
+          # If no comparison base, deploy everything
+          if [ -z "$COMPARE_BASE" ]; then
             echo "backend=true" >> "$GITHUB_OUTPUT"
             echo "frontend=true" >> "$GITHUB_OUTPUT"
             echo "redirect=true" >> "$GITHUB_OUTPUT"
+            echo "any=true" >> "$GITHUB_OUTPUT"
+          else
+            # Get the diff once and store it
+            CHANGED_FILES=$(git diff --name-only "$COMPARE_BASE" HEAD)
+            echo "Changed files:"
+            echo "$CHANGED_FILES"
+
+            # Check for changes in each service (including service-specific package files)
+            if echo "$CHANGED_FILES" | grep -qE '^src/backend/|^package\.json|^package-lock\.json'; then
+              echo "backend=true" >> "$GITHUB_OUTPUT"
+              BACKEND_CHANGED=true
+            else
+              echo "backend=false" >> "$GITHUB_OUTPUT"
+              BACKEND_CHANGED=false
+            fi
+
+            if echo "$CHANGED_FILES" | grep -qE '^src/frontend/|^package\.json|^package-lock\.json'; then
+              echo "frontend=true" >> "$GITHUB_OUTPUT"
+              FRONTEND_CHANGED=true
+            else
+              echo "frontend=false" >> "$GITHUB_OUTPUT"
+              FRONTEND_CHANGED=false
+            fi
+
+            if echo "$CHANGED_FILES" | grep -qE '^src/redirect/|^package\.json|^package-lock\.json'; then
+              echo "redirect=true" >> "$GITHUB_OUTPUT"
+              REDIRECT_CHANGED=true
+            else
+              echo "redirect=false" >> "$GITHUB_OUTPUT"
+              REDIRECT_CHANGED=false
+            fi
+
+            # Calculate 'any' flag
+            if [ "$BACKEND_CHANGED" = "true" ] || [ "$FRONTEND_CHANGED" = "true" ] || [ "$REDIRECT_CHANGED" = "true" ]; then
+              echo "any=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "any=false" >> "$GITHUB_OUTPUT"
+            fi
           fi
 
       - name: Show deployment plan
@@ -83,9 +132,27 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "| Service | Will Deploy |" >> "$GITHUB_STEP_SUMMARY"
           echo "| --- | --- |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Backend API | ${{ steps.filter.outputs.backend == 'true' && '✅ Yes' || '⏭️ Skipped' }} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Frontend | ${{ steps.filter.outputs.frontend == 'true' && '✅ Yes' || '⏭️ Skipped' }} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Redirect Service | ${{ steps.filter.outputs.redirect == 'true' && '✅ Yes' || '⏭️ Skipped' }} |" >> "$GITHUB_STEP_SUMMARY"
+          
+          # Backend status
+          if [ "${{ steps.filter.outputs.backend }}" = "true" ]; then
+            echo "| Backend API | ✅ Yes |" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "| Backend API | ⏭️ Skipped |" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          
+          # Frontend status
+          if [ "${{ steps.filter.outputs.frontend }}" = "true" ]; then
+            echo "| Frontend | ✅ Yes |" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "| Frontend | ⏭️ Skipped |" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          
+          # Redirect status
+          if [ "${{ steps.filter.outputs.redirect }}" = "true" ]; then
+            echo "| Redirect Service | ✅ Yes |" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "| Redirect Service | ⏭️ Skipped |" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
   # Build artifacts without running tests (tests already run in CI)
   build:
