@@ -119,6 +119,37 @@ export const useUrlStore = defineStore('url', {
       }
     },
 
+    async archiveUrl(id: string) {
+      return this.updateUrlActiveStatus(id, false, 'archive');
+    },
+
+    async restoreUrl(id: string) {
+      return this.updateUrlActiveStatus(id, true, 'restore');
+    },
+
+    async updateUrlActiveStatus(id: string, isActive: boolean, action: string) {
+      this.loading = true;
+      this.error = null;
+      
+      try {
+        const updatedUrl = await apiService.updateUrl(id, { is_active: isActive });
+        const index = this.urls.findIndex(u => u.id === id);
+        if (index !== -1) {
+          this.urls[index] = updatedUrl;
+        }
+        if (this.currentUrl?.id === id) {
+          this.currentUrl = updatedUrl;
+        }
+        return updatedUrl;
+      } catch (error: any) {
+        this.error = error.response?.data?.message || `Failed to ${action} URL`;
+        console.error(`Error ${action}ing URL:`, error);
+        throw error;
+      } finally {
+        this.loading = false;
+      }
+    },
+
     clearError() {
       this.error = null;
     }

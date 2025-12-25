@@ -4,9 +4,22 @@
       <div class="col-12">
         <div class="d-flex justify-content-between align-items-center mb-4">
           <h2>My URLs</h2>
-          <button class="btn btn-primary" @click="openCreateModal">
-            <i class="bi bi-plus-lg"></i> Create New
-          </button>
+          <div>
+            <button 
+              class="btn btn-sm me-2"
+              :class="showArchived ? 'btn-secondary' : 'btn-outline-secondary'"
+              @click="toggleArchived"
+            >
+              <i class="bi bi-archive"></i>
+              {{ showArchived ? 'Hide Archived' : 'Show All' }}
+              <span v-if="archivedCount > 0" class="badge bg-secondary ms-1">
+                {{ archivedCount }}
+              </span>
+            </button>
+            <button class="btn btn-primary" @click="openCreateModal">
+              <i class="bi bi-plus-lg"></i> Create New
+            </button>
+          </div>
         </div>
 
         <!-- Loading State -->
@@ -59,7 +72,7 @@
         <!-- URLs List -->
         <div v-if="!urlStore.loading && urlStore.urls.length > 0" class="row">
           <div v-for="url in filteredUrls" :key="url.id" class="col-12 mb-3">
-            <div class="card">
+            <div class="card" :class="{ 'archived-url-card': !url.is_active }">
               <div class="card-body">
                 <div class="row align-items-center">
                   <div class="col-md-6">
@@ -73,6 +86,9 @@
                         >
                           {{ shortDomain }}/{{ url.short_code }}
                         </a>
+                        <span v-if="!url.is_active" class="archived-badge">
+                          <i class="bi bi-archive"></i> Archived
+                        </span>
                       </h5>
                       <button 
                         class="btn btn-sm btn-outline-secondary"
@@ -101,7 +117,7 @@
                     </small>
                   </div>
                   <div class="col-md-3 text-end">
-                    <div class="btn-group">
+                    <div v-if="url.is_active" class="btn-group">
                       <router-link
                         :to="`/analytics/${url.short_code}`"
                         class="btn btn-sm btn-outline-primary"
@@ -115,10 +131,24 @@
                         <i class="bi bi-pencil"></i> Edit
                       </button>
                       <button
-                        class="btn btn-sm btn-outline-danger"
-                        @click="confirmDelete(url.id)"
+                        class="btn btn-sm btn-outline-warning"
+                        @click="confirmArchive(url.id)"
                       >
-                        <i class="bi bi-trash"></i>
+                        <i class="bi bi-archive"></i> Archive
+                      </button>
+                    </div>
+                    <div v-else class="btn-group">
+                      <router-link
+                        :to="`/analytics/${url.short_code}`"
+                        class="btn btn-sm btn-outline-primary"
+                      >
+                        <i class="bi bi-graph-up"></i> Analytics
+                      </router-link>
+                      <button
+                        class="btn btn-sm btn-outline-success"
+                        @click="confirmRestore(url.id)"
+                      >
+                        <i class="bi bi-arrow-counterclockwise"></i> Restore
                       </button>
                     </div>
                   </div>
@@ -172,24 +202,61 @@
       </div>
     </div>
 
-    <!-- Delete Confirmation Modal -->
-    <div v-if="showDeleteModal" class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5)">
+    <!-- Archive Confirmation Modal -->
+    <div v-if="showArchiveModal" class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5)">
       <div class="modal-dialog">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title">Confirm Delete</h5>
-            <button type="button" class="btn-close" @click="showDeleteModal = false"></button>
+            <h5 class="modal-title">Confirm Archive</h5>
+            <button type="button" class="btn-close" @click="showArchiveModal = false"></button>
           </div>
           <div class="modal-body">
-            <p>Are you sure you want to delete this URL? This action cannot be undone.</p>
-            <div v-if="deleteError" class="alert alert-danger">{{ deleteError }}</div>
+            <p>⚠️ Archive this shortened URL?</p>
+            <p>After archiving:</p>
+            <ul>
+              <li>Visitors will be redirected to: {{ archivedRedirectUrl }}</li>
+              <li>Clicks will NOT be counted</li>
+              <li>You can restore it anytime</li>
+            </ul>
+            <p>Continue?</p>
+            <div v-if="archiveError" class="alert alert-danger">{{ archiveError }}</div>
           </div>
           <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" @click="showDeleteModal = false">
+            <button type="button" class="btn btn-secondary" @click="showArchiveModal = false">
               Cancel
             </button>
-            <button type="button" class="btn btn-danger" @click="handleDelete">
-              Delete
+            <button type="button" class="btn btn-warning" @click="handleArchive">
+              Archive
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Restore Confirmation Modal -->
+    <div v-if="showRestoreModal" class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5)">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Confirm Restore</h5>
+            <button type="button" class="btn-close" @click="showRestoreModal = false"></button>
+          </div>
+          <div class="modal-body">
+            <p>Restore this archived URL?</p>
+            <p>After restoring:</p>
+            <ul>
+              <li>The short URL will redirect to the original destination</li>
+              <li>Clicks will be counted again</li>
+              <li>The URL will appear in your active list</li>
+            </ul>
+            <div v-if="restoreError" class="alert alert-danger">{{ restoreError }}</div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" @click="showRestoreModal = false">
+              Cancel
+            </button>
+            <button type="button" class="btn btn-success" @click="handleRestore">
+              Restore
             </button>
           </div>
         </div>
@@ -361,6 +428,7 @@ import type { UrlResponse, UpdateUrlRequest } from '@/types';
 
 const urlStore = useUrlStore();
 const shortDomain = import.meta.env.VITE_SHORT_DOMAIN || 'http://localhost:8787';
+const archivedRedirectUrl = import.meta.env.VITE_ARCHIVED_REDIRECT_URL || 'https://aka.money/archived';
 
 // Timeout constants
 const COPY_FEEDBACK_DURATION = 2000;
@@ -368,6 +436,9 @@ const TOAST_DISPLAY_DURATION = 5000;
 
 // Pagination constants
 const PAGE_SIZE = 20;
+
+// Filter state
+const showArchived = ref(false);
 
 // Search functionality
 const searchQuery = ref('');
@@ -387,17 +458,37 @@ watch(searchQuery, (newQuery, oldQuery) => {
 
 // Shared filtered results (before pagination)
 const allFilteredUrls = computed(() => {
+  // Filter by archived status first
+  let urls = showArchived.value 
+    ? urlStore.urls 
+    : urlStore.urls.filter(url => url.is_active);
+  
   if (!searchQuery.value) {
-    return urlStore.urls;
+    return urls;
   }
   
   const query = searchQuery.value.toLowerCase();
-  return urlStore.urls.filter(url => 
+  return urls.filter(url => 
     url.short_code.toLowerCase().includes(query) ||
     url.original_url.toLowerCase().includes(query) ||
     (url.title && url.title.toLowerCase().includes(query))
   );
 });
+
+// Computed archived count
+const archivedCount = computed(() => {
+  return urlStore.urls.filter(url => !url.is_active).length;
+});
+
+// Toggle archived visibility
+const toggleArchived = () => {
+  showArchived.value = !showArchived.value;
+  // Reset pagination when toggling archived filter
+  searchCurrentPage.value = 1;
+  if (!searchQuery.value) {
+    loadPage(1);
+  }
+};
 
 // Paginated filtered results for display
 const filteredUrls = computed(() => {
@@ -508,9 +599,12 @@ const copyToClipboard = async (text: string, id: string) => {
 
 const showCreateModal = ref(false);
 const showEditModal = ref(false);
-const deleteUrlId = ref<string | null>(null);
-const showDeleteModal = ref(false);
-const deleteError = ref<string | null>(null);
+const archiveUrlId = ref<string | null>(null);
+const restoreUrlId = ref<string | null>(null);
+const showArchiveModal = ref(false);
+const showRestoreModal = ref(false);
+const archiveError = ref<string | null>(null);
+const restoreError = ref<string | null>(null);
 const showSuccessToast = ref(false);
 const successMessage = ref('');
 const showErrorToast = ref(false);
@@ -580,22 +674,68 @@ const onUrlCreated = async (url: UrlResponse) => {
   timeoutIds.push(timeoutId);
 };
 
-const confirmDelete = (id: string) => {
-  deleteUrlId.value = id;
-  showDeleteModal.value = true;
-  deleteError.value = null;
+const confirmArchive = (id: string) => {
+  archiveUrlId.value = id;
+  showArchiveModal.value = true;
+  archiveError.value = null;
 };
 
-const handleDelete = async () => {
-  if (!deleteUrlId.value) return;
+const confirmRestore = (id: string) => {
+  restoreUrlId.value = id;
+  showRestoreModal.value = true;
+  restoreError.value = null;
+};
+
+const handleUrlStatusChange = async (
+  urlId: string | null,
+  storeAction: (id: string) => Promise<any>,
+  successMsg: string,
+  actionVerb: string,
+  errorRef: { value: string | null },
+  modalRef: { value: boolean },
+  urlIdRef: { value: string | null }
+) => {
+  if (!urlId) return;
   
   try {
-    await urlStore.deleteUrl(deleteUrlId.value);
-    showDeleteModal.value = false;
-    deleteUrlId.value = null;
+    await storeAction(urlId);
+    modalRef.value = false;
+    urlIdRef.value = null;
+    
+    // Show success toast
+    successMessage.value = successMsg;
+    showSuccessToast.value = true;
+    const timeoutId = window.setTimeout(() => {
+      showSuccessToast.value = false;
+    }, TOAST_DISPLAY_DURATION);
+    timeoutIds.push(timeoutId);
   } catch (err: any) {
-    deleteError.value = err.response?.data?.message || 'Failed to delete URL';
+    errorRef.value = err.response?.data?.message || `Failed to ${actionVerb} URL`;
   }
+};
+
+const handleArchive = async () => {
+  await handleUrlStatusChange(
+    archiveUrlId.value,
+    urlStore.archiveUrl.bind(urlStore),
+    'URL archived successfully',
+    'archive',
+    archiveError,
+    showArchiveModal,
+    archiveUrlId
+  );
+};
+
+const handleRestore = async () => {
+  await handleUrlStatusChange(
+    restoreUrlId.value,
+    urlStore.restoreUrl.bind(urlStore),
+    'URL restored successfully',
+    'restore',
+    restoreError,
+    showRestoreModal,
+    restoreUrlId
+  );
 };
 
 // Open edit modal
@@ -685,11 +825,69 @@ const formatDate = (timestamp: number) => {
 
 <style scoped>
 .card {
-  transition: box-shadow 0.2s;
+  transition: box-shadow 0.2s, opacity 0.2s;
 }
 
 .card:hover {
   box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.archived-url-card {
+  opacity: 0.7;
+  background-color: #f8f9fa;
+  border-left: 4px solid #ffc107;
+}
+
+.archived-badge {
+  display: inline-block;
+  background-color: #ffc107;
+  color: #000;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-left: 0.5rem;
+}
+
+/* Dark mode styling for archived URLs */
+@media (prefers-color-scheme: dark), (min-width: 0) {
+  :is([data-bs-theme="dark"], html:has([data-bs-theme="dark"])) .archived-url-card {
+    opacity: 0.65;
+    background-color: rgba(108, 117, 125, 0.15);
+    border-left: 4px solid rgba(255, 193, 7, 0.5);
+  }
+
+  :is([data-bs-theme="dark"], html:has([data-bs-theme="dark"])) .archived-badge {
+    background-color: rgba(255, 193, 7, 0.25);
+    color: #ffc107;
+  }
+}
+
+/* Fallback for browsers that don't support :has() */
+@supports not selector(:has(*)) {
+  @media (prefers-color-scheme: dark) {
+    .archived-url-card {
+      opacity: 0.65;
+      background-color: rgba(108, 117, 125, 0.15);
+      border-left: 4px solid rgba(255, 193, 7, 0.5);
+    }
+
+    .archived-badge {
+      background-color: rgba(255, 193, 7, 0.25);
+      color: #ffc107;
+    }
+  }
+
+  [data-bs-theme="dark"] .archived-url-card {
+    opacity: 0.65;
+    background-color: rgba(108, 117, 125, 0.15);
+    border-left: 4px solid rgba(255, 193, 7, 0.5);
+  }
+
+  [data-bs-theme="dark"] .archived-badge {
+    background-color: rgba(255, 193, 7, 0.25);
+    color: #ffc107;
+  }
 }
 
 .btn-sm i {
