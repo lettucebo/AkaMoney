@@ -483,6 +483,11 @@ const archivedCount = computed(() => {
 // Toggle archived visibility
 const toggleArchived = () => {
   showArchived.value = !showArchived.value;
+  // Reset pagination when toggling archived filter
+  searchCurrentPage.value = 1;
+  if (!searchQuery.value) {
+    loadPage(1);
+  }
 };
 
 // Paginated filtered results for display
