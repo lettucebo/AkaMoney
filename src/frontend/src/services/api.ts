@@ -1,4 +1,4 @@
-import authService from './auth';
+import authService, { isAuthSkipped } from './auth';
 import axios, { AxiosInstance, AxiosError } from 'axios';
 import type {
   UrlResponse,
@@ -8,6 +8,46 @@ import type {
   PaginatedResponse,
   ApiError
 } from '@/types';
+
+// Mock data for development mode with skipped authentication
+const mockUrls: UrlResponse[] = [
+  {
+    id: 'mock-url-1',
+    short_code: 'demo1',
+    original_url: 'https://example.com/very-long-url-that-needs-shortening',
+    short_url: 'http://localhost:8787/demo1',
+    title: 'Example Website',
+    description: 'A demo shortened URL for testing',
+    created_at: Date.now() - 86400000,
+    updated_at: Date.now() - 86400000,
+    is_active: true,
+    click_count: 42
+  },
+  {
+    id: 'mock-url-2',
+    short_code: 'github',
+    original_url: 'https://github.com/AkaMoney/AkaMoney',
+    short_url: 'http://localhost:8787/github',
+    title: 'AkaMoney Repository',
+    description: 'Project GitHub repository',
+    created_at: Date.now() - 172800000,
+    updated_at: Date.now() - 172800000,
+    is_active: true,
+    click_count: 128
+  },
+  {
+    id: 'mock-url-3',
+    short_code: 'docs',
+    original_url: 'https://docs.example.com/getting-started/introduction',
+    short_url: 'http://localhost:8787/docs',
+    title: 'Documentation',
+    description: 'Getting started guide',
+    created_at: Date.now() - 259200000,
+    updated_at: Date.now() - 259200000,
+    is_active: true,
+    click_count: 256
+  }
+];
 
 class ApiService {
   private api: AxiosInstance;
@@ -65,11 +105,44 @@ class ApiService {
 
   // URL Management
   async createUrl(data: CreateUrlRequest): Promise<UrlResponse> {
+    // Return mock response in skip auth mode
+    if (isAuthSkipped()) {
+      const newUrl: UrlResponse = {
+        id: `mock-url-${Date.now()}`,
+        short_code: data.short_code || `short${Date.now()}`,
+        original_url: data.original_url,
+        short_url: `http://localhost:8787/${data.short_code || `short${Date.now()}`}`,
+        title: data.title,
+        description: data.description,
+        created_at: Date.now(),
+        updated_at: Date.now(),
+        is_active: true,
+        click_count: 0
+      };
+      mockUrls.unshift(newUrl);
+      return newUrl;
+    }
+
     const response = await this.api.post<UrlResponse>('/api/shorten', data);
     return response.data;
   }
 
   async getUrls(page: number = 1, limit: number = 20): Promise<PaginatedResponse<UrlResponse>> {
+    // Return mock data in skip auth mode
+    if (isAuthSkipped()) {
+      const start = (page - 1) * limit;
+      const end = start + limit;
+      return {
+        data: mockUrls.slice(start, end),
+        pagination: {
+          page,
+          limit,
+          total: mockUrls.length,
+          total_pages: Math.ceil(mockUrls.length / limit)
+        }
+      };
+    }
+
     const response = await this.api.get<PaginatedResponse<UrlResponse>>('/api/urls', {
       params: { page, limit }
     });
@@ -77,21 +150,68 @@ class ApiService {
   }
 
   async getUrl(id: string): Promise<UrlResponse> {
+    // Return mock data in skip auth mode
+    if (isAuthSkipped()) {
+      const url = mockUrls.find(u => u.id === id);
+      if (url) return url;
+      throw new Error('URL not found');
+    }
+
     const response = await this.api.get<UrlResponse>(`/api/urls/${id}`);
     return response.data;
   }
 
   async updateUrl(id: string, data: UpdateUrlRequest): Promise<UrlResponse> {
+    // Return mock response in skip auth mode
+    if (isAuthSkipped()) {
+      const index = mockUrls.findIndex(u => u.id === id);
+      if (index !== -1) {
+        mockUrls[index] = { ...mockUrls[index], ...data, updated_at: Date.now() };
+        return mockUrls[index];
+      }
+      throw new Error('URL not found');
+    }
+
     const response = await this.api.put<UrlResponse>(`/api/urls/${id}`, data);
     return response.data;
   }
 
   async deleteUrl(id: string): Promise<void> {
+    // Handle mock deletion in skip auth mode
+    if (isAuthSkipped()) {
+      const index = mockUrls.findIndex(u => u.id === id);
+      if (index !== -1) {
+        mockUrls.splice(index, 1);
+      }
+      return;
+    }
+
     await this.api.delete(`/api/urls/${id}`);
   }
 
   // Analytics
   async getAnalytics(shortCode: string): Promise<AnalyticsResponse> {
+    // Return mock analytics in skip auth mode
+    if (isAuthSkipped()) {
+      const url = mockUrls.find(u => u.short_code === shortCode);
+      if (url) {
+        return {
+          url,
+          total_clicks: url.click_count,
+          clicks_by_date: {
+            [new Date().toISOString().split('T')[0]]: Math.floor(url.click_count * 0.3),
+            [new Date(Date.now() - 86400000).toISOString().split('T')[0]]: Math.floor(url.click_count * 0.4),
+            [new Date(Date.now() - 172800000).toISOString().split('T')[0]]: Math.floor(url.click_count * 0.3)
+          },
+          clicks_by_country: { 'TW': Math.floor(url.click_count * 0.6), 'US': Math.floor(url.click_count * 0.4) },
+          clicks_by_device: { 'Desktop': Math.floor(url.click_count * 0.7), 'Mobile': Math.floor(url.click_count * 0.3) },
+          clicks_by_browser: { 'Chrome': Math.floor(url.click_count * 0.5), 'Firefox': Math.floor(url.click_count * 0.3), 'Safari': Math.floor(url.click_count * 0.2) },
+          recent_clicks: []
+        };
+      }
+      throw new Error('URL not found');
+    }
+
     const response = await this.api.get<AnalyticsResponse>(`/api/analytics/${shortCode}`);
     return response.data;
   }
