@@ -50,7 +50,7 @@
                   class="progress-bar"
                   :class="getProgressBarClass(stats.storage.usagePercent)"
                   role="progressbar"
-                  :style="{ width: stats.storage.usagePercent + '%' }"
+                  :style="{ width: Math.min(stats.storage.usagePercent, 100) + '%' }"
                   :aria-valuenow="stats.storage.usagePercent"
                   aria-valuemin="0"
                   aria-valuemax="100"
@@ -185,10 +185,9 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
-import axios from 'axios';
+import apiService from '@/services/api';
 import type { D1UsageStats } from '@/types';
 
-const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8788';
 const loading = ref(false);
 const error = ref<string | null>(null);
 const stats = ref<D1UsageStats | null>(null);
@@ -198,19 +197,7 @@ const fetchUsageStats = async () => {
   error.value = null;
   
   try {
-    const token = localStorage.getItem('auth_token');
-    if (!token) {
-      error.value = 'Authentication required';
-      return;
-    }
-
-    const response = await axios.get(`${apiUrl}/api/stats/d1`, {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    });
-
-    stats.value = response.data;
+    stats.value = await apiService.getD1Stats();
   } catch (err: any) {
     console.error('Error fetching D1 stats:', err);
     error.value = err.response?.data?.message || 'Failed to fetch D1 statistics';

@@ -32,32 +32,5 @@ describe('D1 Database Usage Stats API', () => {
       // Will fail auth with invalid token, but we verify the endpoint exists
       expect([401, 500]).toContain(res.status);
     });
-
-    it('should have correct response structure', async () => {
-      // This tests the expected response structure
-      // In a real implementation, we would use a valid test token
-      const expectedStructure = {
-        storage: {
-          estimatedSizeMB: expect.any(Number),
-          estimatedSizeGB: expect.any(Number),
-          limitGB: expect.any(Number),
-          usagePercent: expect.any(Number)
-        },
-        reads: {
-          estimatedDaily: expect.any(Number),
-          limitPerDay: expect.any(Number),
-          usagePercent: expect.any(Number)
-        },
-        writes: {
-          estimatedDaily: expect.any(Number),
-          limitPerDay: expect.any(Number),
-          usagePercent: expect.any(Number)
-        },
-        timestamp: expect.any(String)
-      };
-
-      // Just verify the structure is defined correctly
-      expect(expectedStructure).toBeDefined();
-    });
   });
 });
