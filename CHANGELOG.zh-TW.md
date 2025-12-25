@@ -7,6 +7,15 @@ AkaMoney 專案的所有重要變更都將記錄在此檔案中。
 格式基於 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 此專案遵循 [語義化版本](https://semver.org/spec/v2.0.0.html)。
 
+## [1.1.3] - 2025-12-25
+
+### 修正
+- 修正點擊記錄問題，在轉址服務的 INSERT 語句中加入遺漏的 short_code 欄位
+  - 在轉址服務型別中為 `ClickRecord` 介面加入 `short_code` 欄位
+  - 更新 INSERT 語句以包含 `short_code` 欄位
+  - 防止 NOT NULL 約束違規
+  - 確保 Dashboard 和 Analytics 的點擊統計正確更新
+
 ## [1.1.2] - 2025-12-24
 
 ### 修正
