@@ -9,6 +9,23 @@ export class AuthConfigurationError extends Error {
 
 const clientId = import.meta.env.VITE_ENTRA_ID_CLIENT_ID || '';
 
+// Skip authentication in development mode when VITE_SKIP_AUTH is set
+const skipAuth = import.meta.env.VITE_SKIP_AUTH === 'true' && import.meta.env.DEV;
+
+// Mock user account for development mode with skipped authentication
+const mockAccount: AccountInfo = {
+  homeAccountId: 'dev-mock-account-id',
+  localAccountId: 'dev-local-account-id',
+  environment: 'login.microsoftonline.com',
+  tenantId: 'dev-tenant-id',
+  username: 'dev@localhost',
+  name: 'Development User'
+};
+
+export function isAuthSkipped(): boolean {
+  return skipAuth;
+}
+
 const msalConfig: Configuration = {
   auth: {
     clientId,
@@ -41,6 +58,12 @@ class AuthService {
   }
 
   async initialize() {
+    // Skip authentication in development mode when VITE_SKIP_AUTH is set
+    if (skipAuth) {
+      console.info('[Auth] Skipping authentication in development mode');
+      return;
+    }
+
     if (!this.isConfigured || !this.msalInstance) {
       // Skip initialization if not configured - login will show proper error
       return;
@@ -74,6 +97,11 @@ class AuthService {
   }
 
   async login() {
+    // Return mock account if skip auth is enabled
+    if (skipAuth) {
+      return mockAccount;
+    }
+
     this.ensureConfigured();
     try {
       const msalInstance = this.msalInstance!;
@@ -105,6 +133,11 @@ class AuthService {
   }
 
   async loginRedirect() {
+    // Skip redirect if skip auth is enabled - the store will handle mock login
+    if (skipAuth) {
+      return;
+    }
+
     this.ensureConfigured();
     try {
       const msalInstance = this.msalInstance!;
@@ -123,6 +156,12 @@ class AuthService {
   }
 
   async logout() {
+    // Simple logout for skip auth mode
+    if (skipAuth) {
+      localStorage.removeItem('auth_token');
+      return;
+    }
+
     const account = this.getAccount();
     localStorage.removeItem('auth_token');
     
@@ -134,6 +173,11 @@ class AuthService {
   }
 
   getAccount(): AccountInfo | null {
+    // Return mock account if skip auth is enabled
+    if (skipAuth) {
+      return mockAccount;
+    }
+
     if (!this.msalInstance) {
       return null;
     }
@@ -152,10 +196,19 @@ class AuthService {
   }
 
   isAuthenticated(): boolean {
+    // Always authenticated if skip auth is enabled
+    if (skipAuth) {
+      return true;
+    }
     return this.getAccount() !== null;
   }
 
   async getToken(): Promise<string | null> {
+    // Return mock token if skip auth is enabled
+    if (skipAuth) {
+      return 'dev-mock-token';
+    }
+
     const account = this.getAccount();
     if (!account || !this.msalInstance) {
       return null;

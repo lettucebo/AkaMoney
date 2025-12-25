@@ -9,6 +9,11 @@
               Sign in with your Microsoft account to manage your URLs
             </p>
 
+            <div v-if="authSkipped" class="alert alert-warning" role="alert">
+              <i class="bi bi-exclamation-triangle me-2"></i>
+              Authentication skipped (Development Mode)
+            </div>
+
             <div v-if="error" class="alert alert-danger" role="alert">
               {{ error }}
             </div>
@@ -38,10 +43,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
-import { AuthConfigurationError } from '@/services/auth';
+import { AuthConfigurationError, isAuthSkipped } from '@/services/auth';
 
 const router = useRouter();
 const route = useRoute();
@@ -49,6 +54,21 @@ const authStore = useAuthStore();
 
 const loading = ref(false);
 const error = ref<string | null>(null);
+const authSkipped = ref(isAuthSkipped());
+
+onMounted(async () => {
+  // Auto-login when auth is skipped in development mode
+  if (authSkipped.value) {
+    loading.value = true;
+    try {
+      await authStore.login();
+      const redirect = (route.query.redirect as string) || '/dashboard';
+      router.push(redirect);
+    } finally {
+      loading.value = false;
+    }
+  }
+});
 
 const handleLogin = async () => {
   loading.value = true;
