@@ -275,6 +275,35 @@ class ApiService {
     return response.data;
   }
 
+  // D1 Usage Statistics
+  async getD1Stats(): Promise<any> {
+    // Return mock D1 stats in skip auth mode
+    if (isAuthSkipped()) {
+      return {
+        storage: {
+          estimatedSizeMB: 2.5,
+          estimatedSizeGB: 0.0024,
+          limitGB: 5,
+          usagePercent: 0.05
+        },
+        reads: {
+          estimatedDaily: 1368,
+          limitPerDay: 5000000,
+          usagePercent: 0.03
+        },
+        writes: {
+          estimatedDaily: 456,
+          limitPerDay: 100000,
+          usagePercent: 0.46
+        },
+        timestamp: new Date().toISOString()
+      };
+    }
+
+    const response = await this.api.get('/api/stats/d1');
+    return response.data;
+  }
+
   // Health Check
   async healthCheck(): Promise<{ status: string; timestamp: number }> {
     const response = await this.api.get('/health');

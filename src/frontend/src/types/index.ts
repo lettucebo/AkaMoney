@@ -81,3 +81,23 @@ export interface LoginResponse {
   token: string;
   user: User;
 }
+
+export interface D1UsageStats {
+  storage: {
+    estimatedSizeMB: number;
+    estimatedSizeGB: number;
+    limitGB: number;
+    usagePercent: number;
+  };
+  reads: {
+    estimatedDaily: number;
+    limitPerDay: number;
+    usagePercent: number;
+  };
+  writes: {
+    estimatedDaily: number;
+    limitPerDay: number;
+    usagePercent: number;
+  };
+  timestamp: string;
+}

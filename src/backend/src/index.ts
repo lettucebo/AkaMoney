@@ -316,6 +316,93 @@ app.get('/api/public/analytics/:shortCode', async (c) => {
   });
 });
 
+// Get D1 database usage statistics
+app.get('/api/stats/d1', authMiddleware, async (c) => {
+  try {
+    const user = getAuthUser(c);
+    if (!user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    // Constants for estimation
+    const BYTES_PER_CLICK_RECORD = 500;  // Estimated bytes per click record
+    const BYTES_PER_URL = 300;            // Estimated bytes per URL record
+    const READS_PER_CLICK = 3;            // Each click: 1 read for URL + 2 for analytics
+    const WRITES_PER_CLICK = 1;           // Each click: 1 write to click_records
+
+    // Get total record counts for size estimation
+    const totalClicksResult = await c.env.DB
+      .prepare('SELECT COUNT(*) as count FROM click_records')
+      .first<{ count: number }>();
+    
+    const totalClicks = totalClicksResult?.count || 0;
+
+    const totalUrlsResult = await c.env.DB
+      .prepare('SELECT COUNT(*) as count FROM urls')
+      .first<{ count: number }>();
+    
+    const totalUrls = totalUrlsResult?.count || 0;
+
+    // Today's operations count for daily limits (UTC timezone)
+    const todayStart = new Date();
+    todayStart.setUTCHours(0, 0, 0, 0);
+    const todayStartTimestamp = todayStart.getTime();
+
+    const todayClicksResult = await c.env.DB
+      .prepare('SELECT COUNT(*) as count FROM click_records WHERE clicked_at >= ?')
+      .bind(todayStartTimestamp)
+      .first<{ count: number }>();
+    
+    const todayClicks = todayClicksResult?.count || 0;
+
+    // Estimate database size (rough calculation)
+    const estimatedSizeBytes = (totalClicks * BYTES_PER_CLICK_RECORD) + (totalUrls * BYTES_PER_URL);
+    const estimatedSizeMB = estimatedSizeBytes / (1024 * 1024);
+
+    // D1 Free tier limits
+    const freeStorageLimitGB = 5;
+    const freeStorageLimitMB = freeStorageLimitGB * 1024;
+    const storageUsagePercent = (estimatedSizeMB / freeStorageLimitMB) * 100;
+
+    const freeReadLimitPerDay = 5000000; // 5M reads/day
+    const freeWriteLimitPerDay = 100000; // 100K writes/day
+
+    // Estimate daily reads/writes based on current usage
+    const estimatedDailyReads = todayClicks * READS_PER_CLICK;
+    const estimatedDailyWrites = todayClicks * WRITES_PER_CLICK;
+
+    const readsUsagePercent = (estimatedDailyReads / freeReadLimitPerDay) * 100;
+    const writesUsagePercent = (estimatedDailyWrites / freeWriteLimitPerDay) * 100;
+
+    return c.json({
+      storage: {
+        estimatedSizeMB: parseFloat(estimatedSizeMB.toFixed(2)),
+        estimatedSizeGB: parseFloat((estimatedSizeMB / 1024).toFixed(4)),
+        limitGB: freeStorageLimitGB,
+        usagePercent: parseFloat(storageUsagePercent.toFixed(2))
+      },
+      reads: {
+        estimatedDaily: estimatedDailyReads,
+        limitPerDay: freeReadLimitPerDay,
+        usagePercent: parseFloat(readsUsagePercent.toFixed(2))
+      },
+      writes: {
+        estimatedDaily: estimatedDailyWrites,
+        limitPerDay: freeWriteLimitPerDay,
+        usagePercent: parseFloat(writesUsagePercent.toFixed(2))
+      },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error fetching D1 stats:', error);
+    return c.json({
+      error: 'Internal Server Error',
+      message: 'Failed to fetch D1 statistics',
+      details: error instanceof Error ? error.message : String(error)
+    }, 500);
+  }
+});
+
 // Manual cleanup trigger (for testing/admin)
 app.post('/api/admin/cleanup', authMiddleware, async (c) => {
   const user = getAuthUser(c);
