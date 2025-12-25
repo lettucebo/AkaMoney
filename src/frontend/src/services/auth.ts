@@ -9,6 +9,57 @@ export class AuthConfigurationError extends Error {
 
 const clientId = import.meta.env.VITE_ENTRA_ID_CLIENT_ID || '';
 
+/**
+ * Flag to skip authentication in development mode.
+ * 
+ * This feature is controlled by the `VITE_SKIP_AUTH` environment variable
+ * and only activates when running in development mode (`import.meta.env.DEV`).
+ * 
+ * **Security Notice:** This should NEVER be enabled in production.
+ * 
+ * **Use Cases:**
+ * - Automated testing and screenshots
+ * - UI demos and development without real authentication
+ * - Local development workflow improvements
+ */
+const skipAuth = import.meta.env.VITE_SKIP_AUTH === 'true' && import.meta.env.DEV;
+
+// Runtime warning when authentication is bypassed
+if (skipAuth) {
+  // eslint-disable-next-line no-console
+  console.warn(
+    '[Auth] Authentication is DISABLED because VITE_SKIP_AUTH is true in development. ' +
+      'Do NOT enable this mode in production.'
+  );
+}
+
+/**
+ * Mock user account for development mode with skipped authentication.
+ * Contains realistic but clearly fake data for testing purposes.
+ */
+const mockAccount: AccountInfo = {
+  homeAccountId: 'mock-home-account-id',
+  localAccountId: 'mock-local-account-id',
+  environment: 'development.local',
+  tenantId: 'mock-tenant-id',
+  username: 'dev@localhost',
+  name: 'Development User'
+};
+
+/**
+ * Checks if authentication is currently being skipped.
+ * 
+ * @returns `true` if `VITE_SKIP_AUTH=true` and running in development mode, `false` otherwise.
+ * 
+ * This function is used to determine if mock data should be returned
+ * instead of making real API calls or authentication requests.
+ * 
+ * **Security:** Only returns `true` in development mode (`import.meta.env.DEV`).
+ */
+export function isAuthSkipped(): boolean {
+  return skipAuth;
+}
+
 const msalConfig: Configuration = {
   auth: {
     clientId,
@@ -41,6 +92,12 @@ class AuthService {
   }
 
   async initialize() {
+    // Skip authentication in development mode when VITE_SKIP_AUTH is set
+    if (skipAuth) {
+      console.info('[Auth] Skipping authentication in development mode');
+      return;
+    }
+
     if (!this.isConfigured || !this.msalInstance) {
       // Skip initialization if not configured - login will show proper error
       return;
@@ -74,6 +131,11 @@ class AuthService {
   }
 
   async login() {
+    // Return mock account if skip auth is enabled
+    if (skipAuth) {
+      return mockAccount;
+    }
+
     this.ensureConfigured();
     try {
       const msalInstance = this.msalInstance!;
@@ -105,6 +167,11 @@ class AuthService {
   }
 
   async loginRedirect() {
+    // Skip redirect if skip auth is enabled - the store will handle mock login
+    if (skipAuth) {
+      return;
+    }
+
     this.ensureConfigured();
     try {
       const msalInstance = this.msalInstance!;
@@ -123,6 +190,12 @@ class AuthService {
   }
 
   async logout() {
+    // Simple logout for skip auth mode
+    if (skipAuth) {
+      localStorage.removeItem('auth_token');
+      return;
+    }
+
     const account = this.getAccount();
     localStorage.removeItem('auth_token');
     
@@ -134,6 +207,11 @@ class AuthService {
   }
 
   getAccount(): AccountInfo | null {
+    // Return mock account if skip auth is enabled
+    if (skipAuth) {
+      return mockAccount;
+    }
+
     if (!this.msalInstance) {
       return null;
     }
@@ -152,10 +230,19 @@ class AuthService {
   }
 
   isAuthenticated(): boolean {
+    // Always authenticated if skip auth is enabled
+    if (skipAuth) {
+      return true;
+    }
     return this.getAccount() !== null;
   }
 
   async getToken(): Promise<string | null> {
+    // Return mock token if skip auth is enabled
+    if (skipAuth) {
+      return 'dev-mock-token';
+    }
+
     const account = this.getAccount();
     if (!account || !this.msalInstance) {
       return null;
