@@ -324,6 +324,12 @@ app.get('/api/stats/usage', authMiddleware, async (c) => {
       return c.json({ error: 'Unauthorized' }, 401);
     }
 
+    // Constants for estimation
+    const BYTES_PER_CLICK_RECORD = 500;  // Estimated bytes per click record
+    const BYTES_PER_URL = 300;            // Estimated bytes per URL record
+    const READS_PER_CLICK = 3;            // Each click: 1 read for URL + 2 for analytics
+    const WRITES_PER_CLICK = 1;           // Each click: 1 write to click_records
+
     // Total click records
     const totalClicksResult = await c.env.DB
       .prepare('SELECT COUNT(*) as count FROM click_records')
@@ -364,8 +370,7 @@ app.get('/api/stats/usage', authMiddleware, async (c) => {
     const totalUrls = totalUrlsResult?.count || 0;
 
     // Estimate database size (rough calculation)
-    // Each click record ~500 bytes, each URL ~300 bytes
-    const estimatedSizeBytes = (totalClicks * 500) + (totalUrls * 300);
+    const estimatedSizeBytes = (totalClicks * BYTES_PER_CLICK_RECORD) + (totalUrls * BYTES_PER_URL);
     const estimatedSizeMB = estimatedSizeBytes / (1024 * 1024);
 
     // D1 Free tier limits
@@ -377,8 +382,8 @@ app.get('/api/stats/usage', authMiddleware, async (c) => {
     const freeWriteLimitPerDay = 100000; // 100K writes/day
 
     // Estimate daily reads/writes based on current usage
-    const estimatedDailyReads = todayClicks * 3; // Each click: 1 read for URL + 2 for analytics
-    const estimatedDailyWrites = todayClicks; // Each click: 1 write
+    const estimatedDailyReads = todayClicks * READS_PER_CLICK;
+    const estimatedDailyWrites = todayClicks * WRITES_PER_CLICK;
 
     const readsUsagePercent = (estimatedDailyReads / freeReadLimitPerDay) * 100;
     const writesUsagePercent = (estimatedDailyWrites / freeWriteLimitPerDay) * 100;
@@ -404,12 +409,6 @@ app.get('/api/stats/usage', authMiddleware, async (c) => {
         storageUsagePercent: parseFloat(storageUsagePercent.toFixed(2))
       },
       limits: {
-        storage: {
-          used: parseFloat(estimatedSizeMB.toFixed(2)),
-          limit: freeStorageLimitMB,
-          unit: 'MB',
-          usagePercent: parseFloat(storageUsagePercent.toFixed(2))
-        },
         reads: {
           estimatedDaily: estimatedDailyReads,
           limit: freeReadLimitPerDay,

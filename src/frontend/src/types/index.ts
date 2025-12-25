@@ -94,12 +94,6 @@ export interface UsageStats {
     storageUsagePercent: number;
   };
   limits: {
-    storage: {
-      used: number;
-      limit: number;
-      unit: string;
-      usagePercent: number;
-    };
     reads: {
       estimatedDaily: number;
       limit: number;
