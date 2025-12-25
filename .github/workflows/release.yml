@@ -93,7 +93,8 @@ jobs:
             echo "Changed files:"
             echo "$CHANGED_FILES"
 
-            # Check for changes in each service (including service-specific package files)
+            # Check for changes in each service
+            # Pattern matches: src/{service}/* (including package.json) OR root package files
             if echo "$CHANGED_FILES" | grep -qE '^src/backend/|^package\.json|^package-lock\.json'; then
               echo "backend=true" >> "$GITHUB_OUTPUT"
               BACKEND_CHANGED=true
