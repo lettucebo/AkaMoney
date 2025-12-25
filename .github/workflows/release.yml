@@ -19,6 +19,9 @@ permissions:
 env:
   CLOUDFLARE_PAGES_PROJECT: akamoney-admin
 
+# Note: Tests are skipped by default in release workflow because code has already
+# been tested in CI workflow (on PR and main branch pushes). Tests can be forced
+# by manually triggering workflow_dispatch with run_tests=true if needed.
 jobs:
   build:
     runs-on: ubuntu-latest
