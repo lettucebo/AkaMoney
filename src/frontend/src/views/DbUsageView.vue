@@ -259,7 +259,7 @@ onMounted(() => {
 }
 
 .progress {
-  background-color: #e9ecef;
+  background-color: var(--app-progress-bg);
 }
 
 .progress-bar {

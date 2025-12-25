@@ -32,6 +32,7 @@
   --app-scrollbar-thumb: #888;
   --app-scrollbar-thumb-hover: #555;
   --app-display-text-color: #e9ecef;
+  --app-progress-bg: #e9ecef;
 }
 
 /* Dark mode custom variables */
@@ -42,6 +43,7 @@
   --app-scrollbar-thumb: #555;
   --app-scrollbar-thumb-hover: #777;
   --app-display-text-color: #495057;
+  --app-progress-bg: #2c2f36;
 }
 
 body {
