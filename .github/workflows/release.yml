@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - '*'
+  pull_request_target:
+    types: [labeled]
   workflow_dispatch:
 
 permissions:
@@ -16,10 +18,26 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Run if: tag push, workflow_dispatch, or PR with run-release label.
+    # Security model:
+    # - pull_request_target runs with the base repository's context; applying the run-release label
+    #   requires write access to this repo, so only trusted maintainers can trigger a PR-based release.
+    # When to use:
+    # - Prefer tag-based pushes (or workflow_dispatch) for normal production releases.
+    # - Use pull_request_target + run-release label only when you intentionally want to build/deploy
+    #   the unmerged PR head commit (for example to a pre-production or test environment).
+    # Risks:
+    # - Deploying unmerged PR code means production-like environments may run code that has not
+    #   yet been merged; restrict label usage and review changes carefully before triggering.
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request_target' && contains(github.event.pull_request.labels.*.name, 'run-release'))
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          # When triggered by pull_request_target, checkout the PR head SHA while still running in the base branch context
+          # (permissions, env, and workflow config come from the base branch; workflow changes in the PR do not affect this run).
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -76,6 +94,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          # Checkout the PR head ref when triggered by pull_request_target
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -267,6 +288,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          # Checkout the PR head ref when triggered by pull_request_target
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
