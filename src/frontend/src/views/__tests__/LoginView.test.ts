@@ -198,7 +198,7 @@ describe('LoginView', () => {
       authStore.isAuthenticated = true;
       authStore.initialized = true;
 
-      await router.push('/login?redirect=javascript://alert(1)');
+      await router.push('/login?redirect=javascript:alert(1)');
       
       const pushSpy = vi.spyOn(router, 'push');
 
