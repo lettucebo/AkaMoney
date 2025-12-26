@@ -7,6 +7,44 @@ AkaMoney 專案的所有重要變更都將記錄在此檔案中。
 格式基於 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 此專案遵循 [語義化版本](https://semver.org/spec/v2.0.0.html)。
 
+## [1.1.5] - 2025-12-26
+
+### 修正
+- 修正 Cloudflare D1 GraphQL Analytics API 篩選器參數
+  - 將 `datetime_geq` 改為 `date_geq` 以符合 Cloudflare API 規範
+  - 將 `datetime_leq` 改為 `date_lt` 以符合 Cloudflare API 規範
+  - 修正日期格式從 ISO 8601 改為 YYYY-MM-DD（Cloudflare API 要求）
+  - 解決因參數名稱錯誤導致的 GraphQL 查詢失敗
+
+### 新增
+- D1 Analytics 日期範圍選擇功能
+  - 新增互動式日期範圍選擇器，使用 HTML5 日期輸入框
+  - 新增「套用日期範圍」按鈕以查詢自訂期間資料
+  - 新增「重設為本月」按鈕以回到預設檢視
+  - API 現在接受選用的 `startDate` 和 `endDate` 查詢參數（YYYY-MM-DD 格式）
+  - 預設日期範圍為本月而非單日
+  - 回應包含 `dateRange` 欄位，顯示起始和結束日期
+  - 前端驗證確保開始日期 ≤ 結束日期後才發送 API 請求
+  - 載入期間禁用日期輸入框以防止競態條件
+
+### 改進
+- 增強 D1 Analytics 資料精確度
+  - 將回應欄位從 `daily` 改為 `total` 以反映期間資料
+  - 修正使用率計算方式，現在會計算所選日期範圍內的平均每日使用量
+  - 修正備用估算功能，現在會尊重日期範圍而非僅估算今日
+  - 將 `actualDailyReads/Writes` 重新命名為 `actualTotalReads/Writes` 以更清楚
+- 改善 D1 Analytics UI 清晰度
+  - 更新標題以分別顯示「總讀取/寫入次數」和「每日限制」
+  - 移除對日期範圍無意義的「剩餘」計算
+  - 在資訊區段新增日期範圍顯示
+  - 新增資訊提示，說明儲存空間使用量為累計值，不受日期範圍影響
+  - 修正 TypeError: Cannot read properties of undefined (reading 'toLocaleString')
+- 增強輸入驗證
+  - 驗證 `startDate` 和 `endDate` 必須同時提供
+  - 驗證日期格式，無效格式時回傳 400 錯誤
+  - 驗證 `startDate` 必須早於或等於 `endDate`
+  - 消除 API 和服務層之間的日期計算重複
+
 ## [1.1.3] - 2025-12-25
 
 ### 修正
