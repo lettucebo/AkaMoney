@@ -211,17 +211,18 @@ class AuthService {
       return;
     }
 
-    // Get account before setting logout flag
-    const account = this.getAccount();
-    
     // Set explicit logout flag to prevent auto re-authentication
     localStorage.setItem(LOGOUT_FLAG_KEY, 'true');
     localStorage.removeItem('auth_token');
     
-    if (account && this.msalInstance) {
-      await this.msalInstance.logoutPopup({
-        account
-      });
+    // Clear local session without logging out of Microsoft account
+    // This removes the cached tokens and account info from the browser
+    // but does not affect the user's Microsoft account session
+    if (this.msalInstance) {
+      const accounts = this.msalInstance.getAllAccounts();
+      for (const account of accounts) {
+        this.msalInstance.setActiveAccount(null);
+      }
     }
   }
 
