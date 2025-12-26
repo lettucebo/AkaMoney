@@ -219,10 +219,7 @@ class AuthService {
     // Note: setActiveAccount(null) does NOT clear MSAL's cached accounts/tokens from storage;
     // the LOGOUT_FLAG_KEY is what prevents this app from reusing those cached credentials.
     if (this.msalInstance) {
-      const accounts = this.msalInstance.getAllAccounts();
-      for (const account of accounts) {
-        this.msalInstance.setActiveAccount(null);
-      }
+      this.msalInstance.setActiveAccount(null);
     }
   }
 
