@@ -196,7 +196,7 @@ class AuthService {
           `api://${clientId}/access_as_user`
         ]
       });
-      // Note: Logout flag is cleared in initialize() after successful redirect (line 121)
+      // Note: Logout flag is cleared in initialize() after successful redirect
     } catch (error) {
       console.error('Login redirect failed:', error);
       throw error;
