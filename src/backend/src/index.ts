@@ -392,11 +392,33 @@ app.get('/api/stats/d1', authMiddleware, async (c) => {
     let startDate: Date | undefined;
     let endDate: Date | undefined;
     
-    if (startDateParam) {
-      startDate = new Date(startDateParam + 'T00:00:00.000Z');
+    // Validate that both dates are provided together or neither
+    if ((startDateParam && !endDateParam) || (!startDateParam && endDateParam)) {
+      return c.json({
+        error: 'Bad Request',
+        message: 'Both startDate and endDate must be provided together'
+      }, 400);
     }
-    if (endDateParam) {
+    
+    if (startDateParam && endDateParam) {
+      startDate = new Date(startDateParam + 'T00:00:00.000Z');
       endDate = new Date(endDateParam + 'T00:00:00.000Z');
+      
+      // Validate dates are valid
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        return c.json({
+          error: 'Bad Request',
+          message: 'Invalid date format. Use YYYY-MM-DD format'
+        }, 400);
+      }
+      
+      // Validate start date is before or equal to end date
+      if (startDate > endDate) {
+        return c.json({
+          error: 'Bad Request',
+          message: 'startDate must be before or equal to endDate'
+        }, 400);
+      }
     }
 
     // Check if all required credentials are available
@@ -434,19 +456,21 @@ app.get('/api/stats/d1', authMiddleware, async (c) => {
     const readsUsagePercent = (actualDailyReads / freeReadLimitPerDay) * 100;
     const writesUsagePercent = (actualDailyWrites / freeWriteLimitPerDay) * 100;
 
-    // Calculate actual date range used for the query
-    let actualStartDate: Date;
-    let actualEndDate: Date;
+    // Calculate actual date range used for display
+    // If custom dates provided, use them; otherwise calculate current month
+    let displayStartDate: string;
+    let displayEndDate: string;
     
-    if (!startDate || !endDate) {
-      // Default to current month
-      const now = new Date();
-      actualStartDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0));
-      actualEndDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 0, 0, 0, 0));
-      actualEndDate.setUTCDate(actualEndDate.getUTCDate() - 1); // Make it inclusive for display
+    if (startDate && endDate) {
+      displayStartDate = startDate.toISOString().split('T')[0];
+      displayEndDate = endDate.toISOString().split('T')[0];
     } else {
-      actualStartDate = startDate;
-      actualEndDate = endDate;
+      // Calculate current month range
+      const now = new Date();
+      const firstDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0));
+      const lastDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 0, 0, 0, 0));
+      displayStartDate = firstDay.toISOString().split('T')[0];
+      displayEndDate = lastDay.toISOString().split('T')[0];
     }
 
     return c.json({
@@ -467,8 +491,8 @@ app.get('/api/stats/d1', authMiddleware, async (c) => {
         usagePercent: parseFloat(writesUsagePercent.toFixed(2))
       },
       dateRange: {
-        start: actualStartDate.toISOString().split('T')[0],
-        end: actualEndDate.toISOString().split('T')[0]
+        start: displayStartDate,
+        end: displayEndDate
       },
       dataSource,
       fallbackReason,

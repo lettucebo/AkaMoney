@@ -47,6 +47,7 @@ export async function fetchD1Analytics(
   endDate?: Date
 ): Promise<CloudflareD1Analytics> {
   // Default to current month if no dates provided
+  // Note: Either both dates are provided or neither (validated by caller)
   let queryStartDate: Date;
   let queryEndDate: Date;
   
