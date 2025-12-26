@@ -17,6 +17,7 @@
                   class="form-control"
                   id="startDate"
                   v-model="selectedStartDate"
+                  :disabled="loading"
                 />
               </div>
               <div class="col-md-4">
@@ -26,6 +27,7 @@
                   class="form-control"
                   id="endDate"
                   v-model="selectedEndDate"
+                  :disabled="loading"
                 />
               </div>
               <div class="col-md-4">
@@ -277,6 +279,7 @@ const selectedEndDate = ref('');
 const initializeCurrentMonth = () => {
   const now = new Date();
   const firstDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  // Last day of current month: in JS Date, day 0 of the next month is the last day of the previous month
   const lastDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0));
   
   selectedStartDate.value = firstDay.toISOString().split('T')[0];
@@ -299,11 +302,18 @@ const fetchUsageStats = async (startDate?: string, endDate?: string) => {
 
 // Apply selected date range
 const applyDateRange = () => {
-  if (selectedStartDate.value && selectedEndDate.value) {
-    fetchUsageStats(selectedStartDate.value, selectedEndDate.value);
-  } else {
+  if (!selectedStartDate.value || !selectedEndDate.value) {
     error.value = 'Please select both start and end dates';
+    return;
   }
+  
+  // Validate that startDate is before or equal to endDate
+  if (selectedStartDate.value > selectedEndDate.value) {
+    error.value = 'Start date must be before or equal to end date';
+    return;
+  }
+  
+  fetchUsageStats(selectedStartDate.value, selectedEndDate.value);
 };
 
 // Reset to current month

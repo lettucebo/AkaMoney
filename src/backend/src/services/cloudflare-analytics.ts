@@ -36,7 +36,7 @@ export interface CloudflareGraphQLResponse {
  * @param databaseId - D1 database ID
  * @param apiToken - Cloudflare API token with Analytics:Read permission
  * @param startDate - Optional start date for analytics period (defaults to first day of current month UTC)
- * @param endDate - Optional end date for analytics period (defaults to first day of next month UTC)
+ * @param endDate - Optional end date for analytics period (inclusive); used as exclusive upper bound in query (defaults to last day of current month inclusive / first day of next month exclusive)
  * @returns D1 analytics data with read and write query counts
  */
 export async function fetchD1Analytics(
