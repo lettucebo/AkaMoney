@@ -206,16 +206,18 @@ class AuthService {
   }
 
   async logout() {
-    // Set explicit logout flag to prevent auto re-authentication
-    localStorage.setItem(LOGOUT_FLAG_KEY, 'true');
-    
     // Simple logout for skip auth mode
     if (skipAuth) {
+      localStorage.setItem(LOGOUT_FLAG_KEY, 'true');
       localStorage.removeItem('auth_token');
       return;
     }
 
+    // Get account before setting logout flag
     const account = this.getAccount();
+    
+    // Set explicit logout flag to prevent auto re-authentication
+    localStorage.setItem(LOGOUT_FLAG_KEY, 'true');
     localStorage.removeItem('auth_token');
     
     if (account && this.msalInstance) {
