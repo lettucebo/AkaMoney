@@ -7,6 +7,44 @@ All notable changes to the AkaMoney project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.5] - 2025-12-26
+
+### Fixed
+- Fixed Cloudflare D1 GraphQL Analytics API filter parameters
+  - Changed `datetime_geq` → `date_geq` to match Cloudflare API schema
+  - Changed `datetime_leq` → `date_lt` to match Cloudflare API schema
+  - Fixed date format from ISO 8601 to YYYY-MM-DD as required by Cloudflare API
+  - Resolved GraphQL query failures caused by incorrect parameter names
+
+### Added
+- Date range selection feature for D1 Analytics
+  - Added interactive date range picker UI with HTML5 date inputs
+  - Added "Apply Date Range" button to fetch data for custom periods
+  - Added "Reset to Current Month" button to return to default view
+  - API now accepts optional `startDate` and `endDate` query parameters (YYYY-MM-DD format)
+  - Default date range is current month instead of single day
+  - Response includes `dateRange` field with start and end dates
+  - Frontend validation ensures start date ≤ end date before API call
+  - Date input fields disabled during loading to prevent race conditions
+
+### Improved
+- Enhanced D1 Analytics data accuracy
+  - Changed response fields from `daily` to `total` to reflect period-based data
+  - Fixed usage percentage calculation to compute average daily usage over selected date range
+  - Fixed fallback estimation to respect date range instead of only estimating today
+  - Renamed `actualDailyReads/Writes` → `actualTotalReads/Writes` for clarity
+- Improved D1 Analytics UI clarity
+  - Updated headers to show "total reads/writes" and "limit per day" separately
+  - Removed misleading "remaining" calculations that don't make sense for date ranges
+  - Added date range display in Information section
+  - Added informational alert clarifying Storage Usage is cumulative and not affected by date range
+  - Fixed TypeError: Cannot read properties of undefined (reading 'toLocaleString')
+- Enhanced input validation
+  - Validates both `startDate` and `endDate` are provided together
+  - Validates date format and returns 400 error for invalid dates
+  - Validates `startDate` is before or equal to `endDate`
+  - Eliminated date calculation duplication between API and service layers
+
 ## [1.1.3] - 2025-12-25
 
 ### Fixed
