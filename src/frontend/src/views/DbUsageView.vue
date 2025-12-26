@@ -79,10 +79,10 @@
                   <div>
                     <strong>Read Operations</strong>
                     <p class="text-muted mb-0 small">
-                      {{ stats.reads.total.toLocaleString() }} / {{ stats.reads.limitPerDay.toLocaleString() }} per day
+                      {{ stats.reads.total.toLocaleString() }} total reads
                     </p>
-                    <p class="text-success mb-0 small">
-                      <i class="bi bi-check-circle me-1"></i>{{ getRemainingReads }} reads remaining per day
+                    <p class="text-muted mb-0 small">
+                      Limit: {{ stats.reads.limitPerDay.toLocaleString() }} reads per day
                     </p>
                   </div>
                   <span class="badge" :class="getUsageBadgeClass(stats.reads.usagePercent)">
@@ -114,10 +114,10 @@
                   <div>
                     <strong>Write Operations</strong>
                     <p class="text-muted mb-0 small">
-                      {{ stats.writes.total.toLocaleString() }} / {{ stats.writes.limitPerDay.toLocaleString() }} per day
+                      {{ stats.writes.total.toLocaleString() }} total writes
                     </p>
-                    <p class="text-success mb-0 small">
-                      <i class="bi bi-check-circle me-1"></i>{{ getRemainingWrites }} writes remaining per day
+                    <p class="text-muted mb-0 small">
+                      Limit: {{ stats.writes.limitPerDay.toLocaleString() }} writes per day
                     </p>
                   </div>
                   <span class="badge" :class="getUsageBadgeClass(stats.writes.usagePercent)">
@@ -236,18 +236,6 @@ const getRemainingStorage = computed(() => {
   if (!stats.value) return '0';
   const remaining = stats.value.storage.limitGB - stats.value.storage.estimatedSizeGB;
   return remaining.toFixed(4);
-});
-
-const getRemainingReads = computed(() => {
-  if (!stats.value) return '0';
-  const remaining = stats.value.reads.limitPerDay - stats.value.reads.total;
-  return remaining.toLocaleString();
-});
-
-const getRemainingWrites = computed(() => {
-  if (!stats.value) return '0';
-  const remaining = stats.value.writes.limitPerDay - stats.value.writes.total;
-  return remaining.toLocaleString();
 });
 
 const formatDateRange = computed(() => {
