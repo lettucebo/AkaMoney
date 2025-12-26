@@ -384,11 +384,26 @@ app.get('/api/stats/d1', authMiddleware, async (c) => {
     const databaseId = c.env.D1_ANALYTICS_DATABASE_ID;
     const apiToken = c.env.D1_ANALYTICS_API_TOKEN;
 
+    // Parse optional date range from query parameters
+    // Format: YYYY-MM-DD
+    const startDateParam = c.req.query('startDate');
+    const endDateParam = c.req.query('endDate');
+    
+    let startDate: Date | undefined;
+    let endDate: Date | undefined;
+    
+    if (startDateParam) {
+      startDate = new Date(startDateParam + 'T00:00:00.000Z');
+    }
+    if (endDateParam) {
+      endDate = new Date(endDateParam + 'T00:00:00.000Z');
+    }
+
     // Check if all required credentials are available
     if (accountId && databaseId && apiToken) {
       try {
         console.info('Fetching real D1 analytics from Cloudflare GraphQL API...');
-        const analytics = await fetchD1Analytics(accountId, databaseId, apiToken);
+        const analytics = await fetchD1Analytics(accountId, databaseId, apiToken, startDate, endDate);
         
         actualDailyReads = analytics.readQueries;
         actualDailyWrites = analytics.writeQueries;
@@ -419,6 +434,21 @@ app.get('/api/stats/d1', authMiddleware, async (c) => {
     const readsUsagePercent = (actualDailyReads / freeReadLimitPerDay) * 100;
     const writesUsagePercent = (actualDailyWrites / freeWriteLimitPerDay) * 100;
 
+    // Calculate actual date range used for the query
+    let actualStartDate: Date;
+    let actualEndDate: Date;
+    
+    if (!startDate || !endDate) {
+      // Default to current month
+      const now = new Date();
+      actualStartDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0));
+      actualEndDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 0, 0, 0, 0));
+      actualEndDate.setUTCDate(actualEndDate.getUTCDate() - 1); // Make it inclusive for display
+    } else {
+      actualStartDate = startDate;
+      actualEndDate = endDate;
+    }
+
     return c.json({
       storage: {
         estimatedSizeMB: parseFloat(estimatedSizeMB.toFixed(2)),
@@ -427,14 +457,18 @@ app.get('/api/stats/d1', authMiddleware, async (c) => {
         usagePercent: parseFloat(storageUsagePercent.toFixed(2))
       },
       reads: {
-        daily: actualDailyReads,
+        total: actualDailyReads,
         limitPerDay: freeReadLimitPerDay,
         usagePercent: parseFloat(readsUsagePercent.toFixed(2))
       },
       writes: {
-        daily: actualDailyWrites,
+        total: actualDailyWrites,
         limitPerDay: freeWriteLimitPerDay,
         usagePercent: parseFloat(writesUsagePercent.toFixed(2))
+      },
+      dateRange: {
+        start: actualStartDate.toISOString().split('T')[0],
+        end: actualEndDate.toISOString().split('T')[0]
       },
       dataSource,
       fallbackReason,
