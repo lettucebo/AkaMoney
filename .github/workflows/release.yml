@@ -1,6 +1,9 @@
 name: Release
 
 on:
+  push:
+    tags:
+      - '*'
   pull_request_target:
     types: [labeled]
   workflow_dispatch:
@@ -15,8 +18,8 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # Only run if the label is 'run-release' or if triggered manually
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request_target' && contains(github.event.pull_request.labels.*.name, 'run-release'))
+    # Run if: tag push, workflow_dispatch, or PR with run-release label
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request_target' && contains(github.event.pull_request.labels.*.name, 'run-release'))
 
     steps:
       - name: Checkout repository
