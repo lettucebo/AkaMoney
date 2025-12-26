@@ -15,7 +15,7 @@ jobs:
     
     strategy:
       matrix:
-        node-version: [20.x, 22.x]
+        node-version: [22.x, 24.x]
 
     steps:
       - name: Checkout repository
@@ -64,7 +64,7 @@ jobs:
 
       - name: Upload backend coverage report
         uses: actions/upload-artifact@v4
-        if: matrix.node-version == '20.x'
+        if: matrix.node-version == '24.x'
         with:
           name: backend-coverage-report
           path: src/backend/coverage/
@@ -72,7 +72,7 @@ jobs:
 
       - name: Upload frontend coverage report
         uses: actions/upload-artifact@v4
-        if: matrix.node-version == '20.x'
+        if: matrix.node-version == '24.x'
         with:
           name: frontend-coverage-report
           path: src/frontend/coverage/
@@ -80,7 +80,7 @@ jobs:
 
       - name: Upload redirect coverage report
         uses: actions/upload-artifact@v4
-        if: matrix.node-version == '20.x'
+        if: matrix.node-version == '24.x'
         with:
           name: redirect-coverage-report
           path: src/redirect/coverage/
