@@ -71,6 +71,10 @@ onMounted(async () => {
     } finally {
       loading.value = false;
     }
+  } else if (authStore.isAuthenticated) {
+    // Redirect authenticated users (e.g., after login redirect callback)
+    const redirect = (route.query.redirect as string) || '/dashboard';
+    router.push(redirect);
   }
 });
 
