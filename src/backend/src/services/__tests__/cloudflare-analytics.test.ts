@@ -249,6 +249,6 @@ describe('Cloudflare GraphQL Analytics Service', () => {
     const body = JSON.parse(fetchCall[1].body);
     
     expect(body.variables.startDate).toContain('2024-01-15');
-    expect(body.variables.endDate).toContain('2024-01-15');
+    expect(body.variables.endDate).toContain('2024-01-16');
   });
 });

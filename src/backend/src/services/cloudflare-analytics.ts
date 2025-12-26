@@ -46,12 +46,13 @@ export async function fetchD1Analytics(
   // Use provided date or default to today (UTC)
   const targetDate = date || new Date();
   
-  // Set time range for the entire day (00:00:00 to 23:59:59 UTC)
+  // Set time range for the entire day (00:00:00 to 00:00:00 next day UTC)
   const startDate = new Date(targetDate);
   startDate.setUTCHours(0, 0, 0, 0);
   
   const endDate = new Date(targetDate);
-  endDate.setUTCHours(23, 59, 59, 999);
+  endDate.setUTCDate(endDate.getUTCDate() + 1);
+  endDate.setUTCHours(0, 0, 0, 0);
   
   // Format dates to ISO 8601 format (Cloudflare GraphQL expects this format)
   const startDateStr = startDate.toISOString();
@@ -65,8 +66,8 @@ export async function fetchD1Analytics(
           d1AnalyticsAdaptiveGroups(
             filter: {
               databaseId: $databaseId
-              datetime_begin: $startDate
-              datetime_end: $endDate
+              date_geq: $startDate
+              date_lt: $endDate
             }
             limit: 10
           ) {
