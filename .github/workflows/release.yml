@@ -18,7 +18,17 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # Run if: tag push, workflow_dispatch, or PR with run-release label
+    # Run if: tag push, workflow_dispatch, or PR with run-release label.
+    # Security model:
+    # - pull_request_target runs with the base repository's context; applying the run-release label
+    #   requires write access to this repo, so only trusted maintainers can trigger a PR-based release.
+    # When to use:
+    # - Prefer tag-based pushes (or workflow_dispatch) for normal production releases.
+    # - Use pull_request_target + run-release label only when you intentionally want to build/deploy
+    #   the unmerged PR head commit (for example to a pre-production or test environment).
+    # Risks:
+    # - Deploying unmerged PR code means production-like environments may run code that has not
+    #   yet been merged; restrict label usage and review changes carefully before triggering.
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request_target' && contains(github.event.pull_request.labels.*.name, 'run-release'))
 
     steps:
