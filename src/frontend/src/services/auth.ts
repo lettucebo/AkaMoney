@@ -60,6 +60,13 @@ export function isAuthSkipped(): boolean {
   return skipAuth;
 }
 
+/**
+ * Storage key for tracking explicit logout state.
+ * This flag indicates when a user has explicitly logged out,
+ * even if MSAL still has cached account information.
+ */
+const LOGOUT_FLAG_KEY = 'akamoney_explicit_logout';
+
 const msalConfig: Configuration = {
   auth: {
     clientId,
@@ -110,6 +117,9 @@ class AuthService {
       const response = await this.msalInstance.handleRedirectPromise();
       
       if (response && response.account) {
+        // Clear logout flag when successfully logging in via redirect
+        localStorage.removeItem(LOGOUT_FLAG_KEY);
+        
         // Set active account
         this.msalInstance.setActiveAccount(response.account);
         
@@ -149,6 +159,9 @@ class AuthService {
       });
       
       if (loginResponse.account) {
+        // Clear logout flag when successfully logging in
+        localStorage.removeItem(LOGOUT_FLAG_KEY);
+        
         msalInstance.setActiveAccount(loginResponse.account);
         // Store token for API requests if available
         if (loginResponse.accessToken) {
@@ -183,6 +196,7 @@ class AuthService {
           `api://${clientId}/access_as_user`
         ]
       });
+      // Note: Logout flag is cleared in initialize() after successful redirect
     } catch (error) {
       console.error('Login redirect failed:', error);
       throw error;
@@ -192,11 +206,16 @@ class AuthService {
   async logout() {
     // Simple logout for skip auth mode
     if (skipAuth) {
+      localStorage.setItem(LOGOUT_FLAG_KEY, 'true');
       localStorage.removeItem('auth_token');
       return;
     }
 
+    // Get account before setting logout flag
     const account = this.getAccount();
+    
+    // Set explicit logout flag to prevent auto re-authentication
+    localStorage.setItem(LOGOUT_FLAG_KEY, 'true');
     localStorage.removeItem('auth_token');
     
     if (account && this.msalInstance) {
@@ -207,6 +226,11 @@ class AuthService {
   }
 
   getAccount(): AccountInfo | null {
+    // If user has explicitly logged out, don't return any account
+    if (localStorage.getItem(LOGOUT_FLAG_KEY) === 'true') {
+      return null;
+    }
+
     // Return mock account if skip auth is enabled
     if (skipAuth) {
       return mockAccount;
