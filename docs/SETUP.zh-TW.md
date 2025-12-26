@@ -98,7 +98,17 @@ wrangler secret put JWT_SECRET
 
 # 如果使用 Entra ID，設定這些密鑰：
 wrangler secret put ENTRA_ID_CLIENT_SECRET
+
+# （選用）若要啟用真實 D1 分析數據，請設定 Cloudflare API 憑證：
+wrangler secret put D1_ANALYTICS_API_TOKEN
+wrangler secret put D1_ANALYTICS_ACCOUNT_ID
+wrangler secret put D1_ANALYTICS_DATABASE_ID
 ```
+
+> **注意**：Cloudflare API 憑證為選用設定。若未設定，D1 使用量監控將回退到基於本地資料庫點擊數的估算值。若要使用真實的 D1 分析數據：
+> 1. 從 Cloudflare 控制台 URL 或 API 取得您的 Account ID
+> 2. 在 https://dash.cloudflare.com/profile/api-tokens 建立具有「Analytics:Read」權限的 API token
+> 3. 使用您先前建立的 D1 database ID
 
 ### 3. 配置環境變數
 

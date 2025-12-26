@@ -79,7 +79,7 @@
                   <div>
                     <strong>Read Operations (Today)</strong>
                     <p class="text-muted mb-0 small">
-                      {{ stats.reads.estimatedDaily.toLocaleString() }} / {{ stats.reads.limitPerDay.toLocaleString() }}
+                      {{ stats.reads.daily.toLocaleString() }} / {{ stats.reads.limitPerDay.toLocaleString() }}
                     </p>
                     <p class="text-success mb-0 small">
                       <i class="bi bi-check-circle me-1"></i>{{ getRemainingReads }} reads remaining today
@@ -114,7 +114,7 @@
                   <div>
                     <strong>Write Operations (Today)</strong>
                     <p class="text-muted mb-0 small">
-                      {{ stats.writes.estimatedDaily.toLocaleString() }} / {{ stats.writes.limitPerDay.toLocaleString() }}
+                      {{ stats.writes.daily.toLocaleString() }} / {{ stats.writes.limitPerDay.toLocaleString() }}
                     </p>
                     <p class="text-success mb-0 small">
                       <i class="bi bi-check-circle me-1"></i>{{ getRemainingWrites }} writes remaining today
@@ -154,14 +154,35 @@
             </div>
             <div class="card-body">
               <div class="row">
-                <div class="col-md-12 mb-3">
+                <div class="col-md-6 mb-3">
+                  <strong>Data Source:</strong>
+                  <p class="mb-0">
+                    <span v-if="stats.dataSource === 'cloudflare'" class="badge bg-success">
+                      <i class="bi bi-cloud-check me-1"></i>Cloudflare GraphQL API (Real-time)
+                    </span>
+                    <span v-else class="badge bg-warning text-dark">
+                      <i class="bi bi-calculator me-1"></i>Estimated from Local DB
+                    </span>
+                  </p>
+                  <p v-if="stats.fallbackReason" class="text-muted mb-0 small mt-1">
+                    <i class="bi bi-info-circle me-1"></i>{{ stats.fallbackReason }}
+                  </p>
+                </div>
+                <div class="col-md-6 mb-3">
                   <strong>Last Updated:</strong>
                   <p class="mb-0">{{ formatDate(stats.timestamp) }}</p>
                 </div>
               </div>
               <div class="alert alert-info mb-0">
                 <i class="bi bi-info-circle-fill me-2"></i>
-                These are estimated values based on current database usage. 
+                <span v-if="stats.dataSource === 'cloudflare'">
+                  Daily operations data is fetched from Cloudflare's D1 Analytics API. 
+                  Storage estimates are calculated from local database records.
+                </span>
+                <span v-else>
+                  These are estimated values based on current database usage. 
+                  Configure Cloudflare API credentials to see real-time analytics.
+                </span>
                 For detailed information about Cloudflare D1 free tier limits, visit the 
                 <a href="https://developers.cloudflare.com/d1/platform/limits/" target="_blank" rel="noopener noreferrer">
                   official documentation
@@ -215,13 +236,13 @@ const getRemainingStorage = computed(() => {
 
 const getRemainingReads = computed(() => {
   if (!stats.value) return '0';
-  const remaining = stats.value.reads.limitPerDay - stats.value.reads.estimatedDaily;
+  const remaining = stats.value.reads.limitPerDay - stats.value.reads.daily;
   return remaining.toLocaleString();
 });
 
 const getRemainingWrites = computed(() => {
   if (!stats.value) return '0';
-  const remaining = stats.value.writes.limitPerDay - stats.value.writes.estimatedDaily;
+  const remaining = stats.value.writes.limitPerDay - stats.value.writes.daily;
   return remaining.toLocaleString();
 });
 
