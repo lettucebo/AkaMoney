@@ -16,7 +16,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     # Only run if the label is 'run-release' or if triggered manually
-    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-release')
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request_target' && contains(github.event.pull_request.labels.*.name, 'run-release'))
 
     steps:
       - name: Checkout repository
