@@ -69,7 +69,7 @@
           <div class="card mb-4">
             <div class="card-header">
               <h5 class="mb-0">
-                <i class="bi bi-speedometer2 me-2"></i>Daily Operations
+                <i class="bi bi-speedometer2 me-2"></i>Operations ({{ formatDateRange }})
               </h5>
             </div>
             <div class="card-body">
@@ -77,12 +77,12 @@
               <div class="mb-4">
                 <div class="d-flex justify-content-between align-items-center mb-2">
                   <div>
-                    <strong>Read Operations (Today)</strong>
+                    <strong>Read Operations</strong>
                     <p class="text-muted mb-0 small">
-                      {{ stats.reads.daily.toLocaleString() }} / {{ stats.reads.limitPerDay.toLocaleString() }}
+                      {{ stats.reads.total.toLocaleString() }} / {{ stats.reads.limitPerDay.toLocaleString() }} per day
                     </p>
                     <p class="text-success mb-0 small">
-                      <i class="bi bi-check-circle me-1"></i>{{ getRemainingReads }} reads remaining today
+                      <i class="bi bi-check-circle me-1"></i>{{ getRemainingReads }} reads remaining per day
                     </p>
                   </div>
                   <span class="badge" :class="getUsageBadgeClass(stats.reads.usagePercent)">
@@ -112,12 +112,12 @@
               <div class="mb-0">
                 <div class="d-flex justify-content-between align-items-center mb-2">
                   <div>
-                    <strong>Write Operations (Today)</strong>
+                    <strong>Write Operations</strong>
                     <p class="text-muted mb-0 small">
-                      {{ stats.writes.daily.toLocaleString() }} / {{ stats.writes.limitPerDay.toLocaleString() }}
+                      {{ stats.writes.total.toLocaleString() }} / {{ stats.writes.limitPerDay.toLocaleString() }} per day
                     </p>
                     <p class="text-success mb-0 small">
-                      <i class="bi bi-check-circle me-1"></i>{{ getRemainingWrites }} writes remaining today
+                      <i class="bi bi-check-circle me-1"></i>{{ getRemainingWrites }} writes remaining per day
                     </p>
                   </div>
                   <span class="badge" :class="getUsageBadgeClass(stats.writes.usagePercent)">
@@ -154,7 +154,11 @@
             </div>
             <div class="card-body">
               <div class="row">
-                <div class="col-md-6 mb-3">
+                <div class="col-md-4 mb-3">
+                  <strong>Date Range:</strong>
+                  <p class="mb-0">{{ formatDateRange }}</p>
+                </div>
+                <div class="col-md-4 mb-3">
                   <strong>Data Source:</strong>
                   <p class="mb-0">
                     <span v-if="stats.dataSource === 'cloudflare'" class="badge bg-success">
@@ -168,7 +172,7 @@
                     <i class="bi bi-info-circle me-1"></i>{{ stats.fallbackReason }}
                   </p>
                 </div>
-                <div class="col-md-6 mb-3">
+                <div class="col-md-4 mb-3">
                   <strong>Last Updated:</strong>
                   <p class="mb-0">{{ formatDate(stats.timestamp) }}</p>
                 </div>
@@ -176,7 +180,7 @@
               <div class="alert alert-info mb-0">
                 <i class="bi bi-info-circle-fill me-2"></i>
                 <span v-if="stats.dataSource === 'cloudflare'">
-                  Daily operations data is fetched from Cloudflare's D1 Analytics API. 
+                  Operations data is fetched from Cloudflare's D1 Analytics API for the selected date range. 
                   Storage estimates are calculated from local database records.
                 </span>
                 <span v-else>
@@ -236,14 +240,19 @@ const getRemainingStorage = computed(() => {
 
 const getRemainingReads = computed(() => {
   if (!stats.value) return '0';
-  const remaining = stats.value.reads.limitPerDay - stats.value.reads.daily;
+  const remaining = stats.value.reads.limitPerDay - stats.value.reads.total;
   return remaining.toLocaleString();
 });
 
 const getRemainingWrites = computed(() => {
   if (!stats.value) return '0';
-  const remaining = stats.value.writes.limitPerDay - stats.value.writes.daily;
+  const remaining = stats.value.writes.limitPerDay - stats.value.writes.total;
   return remaining.toLocaleString();
+});
+
+const formatDateRange = computed(() => {
+  if (!stats.value?.dateRange) return '';
+  return `${stats.value.dateRange.start} to ${stats.value.dateRange.end}`;
 });
 
 const getProgressBarClass = (percent: number): string => {
