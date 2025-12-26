@@ -244,11 +244,11 @@ describe('Cloudflare GraphQL Analytics Service', () => {
       writeQueries: 100
     });
 
-    // Verify the variables contain the custom date
+    // Verify the variables contain the custom date in YYYY-MM-DD format
     const fetchCall = mockFetch.mock.calls[0];
     const body = JSON.parse(fetchCall[1].body);
     
-    expect(body.variables.startDate).toContain('2024-01-15');
-    expect(body.variables.endDate).toContain('2024-01-16');
+    expect(body.variables.startDate).toBe('2024-01-15');
+    expect(body.variables.endDate).toBe('2024-01-16');
   });
 });

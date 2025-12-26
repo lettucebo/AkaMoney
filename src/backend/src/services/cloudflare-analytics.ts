@@ -46,7 +46,7 @@ export async function fetchD1Analytics(
   // Use provided date or default to today (UTC)
   const targetDate = date || new Date();
   
-  // Set time range for the entire day (00:00:00 to 00:00:00 next day UTC)
+  // Set time range for the entire day (start date to next day)
   const startDate = new Date(targetDate);
   startDate.setUTCHours(0, 0, 0, 0);
   
@@ -54,9 +54,9 @@ export async function fetchD1Analytics(
   endDate.setUTCDate(endDate.getUTCDate() + 1);
   endDate.setUTCHours(0, 0, 0, 0);
   
-  // Format dates to ISO 8601 format (Cloudflare GraphQL expects this format)
-  const startDateStr = startDate.toISOString();
-  const endDateStr = endDate.toISOString();
+  // Format dates to YYYY-MM-DD format (Cloudflare GraphQL expects this format for date_geq/date_lt)
+  const startDateStr = startDate.toISOString().split('T')[0];
+  const endDateStr = endDate.toISOString().split('T')[0];
   
   // Use GraphQL variables to prevent injection attacks
   const query = `
