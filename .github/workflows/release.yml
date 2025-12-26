@@ -1,9 +1,8 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - '*'
+  pull_request_target:
+    types: [labeled]
   workflow_dispatch:
 
 permissions:
@@ -16,10 +15,15 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Only run if the label is 'run-release' or if triggered manually
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'run-release'
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          # Checkout the PR head ref when triggered by pull_request_target
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -76,6 +80,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          # Checkout the PR head ref when triggered by pull_request_target
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -245,6 +252,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          # Checkout the PR head ref when triggered by pull_request_target
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
