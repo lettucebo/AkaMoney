@@ -35,7 +35,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          # Checkout the PR head ref when triggered by pull_request_target
+          # When triggered by pull_request_target, checkout the PR head SHA while still running in the base branch context
+          # (permissions, env, and workflow config come from the base branch; workflow changes in the PR do not affect this run).
           ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
 
       - name: Setup Node.js
