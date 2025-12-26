@@ -187,9 +187,6 @@ class AuthService {
 
     this.ensureConfigured();
     try {
-      // Clear logout flag since user is attempting to login
-      localStorage.removeItem(LOGOUT_FLAG_KEY);
-      
       const msalInstance = this.msalInstance!;
       await msalInstance.loginRedirect({
         scopes: [
@@ -199,6 +196,7 @@ class AuthService {
           `api://${clientId}/access_as_user`
         ]
       });
+      // Note: Logout flag is cleared in initialize() after successful redirect (line 121)
     } catch (error) {
       console.error('Login redirect failed:', error);
       throw error;
