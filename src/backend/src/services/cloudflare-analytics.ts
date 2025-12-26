@@ -65,8 +65,8 @@ export async function fetchD1Analytics(
           d1AnalyticsAdaptiveGroups(
             filter: {
               databaseId: $databaseId
-              datetime_geq: $startDate
-              datetime_leq: $endDate
+              datetime_begin: $startDate
+              datetime_end: $endDate
             }
             limit: 10
           ) {
