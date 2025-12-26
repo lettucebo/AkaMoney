@@ -56,13 +56,35 @@ const loading = ref(false);
 const error = ref<string | null>(null);
 const authSkipped = ref(isAuthSkipped());
 
+/**
+ * Validates a redirect path to prevent open redirect vulnerabilities.
+ * Only allows internal paths that start with '/' and don't contain protocol schemes.
+ * @param redirectPath - The path to validate
+ * @returns The validated path or '/dashboard' if invalid
+ */
+const getValidatedRedirect = (redirectPath: string | undefined): string => {
+  if (!redirectPath) {
+    return '/dashboard';
+  }
+  
+  // Prevent open redirects by only allowing paths that:
+  // 1. Start with '/' (internal path)
+  // 2. Don't start with '//' (protocol-relative URLs)
+  // 3. Don't contain '://' (absolute URLs with protocol)
+  if (redirectPath.startsWith('/') && !redirectPath.startsWith('//') && !redirectPath.includes('://')) {
+    return redirectPath;
+  }
+  
+  return '/dashboard';
+};
+
 onMounted(async () => {
   // Auto-login when auth is skipped in development mode
   if (authSkipped.value) {
     loading.value = true;
     try {
       await authStore.login();
-      const redirect = (route.query.redirect as string) || '/dashboard';
+      const redirect = getValidatedRedirect(route.query.redirect as string);
       router.push(redirect);
     } catch (err) {
       console.error('Auto-login failed:', err);
@@ -71,10 +93,17 @@ onMounted(async () => {
     } finally {
       loading.value = false;
     }
-  } else if (authStore.isAuthenticated) {
+  } else {
+    // Wait for auth initialization if not already done, similar to router guard
+    if (!authStore.initialized) {
+      await authStore.initialize();
+    }
+    
     // Redirect authenticated users (e.g., after login redirect callback)
-    const redirect = (route.query.redirect as string) || '/dashboard';
-    router.push(redirect);
+    if (authStore.isAuthenticated) {
+      const redirect = getValidatedRedirect(route.query.redirect as string);
+      router.push(redirect);
+    }
   }
 });
 
