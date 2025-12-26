@@ -356,15 +356,33 @@ app.get('/api/stats/d1', authMiddleware, async (c) => {
     const freeReadLimitPerDay = 5000000; // 5M reads/day
     const freeWriteLimitPerDay = 100000; // 100K writes/day
 
+    // Helper function to estimate daily operations from local DB
+    const estimateDailyOperations = async (): Promise<{ reads: number; writes: number }> => {
+      const todayStart = new Date();
+      todayStart.setUTCHours(0, 0, 0, 0);
+      const todayStartTimestamp = todayStart.getTime();
+
+      const todayClicksResult = await c.env.DB
+        .prepare('SELECT COUNT(*) as count FROM click_records WHERE clicked_at >= ?')
+        .bind(todayStartTimestamp)
+        .first<{ count: number }>();
+      
+      const todayClicks = todayClicksResult?.count || 0;
+      return {
+        reads: todayClicks * READS_PER_CLICK,
+        writes: todayClicks * WRITES_PER_CLICK
+      };
+    };
+
     // Try to fetch real analytics from Cloudflare GraphQL API
     let actualDailyReads = 0;
     let actualDailyWrites = 0;
     let dataSource = 'estimated';
     let fallbackReason: string | undefined;
 
-    const accountId = c.env.CLOUDFLARE_ACCOUNT_ID;
-    const databaseId = c.env.CLOUDFLARE_D1_DATABASE_ID;
-    const apiToken = c.env.CLOUDFLARE_API_TOKEN;
+    const accountId = c.env.D1_ANALYTICS_ACCOUNT_ID;
+    const databaseId = c.env.D1_ANALYTICS_DATABASE_ID;
+    const apiToken = c.env.D1_ANALYTICS_API_TOKEN;
 
     // Check if all required credentials are available
     if (accountId && databaseId && apiToken) {
@@ -384,36 +402,18 @@ app.get('/api/stats/d1', authMiddleware, async (c) => {
         console.error('Failed to fetch Cloudflare D1 analytics, falling back to estimation:', error);
         fallbackReason = error instanceof Error ? error.message : 'Unknown error';
         // Fall back to estimation
-        const todayStart = new Date();
-        todayStart.setUTCHours(0, 0, 0, 0);
-        const todayStartTimestamp = todayStart.getTime();
-
-        const todayClicksResult = await c.env.DB
-          .prepare('SELECT COUNT(*) as count FROM click_records WHERE clicked_at >= ?')
-          .bind(todayStartTimestamp)
-          .first<{ count: number }>();
-        
-        const todayClicks = todayClicksResult?.count || 0;
-        actualDailyReads = todayClicks * READS_PER_CLICK;
-        actualDailyWrites = todayClicks * WRITES_PER_CLICK;
+        const estimated = await estimateDailyOperations();
+        actualDailyReads = estimated.reads;
+        actualDailyWrites = estimated.writes;
       }
     } else {
       // Credentials not configured, use estimation
       console.info('Cloudflare credentials not configured, using estimation');
       fallbackReason = 'Cloudflare API credentials not configured';
       
-      const todayStart = new Date();
-      todayStart.setUTCHours(0, 0, 0, 0);
-      const todayStartTimestamp = todayStart.getTime();
-
-      const todayClicksResult = await c.env.DB
-        .prepare('SELECT COUNT(*) as count FROM click_records WHERE clicked_at >= ?')
-        .bind(todayStartTimestamp)
-        .first<{ count: number }>();
-      
-      const todayClicks = todayClicksResult?.count || 0;
-      actualDailyReads = todayClicks * READS_PER_CLICK;
-      actualDailyWrites = todayClicks * WRITES_PER_CLICK;
+      const estimated = await estimateDailyOperations();
+      actualDailyReads = estimated.reads;
+      actualDailyWrites = estimated.writes;
     }
 
     const readsUsagePercent = (actualDailyReads / freeReadLimitPerDay) * 100;

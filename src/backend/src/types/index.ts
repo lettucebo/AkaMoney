@@ -9,9 +9,9 @@ export interface Env {
   ENTRA_ID_CLIENT_SECRET?: string;
   ENVIRONMENT: string;
   SHORT_DOMAIN?: string;
-  CLOUDFLARE_ACCOUNT_ID?: string;
-  CLOUDFLARE_API_TOKEN?: string;
-  CLOUDFLARE_D1_DATABASE_ID?: string;
+  D1_ANALYTICS_ACCOUNT_ID?: string;
+  D1_ANALYTICS_API_TOKEN?: string;
+  D1_ANALYTICS_DATABASE_ID?: string;
 }
 
 // Database Models

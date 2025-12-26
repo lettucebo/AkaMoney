@@ -297,6 +297,7 @@ class ApiService {
           usagePercent: 0.46
         },
         dataSource: 'cloudflare',
+        fallbackReason: undefined,
         timestamp: new Date().toISOString()
       };
     }

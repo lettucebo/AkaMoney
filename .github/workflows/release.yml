@@ -177,9 +177,9 @@ jobs:
           SECRET_ENTRA_ID_CLIENT_ID: ${{ vars.ENTRA_ID_CLIENT_ID }}
           SECRET_ENTRA_ID_CLIENT_SECRET: ${{ secrets.ENTRA_ID_CLIENT_SECRET }}
           SECRET_SHORT_DOMAIN: ${{ vars.SHORT_DOMAIN }}
-          SECRET_CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          SECRET_CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-          SECRET_CLOUDFLARE_D1_DATABASE_ID: ${{ vars.CLOUDFLARE_D1_DATABASE_ID }}
+          SECRET_D1_ANALYTICS_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          SECRET_D1_ANALYTICS_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          SECRET_D1_ANALYTICS_DATABASE_ID: ${{ vars.CLOUDFLARE_D1_DATABASE_ID }}
         run: |
           set -e
           cd src/backend
@@ -210,22 +210,22 @@ jobs:
           fi
 
           # Configure Cloudflare D1 Analytics credentials (optional)
-          if [ -n "$SECRET_CLOUDFLARE_API_TOKEN" ]; then
-            npx wrangler secret put CLOUDFLARE_API_TOKEN <<< "$SECRET_CLOUDFLARE_API_TOKEN"
+          if [ -n "$SECRET_D1_ANALYTICS_API_TOKEN" ]; then
+            npx wrangler secret put D1_ANALYTICS_API_TOKEN <<< "$SECRET_D1_ANALYTICS_API_TOKEN"
           else
-            echo "Warning: CLOUDFLARE_API_TOKEN for D1 analytics is not set, D1 stats will use estimation mode..."
+            echo "Warning: D1_ANALYTICS_API_TOKEN for D1 analytics is not set, D1 stats will use estimation mode..."
           fi
 
-          if [ -n "$SECRET_CLOUDFLARE_ACCOUNT_ID" ]; then
-            npx wrangler secret put CLOUDFLARE_ACCOUNT_ID <<< "$SECRET_CLOUDFLARE_ACCOUNT_ID"
+          if [ -n "$SECRET_D1_ANALYTICS_ACCOUNT_ID" ]; then
+            npx wrangler secret put D1_ANALYTICS_ACCOUNT_ID <<< "$SECRET_D1_ANALYTICS_ACCOUNT_ID"
           else
-            echo "Warning: CLOUDFLARE_ACCOUNT_ID for D1 analytics is not set, D1 stats will use estimation mode..."
+            echo "Warning: D1_ANALYTICS_ACCOUNT_ID for D1 analytics is not set, D1 stats will use estimation mode..."
           fi
 
-          if [ -n "$SECRET_CLOUDFLARE_D1_DATABASE_ID" ]; then
-            npx wrangler secret put CLOUDFLARE_D1_DATABASE_ID <<< "$SECRET_CLOUDFLARE_D1_DATABASE_ID"
+          if [ -n "$SECRET_D1_ANALYTICS_DATABASE_ID" ]; then
+            npx wrangler secret put D1_ANALYTICS_DATABASE_ID <<< "$SECRET_D1_ANALYTICS_DATABASE_ID"
           else
-            echo "Warning: CLOUDFLARE_D1_DATABASE_ID for D1 analytics is not set, D1 stats will use estimation mode..."
+            echo "Warning: D1_ANALYTICS_DATABASE_ID for D1 analytics is not set, D1 stats will use estimation mode..."
           fi
 
           echo "Worker secrets configured successfully"

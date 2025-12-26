@@ -202,12 +202,13 @@ describe('Cloudflare GraphQL Analytics Service', () => {
 
     await fetchD1Analytics(mockAccountId, mockDatabaseId, mockApiToken);
 
-    // Verify that the query includes today's date range
+    // Verify that the variables include today's date range
     const fetchCall = mockFetch.mock.calls[0];
     const body = JSON.parse(fetchCall[1].body);
     
-    expect(body.query).toContain('datetime_geq');
-    expect(body.query).toContain('datetime_leq');
+    expect(body.variables).toBeDefined();
+    expect(body.variables.startDate).toBeDefined();
+    expect(body.variables.endDate).toBeDefined();
   });
 
   it('should use custom date when provided', async () => {
@@ -243,10 +244,11 @@ describe('Cloudflare GraphQL Analytics Service', () => {
       writeQueries: 100
     });
 
-    // Verify the query contains the custom date
+    // Verify the variables contain the custom date
     const fetchCall = mockFetch.mock.calls[0];
     const body = JSON.parse(fetchCall[1].body);
     
-    expect(body.query).toContain('2024-01-15');
+    expect(body.variables.startDate).toContain('2024-01-15');
+    expect(body.variables.endDate).toContain('2024-01-15');
   });
 });

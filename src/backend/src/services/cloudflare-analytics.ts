@@ -57,15 +57,16 @@ export async function fetchD1Analytics(
   const startDateStr = startDate.toISOString();
   const endDateStr = endDate.toISOString();
   
+  // Use GraphQL variables to prevent injection attacks
   const query = `
-    query {
+    query GetD1Analytics($accountId: String!, $databaseId: String!, $startDate: String!, $endDate: String!) {
       viewer {
-        accounts(filter: {accountTag: "${accountId}"}) {
+        accounts(filter: {accountTag: $accountId}) {
           d1AnalyticsAdaptiveGroups(
             filter: {
-              databaseId: "${databaseId}"
-              datetime_geq: "${startDateStr}"
-              datetime_leq: "${endDateStr}"
+              databaseId: $databaseId
+              datetime_geq: $startDate
+              datetime_leq: $endDate
             }
             limit: 10
           ) {
@@ -79,6 +80,13 @@ export async function fetchD1Analytics(
     }
   `;
 
+  const variables = {
+    accountId,
+    databaseId,
+    startDate: startDateStr,
+    endDate: endDateStr
+  };
+
   try {
     const response = await fetch('https://api.cloudflare.com/client/v4/graphql', {
       method: 'POST',
@@ -86,7 +94,7 @@ export async function fetchD1Analytics(
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiToken}`
       },
-      body: JSON.stringify({ query })
+      body: JSON.stringify({ query, variables })
     });
 
     if (!response.ok) {
