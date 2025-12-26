@@ -215,9 +215,9 @@ class AuthService {
     localStorage.setItem(LOGOUT_FLAG_KEY, 'true');
     localStorage.removeItem('auth_token');
     
-    // Clear local session without logging out of Microsoft account
-    // This removes the cached tokens and account info from the browser
-    // but does not affect the user's Microsoft account session
+    // Clear the active MSAL account reference without signing out of the Microsoft account.
+    // Note: setActiveAccount(null) does NOT clear MSAL's cached accounts/tokens from storage;
+    // the LOGOUT_FLAG_KEY is what prevents this app from reusing those cached credentials.
     if (this.msalInstance) {
       const accounts = this.msalInstance.getAllAccounts();
       for (const account of accounts) {
