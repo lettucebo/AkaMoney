@@ -5,12 +5,6 @@ on:
     tags:
       - '*'
   workflow_dispatch:
-    inputs:
-      run_tests:
-        description: 'Run tests before deployment (default: false, tests already run in CI)'
-        required: false
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -19,9 +13,6 @@ permissions:
 env:
   CLOUDFLARE_PAGES_PROJECT: akamoney-admin
 
-# Note: Tests are skipped by default in release workflow because code has already
-# been tested in CI workflow (on PR and main branch pushes). Tests can be forced
-# by manually triggering workflow_dispatch with run_tests=true if needed.
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -52,18 +43,6 @@ jobs:
 
       - name: Install redirect dependencies
         run: cd src/redirect && npm ci
-
-      - name: Run backend tests
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_tests == 'true'
-        run: cd src/backend && npm run test:coverage
-
-      - name: Run frontend tests
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_tests == 'true'
-        run: cd src/frontend && npm run test:coverage
-
-      - name: Run redirect tests
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_tests == 'true'
-        run: cd src/redirect && npm run test:coverage
 
       - name: Build frontend
         env:
