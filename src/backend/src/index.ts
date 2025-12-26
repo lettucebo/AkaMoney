@@ -357,26 +357,42 @@ app.get('/api/stats/d1', authMiddleware, async (c) => {
     const freeWriteLimitPerDay = 100000; // 100K writes/day
 
     // Helper function to estimate daily operations from local DB
-    const estimateDailyOperations = async (): Promise<{ reads: number; writes: number }> => {
-      const todayStart = new Date();
-      todayStart.setUTCHours(0, 0, 0, 0);
-      const todayStartTimestamp = todayStart.getTime();
+    // Helper function to estimate operations for a date range from local DB
+    const estimateOperationsForRange = async (rangeStartDate?: Date, rangeEndDate?: Date): Promise<{ reads: number; writes: number }> => {
+      let startTimestamp: number;
+      let endTimestamp: number;
+      
+      if (rangeStartDate && rangeEndDate) {
+        // Use provided date range
+        startTimestamp = rangeStartDate.getTime();
+        // Add one day to make it inclusive of the end date
+        const inclusiveEnd = new Date(rangeEndDate);
+        inclusiveEnd.setUTCDate(inclusiveEnd.getUTCDate() + 1);
+        endTimestamp = inclusiveEnd.getTime();
+      } else {
+        // Default to current month
+        const now = new Date();
+        const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0));
+        const monthEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 0, 0, 0, 0));
+        startTimestamp = monthStart.getTime();
+        endTimestamp = monthEnd.getTime();
+      }
 
-      const todayClicksResult = await c.env.DB
-        .prepare('SELECT COUNT(*) as count FROM click_records WHERE clicked_at >= ?')
-        .bind(todayStartTimestamp)
+      const clicksResult = await c.env.DB
+        .prepare('SELECT COUNT(*) as count FROM click_records WHERE clicked_at >= ? AND clicked_at < ?')
+        .bind(startTimestamp, endTimestamp)
         .first<{ count: number }>();
       
-      const todayClicks = todayClicksResult?.count || 0;
+      const clicks = clicksResult?.count || 0;
       return {
-        reads: todayClicks * READS_PER_CLICK,
-        writes: todayClicks * WRITES_PER_CLICK
+        reads: clicks * READS_PER_CLICK,
+        writes: clicks * WRITES_PER_CLICK
       };
     };
 
     // Try to fetch real analytics from Cloudflare GraphQL API
-    let actualDailyReads = 0;
-    let actualDailyWrites = 0;
+    let actualTotalReads = 0;
+    let actualTotalWrites = 0;
     let dataSource = 'estimated';
     let fallbackReason: string | undefined;
 
@@ -384,40 +400,113 @@ app.get('/api/stats/d1', authMiddleware, async (c) => {
     const databaseId = c.env.D1_ANALYTICS_DATABASE_ID;
     const apiToken = c.env.D1_ANALYTICS_API_TOKEN;
 
+    // Parse optional date range from query parameters
+    // Format: YYYY-MM-DD
+    const startDateParam = c.req.query('startDate');
+    const endDateParam = c.req.query('endDate');
+    
+    let startDate: Date | undefined;
+    let endDate: Date | undefined;
+    
+    // Validate that both dates are provided together or neither
+    if ((startDateParam && !endDateParam) || (!startDateParam && endDateParam)) {
+      return c.json({
+        error: 'Bad Request',
+        message: 'Both startDate and endDate must be provided together'
+      }, 400);
+    }
+    
+    if (startDateParam && endDateParam) {
+      startDate = new Date(startDateParam + 'T00:00:00.000Z');
+      endDate = new Date(endDateParam + 'T00:00:00.000Z');
+      
+      // Validate dates are valid
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        return c.json({
+          error: 'Bad Request',
+          message: 'Invalid date format. Use YYYY-MM-DD format'
+        }, 400);
+      }
+      
+      // Validate start date is before or equal to end date
+      if (startDate > endDate) {
+        return c.json({
+          error: 'Bad Request',
+          message: 'startDate must be before or equal to endDate'
+        }, 400);
+      }
+    }
+
     // Check if all required credentials are available
     if (accountId && databaseId && apiToken) {
       try {
         console.info('Fetching real D1 analytics from Cloudflare GraphQL API...');
-        const analytics = await fetchD1Analytics(accountId, databaseId, apiToken);
+        const analytics = await fetchD1Analytics(accountId, databaseId, apiToken, startDate, endDate);
         
-        actualDailyReads = analytics.readQueries;
-        actualDailyWrites = analytics.writeQueries;
+        actualTotalReads = analytics.readQueries;
+        actualTotalWrites = analytics.writeQueries;
         dataSource = 'cloudflare';
         
         console.info('Successfully fetched D1 analytics:', { 
-          readQueries: actualDailyReads, 
-          writeQueries: actualDailyWrites 
+          readQueries: actualTotalReads, 
+          writeQueries: actualTotalWrites 
         });
       } catch (error) {
         console.error('Failed to fetch Cloudflare D1 analytics, falling back to estimation:', error);
         fallbackReason = error instanceof Error ? error.message : 'Unknown error';
-        // Fall back to estimation
-        const estimated = await estimateDailyOperations();
-        actualDailyReads = estimated.reads;
-        actualDailyWrites = estimated.writes;
+        // Fall back to estimation for the requested date range
+        const estimated = await estimateOperationsForRange(startDate, endDate);
+        actualTotalReads = estimated.reads;
+        actualTotalWrites = estimated.writes;
       }
     } else {
       // Credentials not configured, use estimation
       console.info('Cloudflare credentials not configured, using estimation');
       fallbackReason = 'Cloudflare API credentials not configured';
       
-      const estimated = await estimateDailyOperations();
-      actualDailyReads = estimated.reads;
-      actualDailyWrites = estimated.writes;
+      const estimated = await estimateOperationsForRange(startDate, endDate);
+      actualTotalReads = estimated.reads;
+      actualTotalWrites = estimated.writes;
     }
 
-    const readsUsagePercent = (actualDailyReads / freeReadLimitPerDay) * 100;
-    const writesUsagePercent = (actualDailyWrites / freeWriteLimitPerDay) * 100;
+    // Calculate usage percentage based on average daily usage over the date range
+    // to avoid comparing multi-day totals directly against daily limits
+    const msPerDay = 1000 * 60 * 60 * 24;
+    let daysInRange = 1;
+    
+    if (startDate && endDate) {
+      daysInRange = Math.max(1, Math.floor((endDate.getTime() - startDate.getTime()) / msPerDay) + 1);
+    } else {
+      // Default is current month
+      const now = new Date();
+      const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+      const monthEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0));
+      daysInRange = monthEnd.getUTCDate();
+    }
+    
+    const averageDailyReads = actualTotalReads / daysInRange;
+    const averageDailyWrites = actualTotalWrites / daysInRange;
+    
+    const readsUsagePercent = (averageDailyReads / freeReadLimitPerDay) * 100;
+    const writesUsagePercent = (averageDailyWrites / freeWriteLimitPerDay) * 100;
+
+    // Calculate actual date range used for display
+    // If custom dates provided, use them; otherwise calculate current month
+    let displayStartDate: string;
+    let displayEndDate: string;
+    
+    if (startDate && endDate) {
+      displayStartDate = startDate.toISOString().split('T')[0];
+      displayEndDate = endDate.toISOString().split('T')[0];
+    } else {
+      // Calculate current month range
+      const now = new Date();
+      const firstDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0));
+      // Using day 0 of the next month returns the last day of the current month
+      const lastDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 0, 0, 0, 0));
+      displayStartDate = firstDay.toISOString().split('T')[0];
+      displayEndDate = lastDay.toISOString().split('T')[0];
+    }
 
     return c.json({
       storage: {
@@ -427,14 +516,18 @@ app.get('/api/stats/d1', authMiddleware, async (c) => {
         usagePercent: parseFloat(storageUsagePercent.toFixed(2))
       },
       reads: {
-        daily: actualDailyReads,
+        total: actualTotalReads,
         limitPerDay: freeReadLimitPerDay,
         usagePercent: parseFloat(readsUsagePercent.toFixed(2))
       },
       writes: {
-        daily: actualDailyWrites,
+        total: actualTotalWrites,
         limitPerDay: freeWriteLimitPerDay,
         usagePercent: parseFloat(writesUsagePercent.toFixed(2))
+      },
+      dateRange: {
+        start: displayStartDate,
+        end: displayEndDate
       },
       dataSource,
       fallbackReason,

@@ -276,7 +276,7 @@ class ApiService {
   }
 
   // D1 Usage Statistics
-  async getD1Stats(): Promise<any> {
+  async getD1Stats(startDate?: string, endDate?: string): Promise<any> {
     // Return mock D1 stats in skip auth mode
     if (isAuthSkipped()) {
       return {
@@ -287,14 +287,18 @@ class ApiService {
           usagePercent: 0.05
         },
         reads: {
-          daily: 1368,
+          total: 1368,
           limitPerDay: 5000000,
           usagePercent: 0.03
         },
         writes: {
-          daily: 456,
+          total: 456,
           limitPerDay: 100000,
           usagePercent: 0.46
+        },
+        dateRange: {
+          start: startDate || new Date().toISOString().split('T')[0],
+          end: endDate || new Date().toISOString().split('T')[0]
         },
         dataSource: 'cloudflare',
         fallbackReason: undefined,
@@ -302,7 +306,15 @@ class ApiService {
       };
     }
 
-    const response = await this.api.get('/api/stats/d1');
+    // Build query string with optional date parameters
+    const params = new URLSearchParams();
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    
+    const queryString = params.toString();
+    const url = queryString ? `/api/stats/d1?${queryString}` : '/api/stats/d1';
+    
+    const response = await this.api.get(url);
     return response.data;
   }
 

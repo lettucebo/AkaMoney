@@ -2,7 +2,8 @@
  * Cloudflare GraphQL Analytics Service
  * 
  * This service fetches real D1 database usage metrics from Cloudflare's GraphQL Analytics API.
- * It retrieves actual readQueries and writeQueries counts for the current day.
+ * It retrieves actual readQueries and writeQueries counts for a specified date range.
+ * Defaults to the current month if no date range is provided.
  */
 
 export interface CloudflareD1Analytics {
@@ -34,28 +35,43 @@ export interface CloudflareGraphQLResponse {
  * @param accountId - Cloudflare account ID
  * @param databaseId - D1 database ID
  * @param apiToken - Cloudflare API token with Analytics:Read permission
- * @param date - Optional date for which to fetch analytics (defaults to today UTC)
+ * @param startDate - Optional start date for analytics period (defaults to first day of current month UTC)
+ * @param endDate - Optional end date for analytics period (inclusive); used as exclusive upper bound in query (defaults to last day of current month inclusive / first day of next month exclusive)
  * @returns D1 analytics data with read and write query counts
  */
 export async function fetchD1Analytics(
   accountId: string,
   databaseId: string,
   apiToken: string,
-  date?: Date
+  startDate?: Date,
+  endDate?: Date
 ): Promise<CloudflareD1Analytics> {
-  // Use provided date or default to today (UTC)
-  const targetDate = date || new Date();
+  // Default to current month if no dates provided
+  // Note: Either both dates are provided or neither (validated by caller)
+  let queryStartDate: Date;
+  let queryEndDate: Date;
   
-  // Set time range for the entire day (00:00:00 to 23:59:59 UTC)
-  const startDate = new Date(targetDate);
-  startDate.setUTCHours(0, 0, 0, 0);
+  if (!startDate || !endDate) {
+    // Get first day of current month
+    const now = new Date();
+    queryStartDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0));
+    
+    // Get first day of next month
+    queryEndDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 0, 0, 0, 0));
+  } else {
+    // Use provided dates, ensure they're set to start of day
+    queryStartDate = new Date(startDate);
+    queryStartDate.setUTCHours(0, 0, 0, 0);
+    
+    // For end date, add 1 day to make it exclusive (date_lt semantics)
+    queryEndDate = new Date(endDate);
+    queryEndDate.setUTCDate(queryEndDate.getUTCDate() + 1);
+    queryEndDate.setUTCHours(0, 0, 0, 0);
+  }
   
-  const endDate = new Date(targetDate);
-  endDate.setUTCHours(23, 59, 59, 999);
-  
-  // Format dates to ISO 8601 format (Cloudflare GraphQL expects this format)
-  const startDateStr = startDate.toISOString();
-  const endDateStr = endDate.toISOString();
+  // Format dates to YYYY-MM-DD format (Cloudflare GraphQL expects this format for date_geq/date_lt)
+  const startDateStr = queryStartDate.toISOString().split('T')[0];
+  const endDateStr = queryEndDate.toISOString().split('T')[0];
   
   // Use GraphQL variables to prevent injection attacks
   const query = `
@@ -65,8 +81,8 @@ export async function fetchD1Analytics(
           d1AnalyticsAdaptiveGroups(
             filter: {
               databaseId: $databaseId
-              datetime_geq: $startDate
-              datetime_leq: $endDate
+              date_geq: $startDate
+              date_lt: $endDate
             }
             limit: 10
           ) {

@@ -90,14 +90,18 @@ export interface D1UsageStats {
     usagePercent: number;
   };
   reads: {
-    daily: number;
+    total: number;
     limitPerDay: number;
     usagePercent: number;
   };
   writes: {
-    daily: number;
+    total: number;
     limitPerDay: number;
     usagePercent: number;
+  };
+  dateRange: {
+    start: string;
+    end: string;
   };
   dataSource: 'cloudflare' | 'estimated';
   fallbackReason?: string;

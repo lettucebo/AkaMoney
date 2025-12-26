@@ -175,7 +175,7 @@ describe('Cloudflare GraphQL Analytics Service', () => {
     ).rejects.toThrow('No account data found in response');
   });
 
-  it('should use current date by default', async () => {
+  it('should use current month by default', async () => {
     const mockResponse = {
       data: {
         viewer: {
@@ -202,16 +202,21 @@ describe('Cloudflare GraphQL Analytics Service', () => {
 
     await fetchD1Analytics(mockAccountId, mockDatabaseId, mockApiToken);
 
-    // Verify that the variables include today's date range
+    // Verify that the variables include current month date range
     const fetchCall = mockFetch.mock.calls[0];
     const body = JSON.parse(fetchCall[1].body);
     
     expect(body.variables).toBeDefined();
     expect(body.variables.startDate).toBeDefined();
     expect(body.variables.endDate).toBeDefined();
+    
+    // Verify it's the first day of current month
+    const now = new Date();
+    const expectedStart = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-01`;
+    expect(body.variables.startDate).toBe(expectedStart);
   });
 
-  it('should use custom date when provided', async () => {
+  it('should use custom date range when provided', async () => {
     const mockResponse = {
       data: {
         viewer: {
@@ -236,19 +241,21 @@ describe('Cloudflare GraphQL Analytics Service', () => {
       json: async () => mockResponse
     });
 
-    const customDate = new Date('2024-01-15');
-    const result = await fetchD1Analytics(mockAccountId, mockDatabaseId, mockApiToken, customDate);
+    const startDate = new Date('2024-01-15');
+    const endDate = new Date('2024-01-31');
+    const result = await fetchD1Analytics(mockAccountId, mockDatabaseId, mockApiToken, startDate, endDate);
 
     expect(result).toEqual({
       readQueries: 200,
       writeQueries: 100
     });
 
-    // Verify the variables contain the custom date
+    // Verify the variables contain the custom date range in YYYY-MM-DD format
+    // End date should be +1 day for exclusive upper bound (date_lt semantics)
     const fetchCall = mockFetch.mock.calls[0];
     const body = JSON.parse(fetchCall[1].body);
     
-    expect(body.variables.startDate).toContain('2024-01-15');
-    expect(body.variables.endDate).toContain('2024-01-15');
+    expect(body.variables.startDate).toBe('2024-01-15');
+    expect(body.variables.endDate).toBe('2024-02-01');
   });
 });

@@ -6,6 +6,56 @@
           <i class="bi bi-database me-2"></i>D1 Database Usage Monitoring
         </h2>
 
+        <!-- Date Range Selector -->
+        <div class="card mb-4">
+          <div class="card-body">
+            <div class="row align-items-end">
+              <div class="col-md-4">
+                <label for="startDate" class="form-label">Start Date</label>
+                <input
+                  type="date"
+                  class="form-control"
+                  id="startDate"
+                  v-model="selectedStartDate"
+                  :disabled="loading"
+                />
+              </div>
+              <div class="col-md-4">
+                <label for="endDate" class="form-label">End Date</label>
+                <input
+                  type="date"
+                  class="form-control"
+                  id="endDate"
+                  v-model="selectedEndDate"
+                  :disabled="loading"
+                />
+              </div>
+              <div class="col-md-4">
+                <button 
+                  class="btn btn-primary w-100" 
+                  @click="applyDateRange"
+                  :disabled="loading"
+                >
+                  <i class="bi bi-calendar-check me-2"></i>Apply Date Range
+                </button>
+                <button 
+                  class="btn btn-outline-secondary w-100 mt-2" 
+                  @click="resetToCurrentMonth"
+                  :disabled="loading"
+                >
+                  <i class="bi bi-arrow-clockwise me-2"></i>Reset to Current Month
+                </button>
+              </div>
+            </div>
+            <div class="mt-2">
+              <small class="text-muted">
+                <i class="bi bi-info-circle me-1"></i>
+                Default shows current month. Select dates to view a custom range.
+              </small>
+            </div>
+          </div>
+        </div>
+
         <!-- Loading State -->
         <div v-if="loading" class="text-center py-5">
           <div class="spinner-border text-primary" role="status">
@@ -25,10 +75,14 @@
           <div class="card mb-4">
             <div class="card-header">
               <h5 class="mb-0">
-                <i class="bi bi-hdd me-2"></i>Storage Usage
+                <i class="bi bi-hdd me-2"></i>Storage Usage (Total)
               </h5>
             </div>
             <div class="card-body">
+              <div class="alert alert-info mb-3">
+                <i class="bi bi-info-circle-fill me-2"></i>
+                <strong>Note:</strong> Storage usage shows total database size and is not affected by the date range selection.
+              </div>
               <div class="row align-items-center mb-3">
                 <div class="col-md-6">
                   <h3 class="mb-0">{{ stats.storage.estimatedSizeMB }} MB</h3>
@@ -69,7 +123,7 @@
           <div class="card mb-4">
             <div class="card-header">
               <h5 class="mb-0">
-                <i class="bi bi-speedometer2 me-2"></i>Daily Operations
+                <i class="bi bi-speedometer2 me-2"></i>Operations ({{ formatDateRange }})
               </h5>
             </div>
             <div class="card-body">
@@ -77,12 +131,12 @@
               <div class="mb-4">
                 <div class="d-flex justify-content-between align-items-center mb-2">
                   <div>
-                    <strong>Read Operations (Today)</strong>
+                    <strong>Read Operations</strong>
                     <p class="text-muted mb-0 small">
-                      {{ stats.reads.daily.toLocaleString() }} / {{ stats.reads.limitPerDay.toLocaleString() }}
+                      {{ stats.reads.total.toLocaleString() }} total reads
                     </p>
-                    <p class="text-success mb-0 small">
-                      <i class="bi bi-check-circle me-1"></i>{{ getRemainingReads }} reads remaining today
+                    <p class="text-muted mb-0 small">
+                      Limit: {{ stats.reads.limitPerDay.toLocaleString() }} reads per day
                     </p>
                   </div>
                   <span class="badge" :class="getUsageBadgeClass(stats.reads.usagePercent)">
@@ -112,12 +166,12 @@
               <div class="mb-0">
                 <div class="d-flex justify-content-between align-items-center mb-2">
                   <div>
-                    <strong>Write Operations (Today)</strong>
+                    <strong>Write Operations</strong>
                     <p class="text-muted mb-0 small">
-                      {{ stats.writes.daily.toLocaleString() }} / {{ stats.writes.limitPerDay.toLocaleString() }}
+                      {{ stats.writes.total.toLocaleString() }} total writes
                     </p>
-                    <p class="text-success mb-0 small">
-                      <i class="bi bi-check-circle me-1"></i>{{ getRemainingWrites }} writes remaining today
+                    <p class="text-muted mb-0 small">
+                      Limit: {{ stats.writes.limitPerDay.toLocaleString() }} writes per day
                     </p>
                   </div>
                   <span class="badge" :class="getUsageBadgeClass(stats.writes.usagePercent)">
@@ -154,7 +208,11 @@
             </div>
             <div class="card-body">
               <div class="row">
-                <div class="col-md-6 mb-3">
+                <div class="col-md-4 mb-3">
+                  <strong>Date Range:</strong>
+                  <p class="mb-0">{{ formatDateRange }}</p>
+                </div>
+                <div class="col-md-4 mb-3">
                   <strong>Data Source:</strong>
                   <p class="mb-0">
                     <span v-if="stats.dataSource === 'cloudflare'" class="badge bg-success">
@@ -168,7 +226,7 @@
                     <i class="bi bi-info-circle me-1"></i>{{ stats.fallbackReason }}
                   </p>
                 </div>
-                <div class="col-md-6 mb-3">
+                <div class="col-md-4 mb-3">
                   <strong>Last Updated:</strong>
                   <p class="mb-0">{{ formatDate(stats.timestamp) }}</p>
                 </div>
@@ -176,7 +234,7 @@
               <div class="alert alert-info mb-0">
                 <i class="bi bi-info-circle-fill me-2"></i>
                 <span v-if="stats.dataSource === 'cloudflare'">
-                  Daily operations data is fetched from Cloudflare's D1 Analytics API. 
+                  Operations data is fetched from Cloudflare's D1 Analytics API for the selected date range. 
                   Storage estimates are calculated from local database records.
                 </span>
                 <span v-else>
@@ -213,18 +271,55 @@ const loading = ref(false);
 const error = ref<string | null>(null);
 const stats = ref<D1UsageStats | null>(null);
 
-const fetchUsageStats = async () => {
+// Date range state
+const selectedStartDate = ref('');
+const selectedEndDate = ref('');
+
+// Initialize with current month dates
+const initializeCurrentMonth = () => {
+  const now = new Date();
+  const firstDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  // Last day of current month: in JS Date, day 0 of the next month is the last day of the previous month
+  const lastDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0));
+  
+  selectedStartDate.value = firstDay.toISOString().split('T')[0];
+  selectedEndDate.value = lastDay.toISOString().split('T')[0];
+};
+
+const fetchUsageStats = async (startDate?: string, endDate?: string) => {
   loading.value = true;
   error.value = null;
   
   try {
-    stats.value = await apiService.getD1Stats();
+    stats.value = await apiService.getD1Stats(startDate, endDate);
   } catch (err: any) {
     console.error('Error fetching D1 stats:', err);
     error.value = err.response?.data?.message || 'Failed to fetch D1 statistics';
   } finally {
     loading.value = false;
   }
+};
+
+// Apply selected date range
+const applyDateRange = () => {
+  if (!selectedStartDate.value || !selectedEndDate.value) {
+    error.value = 'Please select both start and end dates';
+    return;
+  }
+  
+  // Validate that startDate is before or equal to endDate
+  if (selectedStartDate.value > selectedEndDate.value) {
+    error.value = 'Start date must be before or equal to end date';
+    return;
+  }
+  
+  fetchUsageStats(selectedStartDate.value, selectedEndDate.value);
+};
+
+// Reset to current month
+const resetToCurrentMonth = () => {
+  initializeCurrentMonth();
+  fetchUsageStats(); // Fetch without parameters to use default (current month)
 };
 
 // Computed properties for remaining capacity
@@ -234,16 +329,9 @@ const getRemainingStorage = computed(() => {
   return remaining.toFixed(4);
 });
 
-const getRemainingReads = computed(() => {
-  if (!stats.value) return '0';
-  const remaining = stats.value.reads.limitPerDay - stats.value.reads.daily;
-  return remaining.toLocaleString();
-});
-
-const getRemainingWrites = computed(() => {
-  if (!stats.value) return '0';
-  const remaining = stats.value.writes.limitPerDay - stats.value.writes.daily;
-  return remaining.toLocaleString();
+const formatDateRange = computed(() => {
+  if (!stats.value?.dateRange) return '';
+  return `${stats.value.dateRange.start} to ${stats.value.dateRange.end}`;
 });
 
 const getProgressBarClass = (percent: number): string => {
@@ -266,6 +354,7 @@ const formatDate = (dateString: string): string => {
 };
 
 onMounted(() => {
+  initializeCurrentMonth();
   fetchUsageStats();
 });
 </script>
