@@ -9,7 +9,7 @@ export const corsMiddleware = honoCors({
     // In production, allow specific domains
     const allowedOrigins = [
       'https://aka.money',
-      'https://www.aka.money',
+      'https://admin.aka.money',
       'https://akamoney-admin.pages.dev',
       'http://localhost:5173',
       'http://localhost:8787'
