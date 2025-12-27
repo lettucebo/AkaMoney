@@ -19,6 +19,11 @@
               <router-link to="/dashboard" class="nav-link">Dashboard</router-link>
             </li>
             <li v-if="authStore.isAuthenticated" class="nav-item">
+              <router-link to="/stats" class="nav-link">
+                <i class="bi bi-bar-chart-line me-1"></i>Statistics
+              </router-link>
+            </li>
+            <li v-if="authStore.isAuthenticated" class="nav-item">
               <router-link to="/db-usage" class="nav-link">
                 <i class="bi bi-database me-1"></i>Usage
               </router-link>

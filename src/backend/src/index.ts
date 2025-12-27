@@ -10,7 +10,7 @@ import {
   deleteUrl,
   getUserUrls
 } from './services/url';
-import { getAnalytics } from './services/analytics';
+import { getAnalytics, getOverallStats } from './services/analytics';
 import { cleanupOldClickRecords } from './services/cleanup';
 import { fetchD1Analytics } from './services/cloudflare-analytics';
 import type { CreateUrlRequest, UpdateUrlRequest } from './types';
@@ -315,6 +315,81 @@ app.get('/api/public/analytics/:shortCode', async (c) => {
     total_clicks: analytics.total_clicks,
     created_at: analytics.url.created_at
   });
+});
+
+// Get overall statistics for all user's URLs
+app.get('/api/stats/overall', authMiddleware, async (c) => {
+  try {
+    const user = getAuthUser(c);
+    if (!user) {
+      return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+    }
+
+    console.log('Fetching overall stats for user:', user.userId);
+
+    // Check if DB is available
+    if (!c.env.DB) {
+      console.error('Database binding (DB) is not available');
+      return c.json({
+        error: 'Configuration Error',
+        message: 'Database is not configured',
+        details: 'DB binding is missing from worker environment'
+      }, 500);
+    }
+
+    // Parse optional date range from query parameters
+    const startDateParam = c.req.query('startDate');
+    const endDateParam = c.req.query('endDate');
+
+    let startDate: Date | undefined;
+    let endDate: Date | undefined;
+
+    // Validate that both dates are provided together or neither
+    if ((startDateParam && !endDateParam) || (!startDateParam && endDateParam)) {
+      return c.json({
+        error: 'Bad Request',
+        message: 'Both startDate and endDate must be provided together'
+      }, 400);
+    }
+
+    if (startDateParam && endDateParam) {
+      startDate = new Date(startDateParam + 'T00:00:00.000Z');
+      endDate = new Date(endDateParam + 'T23:59:59.999Z');
+
+      // Validate dates are valid
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        return c.json({
+          error: 'Bad Request',
+          message: 'Invalid date format. Use YYYY-MM-DD format'
+        }, 400);
+      }
+
+      // Validate start date is before or equal to end date
+      if (startDate > endDate) {
+        return c.json({
+          error: 'Bad Request',
+          message: 'startDate must be before or equal to endDate'
+        }, 400);
+      }
+    }
+
+    const stats = await getOverallStats(c.env.DB, user.userId, startDate, endDate);
+
+    console.log('Overall stats fetched successfully:', {
+      total_clicks: stats.total_clicks,
+      total_links: stats.total_links
+    });
+
+    return c.json(stats);
+  } catch (error) {
+    console.error('Error in GET /api/stats/overall:', error);
+    return c.json({
+      error: 'Internal Server Error',
+      message: 'Failed to fetch overall statistics',
+      details: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    }, 500);
+  }
 });
 
 // Get D1 database usage statistics

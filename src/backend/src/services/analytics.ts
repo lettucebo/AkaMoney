@@ -1,5 +1,5 @@
 import { nanoid } from 'nanoid';
-import type { Env, ClickRecord, AnalyticsResponse, UrlResponse } from '../types';
+import type { Env, ClickRecord, AnalyticsResponse, UrlResponse, OverallStatsResponse, TopLink } from '../types';
 import { getUrlByShortCode, incrementClickCount, checkUrlOwnership } from './url';
 import { NotFoundError } from '../types/errors';
 
@@ -259,5 +259,190 @@ export async function getAnalytics(
     clicks_by_device,
     clicks_by_browser,
     recent_clicks
+  };
+}
+
+/**
+ * Get overall statistics for all URLs owned by a user
+ */
+export async function getOverallStats(
+  db: D1Database,
+  userId: string,
+  startDate?: Date,
+  endDate?: Date
+): Promise<OverallStatsResponse> {
+  // Calculate date range
+  let start: Date;
+  let end: Date;
+  
+  if (startDate && endDate) {
+    start = startDate;
+    end = endDate;
+  } else {
+    // Default to current month
+    const now = new Date();
+    start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0));
+    // End of current month
+    end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59, 999));
+  }
+  
+  const startTimestamp = start.getTime();
+  const endTimestamp = end.getTime();
+  
+  // Get all URLs for this user
+  const urlsResult = await db
+    .prepare('SELECT id, short_code, original_url, title, click_count, is_active FROM urls WHERE user_id = ?')
+    .bind(userId)
+    .all<{ id: string; short_code: string; original_url: string; title: string | null; click_count: number; is_active: number }>();
+  
+  const allUrls = urlsResult.results || [];
+  const total_links = allUrls.length;
+  const active_links = allUrls.filter(url => url.is_active === 1).length;
+  
+  // Get all URL IDs for filtering clicks
+  const urlIds = allUrls.map(url => url.id);
+  
+  if (urlIds.length === 0) {
+    // No URLs, return empty stats
+    return {
+      total_clicks: 0,
+      active_links: 0,
+      total_links: 0,
+      click_trend: {},
+      top_links: [],
+      country_distribution: {},
+      device_distribution: {},
+      date_range: {
+        start: start.toISOString().split('T')[0],
+        end: end.toISOString().split('T')[0]
+      }
+    };
+  }
+  
+  // Build placeholders for IN clause
+  // Note: This is safe because placeholders only contains '?' characters (not user input)
+  // The actual urlIds values are bound separately using .bind()
+  const placeholders = urlIds.map(() => '?').join(',');
+  
+  // Get total clicks in date range
+  const totalClicksResult = await db
+    .prepare(`
+      SELECT COUNT(*) as count 
+      FROM click_records 
+      WHERE url_id IN (${placeholders}) 
+        AND clicked_at >= ? 
+        AND clicked_at <= ?
+    `)
+    .bind(...urlIds, startTimestamp, endTimestamp)
+    .first<{ count: number }>();
+  
+  const total_clicks = totalClicksResult?.count || 0;
+  
+  // Get click trend by date
+  const clickTrendResult = await db
+    .prepare(`
+      SELECT 
+        DATE(clicked_at / 1000, 'unixepoch') as date,
+        COUNT(*) as count
+      FROM click_records
+      WHERE url_id IN (${placeholders})
+        AND clicked_at >= ?
+        AND clicked_at <= ?
+      GROUP BY date
+      ORDER BY date
+    `)
+    .bind(...urlIds, startTimestamp, endTimestamp)
+    .all<{ date: string; count: number }>();
+  
+  const click_trend: Record<string, number> = {};
+  for (const row of clickTrendResult.results || []) {
+    click_trend[row.date] = row.count;
+  }
+  
+  // Get top links by click count in date range
+  const topLinksResult = await db
+    .prepare(`
+      SELECT 
+        cr.short_code,
+        COUNT(*) as click_count
+      FROM click_records cr
+      WHERE cr.url_id IN (${placeholders})
+        AND cr.clicked_at >= ?
+        AND cr.clicked_at <= ?
+      GROUP BY cr.short_code
+      ORDER BY click_count DESC
+      LIMIT 10
+    `)
+    .bind(...urlIds, startTimestamp, endTimestamp)
+    .all<{ short_code: string; click_count: number }>();
+  
+  // Create a Map for O(1) lookup instead of O(n) find operation
+  const urlMap = new Map(allUrls.map(u => [u.short_code, u]));
+  const top_links: TopLink[] = [];
+  for (const row of topLinksResult.results || []) {
+    const url = urlMap.get(row.short_code);
+    if (url) {
+      top_links.push({
+        short_code: row.short_code,
+        original_url: url.original_url,
+        click_count: row.click_count,
+        title: url.title || undefined
+      });
+    }
+  }
+  
+  // Get country distribution
+  const countryResult = await db
+    .prepare(`
+      SELECT country, COUNT(*) as count
+      FROM click_records
+      WHERE url_id IN (${placeholders})
+        AND clicked_at >= ?
+        AND clicked_at <= ?
+        AND country IS NOT NULL
+      GROUP BY country
+      ORDER BY count DESC
+      LIMIT 10
+    `)
+    .bind(...urlIds, startTimestamp, endTimestamp)
+    .all<{ country: string; count: number }>();
+  
+  const country_distribution: Record<string, number> = {};
+  for (const row of countryResult.results || []) {
+    country_distribution[row.country] = row.count;
+  }
+  
+  // Get device distribution
+  const deviceResult = await db
+    .prepare(`
+      SELECT device_type, COUNT(*) as count
+      FROM click_records
+      WHERE url_id IN (${placeholders})
+        AND clicked_at >= ?
+        AND clicked_at <= ?
+        AND device_type IS NOT NULL
+      GROUP BY device_type
+      ORDER BY count DESC
+    `)
+    .bind(...urlIds, startTimestamp, endTimestamp)
+    .all<{ device_type: string; count: number }>();
+  
+  const device_distribution: Record<string, number> = {};
+  for (const row of deviceResult.results || []) {
+    device_distribution[row.device_type] = row.count;
+  }
+  
+  return {
+    total_clicks,
+    active_links,
+    total_links,
+    click_trend,
+    top_links,
+    country_distribution,
+    device_distribution,
+    date_range: {
+      start: start.toISOString().split('T')[0],
+      end: end.toISOString().split('T')[0]
+    }
   };
 }

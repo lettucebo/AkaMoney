@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { parseUserAgent, recordClick, getAnalytics } from '../analytics';
+import { parseUserAgent, recordClick, getAnalytics, getOverallStats } from '../analytics';
 
 // Mock D1Database
 const createMockDb = () => {
@@ -320,5 +320,222 @@ describe('Analytics Service - getAnalytics', () => {
     const result = await getAnalytics(mockDb as any, 'abc123');
     
     expect(result?.recent_clicks).toHaveLength(2);
+  });
+});
+
+describe('Analytics Service - getOverallStats', () => {
+  beforeEach(() => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  it('should return empty stats when user has no URLs', async () => {
+    const mockDb = createMockDb();
+    mockDb._mockAll.mockResolvedValueOnce({ results: [] }); // no URLs
+    
+    const result = await getOverallStats(mockDb as any, 'user-123');
+    
+    expect(result.total_clicks).toBe(0);
+    expect(result.active_links).toBe(0);
+    expect(result.total_links).toBe(0);
+    expect(result.top_links).toHaveLength(0);
+    expect(Object.keys(result.click_trend)).toHaveLength(0);
+  });
+
+  it('should aggregate clicks across multiple URLs', async () => {
+    const mockUrls = [
+      { id: 'url-1', short_code: 'abc', original_url: 'https://example.com/1', title: 'Link 1', click_count: 10, is_active: 1 },
+      { id: 'url-2', short_code: 'def', original_url: 'https://example.com/2', title: 'Link 2', click_count: 20, is_active: 1 },
+      { id: 'url-3', short_code: 'ghi', original_url: 'https://example.com/3', title: null, click_count: 5, is_active: 0 }
+    ];
+    
+    const mockDb = createMockDb();
+    mockDb._mockAll.mockResolvedValueOnce({ results: mockUrls }); // all URLs
+    mockDb._mockFirst.mockResolvedValueOnce({ count: 35 }); // total clicks
+    mockDb._mockAll.mockResolvedValueOnce({ results: [] }); // click trend
+    mockDb._mockAll.mockResolvedValueOnce({ results: [] }); // top links
+    mockDb._mockAll.mockResolvedValueOnce({ results: [] }); // country distribution
+    mockDb._mockAll.mockResolvedValueOnce({ results: [] }); // device distribution
+    
+    const result = await getOverallStats(mockDb as any, 'user-123');
+    
+    expect(result.total_links).toBe(3);
+    expect(result.active_links).toBe(2);
+    expect(result.total_clicks).toBe(35);
+  });
+
+  it('should return click trend by date', async () => {
+    const mockUrls = [
+      { id: 'url-1', short_code: 'abc', original_url: 'https://example.com/1', title: 'Link 1', click_count: 10, is_active: 1 }
+    ];
+    
+    const mockClickTrend = [
+      { date: '2024-01-01', count: 5 },
+      { date: '2024-01-02', count: 3 },
+      { date: '2024-01-03', count: 2 }
+    ];
+    
+    const mockDb = createMockDb();
+    mockDb._mockAll.mockResolvedValueOnce({ results: mockUrls });
+    mockDb._mockFirst.mockResolvedValueOnce({ count: 10 });
+    mockDb._mockAll.mockResolvedValueOnce({ results: mockClickTrend });
+    mockDb._mockAll.mockResolvedValueOnce({ results: [] });
+    mockDb._mockAll.mockResolvedValueOnce({ results: [] });
+    mockDb._mockAll.mockResolvedValueOnce({ results: [] });
+    
+    const result = await getOverallStats(mockDb as any, 'user-123');
+    
+    expect(result.click_trend['2024-01-01']).toBe(5);
+    expect(result.click_trend['2024-01-02']).toBe(3);
+    expect(result.click_trend['2024-01-03']).toBe(2);
+  });
+
+  it('should return top 10 links ranked by clicks', async () => {
+    const mockUrls = [
+      { id: 'url-1', short_code: 'link1', original_url: 'https://example.com/1', title: 'Link 1', click_count: 100, is_active: 1 },
+      { id: 'url-2', short_code: 'link2', original_url: 'https://example.com/2', title: 'Link 2', click_count: 80, is_active: 1 },
+      { id: 'url-3', short_code: 'link3', original_url: 'https://example.com/3', title: null, click_count: 60, is_active: 1 }
+    ];
+    
+    const mockTopLinks = [
+      { short_code: 'link1', click_count: 100 },
+      { short_code: 'link2', click_count: 80 },
+      { short_code: 'link3', click_count: 60 }
+    ];
+    
+    const mockDb = createMockDb();
+    mockDb._mockAll.mockResolvedValueOnce({ results: mockUrls });
+    mockDb._mockFirst.mockResolvedValueOnce({ count: 240 });
+    mockDb._mockAll.mockResolvedValueOnce({ results: [] });
+    mockDb._mockAll.mockResolvedValueOnce({ results: mockTopLinks });
+    mockDb._mockAll.mockResolvedValueOnce({ results: [] });
+    mockDb._mockAll.mockResolvedValueOnce({ results: [] });
+    
+    const result = await getOverallStats(mockDb as any, 'user-123');
+    
+    expect(result.top_links).toHaveLength(3);
+    expect(result.top_links[0].short_code).toBe('link1');
+    expect(result.top_links[0].click_count).toBe(100);
+    expect(result.top_links[1].short_code).toBe('link2');
+    expect(result.top_links[2].short_code).toBe('link3');
+    expect(result.top_links[2].title).toBeUndefined();
+  });
+
+  it('should return country distribution', async () => {
+    const mockUrls = [
+      { id: 'url-1', short_code: 'abc', original_url: 'https://example.com/1', title: 'Link 1', click_count: 50, is_active: 1 }
+    ];
+    
+    const mockCountryDist = [
+      { country: 'US', count: 30 },
+      { country: 'TW', count: 15 },
+      { country: 'JP', count: 5 }
+    ];
+    
+    const mockDb = createMockDb();
+    mockDb._mockAll.mockResolvedValueOnce({ results: mockUrls });
+    mockDb._mockFirst.mockResolvedValueOnce({ count: 50 });
+    mockDb._mockAll.mockResolvedValueOnce({ results: [] });
+    mockDb._mockAll.mockResolvedValueOnce({ results: [] });
+    mockDb._mockAll.mockResolvedValueOnce({ results: mockCountryDist });
+    mockDb._mockAll.mockResolvedValueOnce({ results: [] });
+    
+    const result = await getOverallStats(mockDb as any, 'user-123');
+    
+    expect(result.country_distribution['US']).toBe(30);
+    expect(result.country_distribution['TW']).toBe(15);
+    expect(result.country_distribution['JP']).toBe(5);
+  });
+
+  it('should return device distribution', async () => {
+    const mockUrls = [
+      { id: 'url-1', short_code: 'abc', original_url: 'https://example.com/1', title: 'Link 1', click_count: 50, is_active: 1 }
+    ];
+    
+    const mockDeviceDist = [
+      { device_type: 'desktop', count: 30 },
+      { device_type: 'mobile', count: 15 },
+      { device_type: 'tablet', count: 5 }
+    ];
+    
+    const mockDb = createMockDb();
+    mockDb._mockAll.mockResolvedValueOnce({ results: mockUrls });
+    mockDb._mockFirst.mockResolvedValueOnce({ count: 50 });
+    mockDb._mockAll.mockResolvedValueOnce({ results: [] });
+    mockDb._mockAll.mockResolvedValueOnce({ results: [] });
+    mockDb._mockAll.mockResolvedValueOnce({ results: [] });
+    mockDb._mockAll.mockResolvedValueOnce({ results: mockDeviceDist });
+    
+    const result = await getOverallStats(mockDb as any, 'user-123');
+    
+    expect(result.device_distribution['desktop']).toBe(30);
+    expect(result.device_distribution['mobile']).toBe(15);
+    expect(result.device_distribution['tablet']).toBe(5);
+  });
+
+  it('should handle custom date range', async () => {
+    const mockUrls = [
+      { id: 'url-1', short_code: 'abc', original_url: 'https://example.com/1', title: 'Link 1', click_count: 10, is_active: 1 }
+    ];
+    
+    const startDate = new Date('2024-01-01');
+    const endDate = new Date('2024-01-31');
+    
+    const mockDb = createMockDb();
+    mockDb._mockAll.mockResolvedValueOnce({ results: mockUrls });
+    mockDb._mockFirst.mockResolvedValueOnce({ count: 10 });
+    mockDb._mockAll.mockResolvedValueOnce({ results: [] });
+    mockDb._mockAll.mockResolvedValueOnce({ results: [] });
+    mockDb._mockAll.mockResolvedValueOnce({ results: [] });
+    mockDb._mockAll.mockResolvedValueOnce({ results: [] });
+    
+    const result = await getOverallStats(mockDb as any, 'user-123', startDate, endDate);
+    
+    expect(result.date_range.start).toBe('2024-01-01');
+    expect(result.date_range.end).toBe('2024-01-31');
+  });
+
+  it('should default to current month when no date range provided', async () => {
+    const mockUrls = [
+      { id: 'url-1', short_code: 'abc', original_url: 'https://example.com/1', title: 'Link 1', click_count: 10, is_active: 1 }
+    ];
+    
+    const mockDb = createMockDb();
+    mockDb._mockAll.mockResolvedValueOnce({ results: mockUrls });
+    mockDb._mockFirst.mockResolvedValueOnce({ count: 10 });
+    mockDb._mockAll.mockResolvedValueOnce({ results: [] });
+    mockDb._mockAll.mockResolvedValueOnce({ results: [] });
+    mockDb._mockAll.mockResolvedValueOnce({ results: [] });
+    mockDb._mockAll.mockResolvedValueOnce({ results: [] });
+    
+    const result = await getOverallStats(mockDb as any, 'user-123');
+    
+    const now = new Date();
+    const expectedStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString().split('T')[0];
+    const expectedEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0)).toISOString().split('T')[0];
+    
+    expect(result.date_range.start).toBe(expectedStart);
+    expect(result.date_range.end).toBe(expectedEnd);
+  });
+
+  it('should properly count active links vs total links', async () => {
+    const mockUrls = [
+      { id: 'url-1', short_code: 'abc', original_url: 'https://example.com/1', title: 'Active 1', click_count: 10, is_active: 1 },
+      { id: 'url-2', short_code: 'def', original_url: 'https://example.com/2', title: 'Active 2', click_count: 20, is_active: 1 },
+      { id: 'url-3', short_code: 'ghi', original_url: 'https://example.com/3', title: 'Inactive 1', click_count: 5, is_active: 0 },
+      { id: 'url-4', short_code: 'jkl', original_url: 'https://example.com/4', title: 'Inactive 2', click_count: 8, is_active: 0 }
+    ];
+    
+    const mockDb = createMockDb();
+    mockDb._mockAll.mockResolvedValueOnce({ results: mockUrls });
+    mockDb._mockFirst.mockResolvedValueOnce({ count: 43 });
+    mockDb._mockAll.mockResolvedValueOnce({ results: [] });
+    mockDb._mockAll.mockResolvedValueOnce({ results: [] });
+    mockDb._mockAll.mockResolvedValueOnce({ results: [] });
+    mockDb._mockAll.mockResolvedValueOnce({ results: [] });
+    
+    const result = await getOverallStats(mockDb as any, 'user-123');
+    
+    expect(result.total_links).toBe(4);
+    expect(result.active_links).toBe(2);
   });
 });
