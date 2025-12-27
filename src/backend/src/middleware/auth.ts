@@ -1,6 +1,7 @@
 import type { Context } from 'hono';
 import type { Env, JWTPayload } from '../types';
 import { jwtVerify, createRemoteJWKSet, type JWTVerifyGetKey } from 'jose';
+import { upsertUser } from '../services/user';
 
 // Cache JWKS keysets by tenant ID to avoid repeated network requests
 const jwksCache = new Map<string, JWTVerifyGetKey>();
@@ -124,8 +125,21 @@ export async function authMiddleware(c: Context<{ Bindings: Env }>, next: () => 
       }, 401);
     }
 
-    // Store user info in context
-    c.set('user', user);
+    // Upsert user in database (create if new, update if exists)
+    const dbUser = await upsertUser(
+      c.env.DB,
+      user.email,
+      user.name || '',
+      'entra',
+      user.userId
+    );
+
+    // Store user info in context with database user ID
+    c.set('user', {
+      ...user,
+      role: dbUser.role,
+      dbUserId: dbUser.id
+    });
     
     await next();
   } catch (error) {
@@ -159,7 +173,25 @@ export async function optionalAuthMiddleware(c: Context<{ Bindings: Env }>, next
     if (tenantId && clientId) {
       const user = await verifyEntraIdToken(token, tenantId, clientId);
       if (user) {
-        c.set('user', user);
+        // Upsert user in database (create if new, update if exists)
+        try {
+          const dbUser = await upsertUser(
+            c.env.DB,
+            user.email,
+            user.name || '',
+            'entra',
+            user.userId
+          );
+
+          c.set('user', {
+            ...user,
+            role: dbUser.role,
+            dbUserId: dbUser.id
+          });
+        } catch (error) {
+          console.error('Failed to upsert user in optional auth:', error);
+          // Continue without setting user context if upsert fails
+        }
       }
     }
   }

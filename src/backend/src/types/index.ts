@@ -49,6 +49,8 @@ export interface User {
   email: string;
   password_hash: string | null;
   entra_id: string | null;
+  sso_provider: string | null;
+  sso_id: string | null;
   name: string | null;
   role: string;
   created_at: number;
@@ -139,6 +141,7 @@ export interface JWTPayload {
   email: string;
   name?: string;
   role?: string;
+  dbUserId?: string;
   iat?: number;
   exp?: number;
 }
