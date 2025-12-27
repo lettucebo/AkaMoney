@@ -8,9 +8,49 @@ import type { User } from '../types';
 const DEFAULT_USER_ROLE = 'user';
 
 /**
+ * Validate email format
+ */
+function isValidEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
+/**
+ * Validate input parameters for user upsert
+ */
+function validateUserInput(
+  email: string,
+  name: string,
+  ssoProvider: string,
+  ssoId: string
+): void {
+  if (!email || typeof email !== 'string' || email.trim() === '') {
+    throw new Error('Email is required and must be a non-empty string');
+  }
+  
+  if (!isValidEmail(email)) {
+    throw new Error(`Invalid email format: ${email}`);
+  }
+  
+  if (!name || typeof name !== 'string' || name.trim() === '') {
+    throw new Error('Name is required and must be a non-empty string');
+  }
+  
+  if (!ssoProvider || typeof ssoProvider !== 'string' || ssoProvider.trim() === '') {
+    throw new Error('SSO provider is required and must be a non-empty string');
+  }
+  
+  if (!ssoId || typeof ssoId !== 'string' || ssoId.trim() === '') {
+    throw new Error('SSO ID is required and must be a non-empty string');
+  }
+}
+
+/**
  * Upsert a user based on SSO provider and SSO ID
  * - If the user doesn't exist, create a new record
  * - If the user exists, update last_login_at, updated_at, and name
+ * 
+ * Uses atomic INSERT ... ON CONFLICT to prevent race conditions
  */
 export async function upsertUser(
   db: D1Database,
@@ -19,64 +59,44 @@ export async function upsertUser(
   ssoProvider: string,
   ssoId: string
 ): Promise<User> {
-  // Query for existing user by sso_provider and sso_id
-  const existingUser = await db
-    .prepare('SELECT * FROM users WHERE sso_provider = ? AND sso_id = ?')
-    .bind(ssoProvider, ssoId)
+  // Validate input parameters
+  validateUserInput(email, name, ssoProvider, ssoId);
+  
+  const now = Date.now();
+  const userId = nanoid();
+
+  // Atomic UPSERT using INSERT ... ON CONFLICT
+  // This prevents race conditions by making the operation atomic
+  const user = await db
+    .prepare(`
+      INSERT INTO users (
+        id,
+        email,
+        name,
+        sso_provider,
+        sso_id,
+        created_at,
+        updated_at,
+        last_login_at,
+        is_active,
+        role
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+      ON CONFLICT (sso_provider, sso_id) 
+      WHERE sso_provider IS NOT NULL AND sso_id IS NOT NULL
+      DO UPDATE SET
+        last_login_at = excluded.last_login_at,
+        updated_at = excluded.updated_at,
+        name = excluded.name
+      RETURNING *
+    `)
+    .bind(userId, email, name, ssoProvider, ssoId, now, now, now, DEFAULT_USER_ROLE)
     .first<User>();
 
-  const now = Date.now();
-
-  if (!existingUser) {
-    // First-time login: INSERT new user with SSO provider information
-    const userId = nanoid();
-
-    await db
-      .prepare(`
-        INSERT INTO users (
-          id, email, name, sso_provider, sso_id,
-          created_at, updated_at, last_login_at, is_active, role
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
-      `)
-      .bind(userId, email, name, ssoProvider, ssoId, now, now, now, DEFAULT_USER_ROLE)
-      .run();
-
-    // Return the newly created user
-    const newUser = await db
-      .prepare('SELECT * FROM users WHERE id = ?')
-      .bind(userId)
-      .first<User>();
-
-    if (!newUser) {
-      throw new Error(
-        `Failed to create user record for ${email} (SSO: ${ssoProvider})`
-      );
-    }
-
-    return newUser;
-  } else {
-    // Subsequent login: UPDATE only timestamps and name (in case it changed in SSO)
-    await db
-      .prepare(`
-        UPDATE users 
-        SET last_login_at = ?, updated_at = ?, name = ?
-        WHERE id = ?
-      `)
-      .bind(now, now, name, existingUser.id)
-      .run();
-
-    // Return the updated user
-    const updatedUser = await db
-      .prepare('SELECT * FROM users WHERE id = ?')
-      .bind(existingUser.id)
-      .first<User>();
-
-    if (!updatedUser) {
-      throw new Error(
-        `Failed to retrieve updated user record for ${email} (ID: ${existingUser.id})`
-      );
-    }
-
-    return updatedUser;
+  if (!user) {
+    throw new Error(
+      `Failed to upsert user record for ${email} (SSO: ${ssoProvider})`
+    );
   }
+
+  return user;
 }

@@ -34,14 +34,11 @@ describe('SSO User Integration Flow', () => {
       is_active: 1
     };
 
-    // Mock database for first login (user doesn't exist yet)
+    // Mock database for first login (atomic UPSERT returns new user)
     mockDb = {
       prepare: vi.fn().mockReturnThis(),
       bind: vi.fn().mockReturnThis(),
-      first: vi.fn()
-        .mockResolvedValueOnce(null) // User doesn't exist
-        .mockResolvedValueOnce(newUser), // Return newly created user
-      run: vi.fn().mockResolvedValue({ success: true })
+      first: vi.fn().mockResolvedValue(newUser)
     };
 
     // First login - should create user
@@ -59,9 +56,12 @@ describe('SSO User Integration Flow', () => {
     expect(firstLoginResult.sso_id).toBe(entraSsoId);
     expect(firstLoginResult.role).toBe('user');
 
-    // Verify INSERT was called
+    // Verify atomic UPSERT was called
     expect(mockDb.prepare).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO users')
+    );
+    expect(mockDb.prepare).toHaveBeenCalledWith(
+      expect.stringContaining('ON CONFLICT')
     );
 
     // Simulate subsequent login (user already exists)
@@ -75,13 +75,10 @@ describe('SSO User Integration Flow', () => {
     mockDb = {
       prepare: vi.fn().mockReturnThis(),
       bind: vi.fn().mockReturnThis(),
-      first: vi.fn()
-        .mockResolvedValueOnce(newUser) // User exists
-        .mockResolvedValueOnce(updatedUser), // Return updated user
-      run: vi.fn().mockResolvedValue({ success: true })
+      first: vi.fn().mockResolvedValue(updatedUser)
     };
 
-    // Second login - should update user
+    // Second login - should update user (via ON CONFLICT DO UPDATE)
     const secondLoginResult = await upsertUser(
       mockDb,
       userEmail,
@@ -95,9 +92,12 @@ describe('SSO User Integration Flow', () => {
     expect(secondLoginResult.sso_provider).toBe('entra'); // Should remain unchanged
     expect(secondLoginResult.sso_id).toBe(entraSsoId); // Should remain unchanged
 
-    // Verify UPDATE was called
+    // Verify atomic UPSERT was used (same query for both operations)
     expect(mockDb.prepare).toHaveBeenCalledWith(
-      expect.stringContaining('UPDATE users')
+      expect.stringContaining('INSERT INTO users')
+    );
+    expect(mockDb.prepare).toHaveBeenCalledWith(
+      expect.stringContaining('ON CONFLICT')
     );
   });
 
@@ -121,10 +121,7 @@ describe('SSO User Integration Flow', () => {
     mockDb = {
       prepare: vi.fn().mockReturnThis(),
       bind: vi.fn().mockReturnThis(),
-      first: vi.fn()
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce(entraUser),
-      run: vi.fn().mockResolvedValue({ success: true })
+      first: vi.fn().mockResolvedValue(entraUser)
     };
 
     const entraResult = await upsertUser(
@@ -157,10 +154,7 @@ describe('SSO User Integration Flow', () => {
     mockDb = {
       prepare: vi.fn().mockReturnThis(),
       bind: vi.fn().mockReturnThis(),
-      first: vi.fn()
-        .mockResolvedValueOnce(null) // Different sso_provider + sso_id, so not found
-        .mockResolvedValueOnce(googleUser),
-      run: vi.fn().mockResolvedValue({ success: true })
+      first: vi.fn().mockResolvedValue(googleUser)
     };
 
     const googleResult = await upsertUser(

@@ -126,20 +126,27 @@ export async function authMiddleware(c: Context<{ Bindings: Env }>, next: () => 
     }
 
     // Upsert user in database (create if new, update if exists)
-    const dbUser = await upsertUser(
-      c.env.DB,
-      user.email,
-      user.name || '',
-      'entra',
-      user.userId
-    );
+    // Gracefully handle database errors to prevent authentication failures
+    try {
+      const dbUser = await upsertUser(
+        c.env.DB,
+        user.email,
+        user.name || 'Unknown User',
+        'entra',
+        user.userId
+      );
 
-    // Store user info in context with database user ID
-    c.set('user', {
-      ...user,
-      role: dbUser.role,
-      dbUserId: dbUser.id
-    });
+      // Store user info in context with database user ID
+      c.set('user', {
+        ...user,
+        role: dbUser.role,
+        dbUserId: dbUser.id
+      });
+    } catch (dbError) {
+      console.error('Failed to upsert user in auth middleware:', dbError);
+      // Fall back to using the verified token payload without DB-derived fields
+      c.set('user', user);
+    }
     
     await next();
   } catch (error) {
@@ -178,7 +185,7 @@ export async function optionalAuthMiddleware(c: Context<{ Bindings: Env }>, next
           const dbUser = await upsertUser(
             c.env.DB,
             user.email,
-            user.name || '',
+            user.name || 'Unknown User',
             'entra',
             user.userId
           );

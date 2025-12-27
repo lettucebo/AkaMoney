@@ -12,7 +12,7 @@ describe('User Service', () => {
   });
 
   describe('upsertUser', () => {
-    it('should create a new user on first login', async () => {
+    it('should create a new user on first login using atomic UPSERT', async () => {
       const mockUser: User = {
         id: 'test-user-id',
         email: 'test@example.com',
@@ -31,10 +31,7 @@ describe('User Service', () => {
       mockDb = {
         prepare: vi.fn().mockReturnThis(),
         bind: vi.fn().mockReturnThis(),
-        first: vi.fn()
-          .mockResolvedValueOnce(null) // No existing user
-          .mockResolvedValueOnce(mockUser), // Return new user after insert
-        run: vi.fn().mockResolvedValue({ success: true })
+        first: vi.fn().mockResolvedValue(mockUser)
       };
 
       const result = await upsertUser(
@@ -45,15 +42,15 @@ describe('User Service', () => {
         'entra-user-123'
       );
 
-      // Verify the query to check for existing user
-      expect(mockDb.prepare).toHaveBeenCalledWith(
-        'SELECT * FROM users WHERE sso_provider = ? AND sso_id = ?'
-      );
-      expect(mockDb.bind).toHaveBeenCalledWith('entra', 'entra-user-123');
-
-      // Verify INSERT was called
+      // Verify INSERT ... ON CONFLICT was called
       expect(mockDb.prepare).toHaveBeenCalledWith(
         expect.stringContaining('INSERT INTO users')
+      );
+      expect(mockDb.prepare).toHaveBeenCalledWith(
+        expect.stringContaining('ON CONFLICT')
+      );
+      expect(mockDb.prepare).toHaveBeenCalledWith(
+        expect.stringContaining('RETURNING *')
       );
 
       // Verify the result
@@ -64,36 +61,26 @@ describe('User Service', () => {
       expect(result.sso_id).toBe('entra-user-123');
     });
 
-    it('should update existing user on subsequent login', async () => {
-      const existingUser: User = {
+    it('should update existing user on subsequent login using atomic UPSERT', async () => {
+      const updatedUser: User = {
         id: 'existing-user-id',
         email: 'existing@example.com',
-        name: 'Old Name',
+        name: 'New Name',
         sso_provider: 'entra',
         sso_id: 'entra-user-456',
         password_hash: null,
         entra_id: null,
         role: 'user',
         created_at: 1000000,
-        updated_at: 1000000,
-        last_login_at: 1000000,
-        is_active: 1
-      };
-
-      const updatedUser: User = {
-        ...existingUser,
-        name: 'New Name',
         updated_at: Date.now(),
-        last_login_at: Date.now()
+        last_login_at: Date.now(),
+        is_active: 1
       };
 
       mockDb = {
         prepare: vi.fn().mockReturnThis(),
         bind: vi.fn().mockReturnThis(),
-        first: vi.fn()
-          .mockResolvedValueOnce(existingUser) // Found existing user
-          .mockResolvedValueOnce(updatedUser), // Return updated user
-        run: vi.fn().mockResolvedValue({ success: true })
+        first: vi.fn().mockResolvedValue(updatedUser)
       };
 
       const result = await upsertUser(
@@ -104,9 +91,12 @@ describe('User Service', () => {
         'entra-user-456'
       );
 
-      // Verify UPDATE was called
+      // Verify atomic UPSERT was used (not separate SELECT/UPDATE)
       expect(mockDb.prepare).toHaveBeenCalledWith(
-        expect.stringContaining('UPDATE users')
+        expect.stringContaining('INSERT INTO users')
+      );
+      expect(mockDb.prepare).toHaveBeenCalledWith(
+        expect.stringContaining('ON CONFLICT')
       );
 
       // Verify the result
@@ -134,10 +124,7 @@ describe('User Service', () => {
       mockDb = {
         prepare: vi.fn().mockReturnThis(),
         bind: vi.fn().mockReturnThis(),
-        first: vi.fn()
-          .mockResolvedValueOnce(null) // No existing user
-          .mockResolvedValueOnce(mockUser), // Return new user
-        run: vi.fn().mockResolvedValue({ success: true })
+        first: vi.fn().mockResolvedValue(mockUser)
       };
 
       const result = await upsertUser(
@@ -152,81 +139,78 @@ describe('User Service', () => {
       expect(result.sso_id).toBe('google-123456');
     });
 
-    it('should throw error if user creation fails', async () => {
+    it('should throw error if upsert operation fails', async () => {
       mockDb = {
         prepare: vi.fn().mockReturnThis(),
         bind: vi.fn().mockReturnThis(),
-        first: vi.fn()
-          .mockResolvedValueOnce(null) // No existing user
-          .mockResolvedValueOnce(null), // Failed to create user
-        run: vi.fn().mockResolvedValue({ success: true })
+        first: vi.fn().mockResolvedValue(null) // Upsert failed
       };
 
       await expect(
         upsertUser(mockDb, 'test@example.com', 'Test User', 'entra', 'entra-123')
-      ).rejects.toThrow('Failed to create user');
+      ).rejects.toThrow('Failed to upsert user record');
     });
 
-    it('should throw error if user update fails', async () => {
-      const existingUser: User = {
-        id: 'existing-user-id',
-        email: 'existing@example.com',
-        name: 'Existing User',
-        sso_provider: 'entra',
-        sso_id: 'entra-789',
-        password_hash: null,
-        entra_id: null,
-        role: 'user',
-        created_at: 1000000,
-        updated_at: 1000000,
-        last_login_at: 1000000,
-        is_active: 1
-      };
-
+    it('should validate email format', async () => {
       mockDb = {
         prepare: vi.fn().mockReturnThis(),
         bind: vi.fn().mockReturnThis(),
         first: vi.fn()
-          .mockResolvedValueOnce(existingUser) // Found existing user
-          .mockResolvedValueOnce(null), // Failed to retrieve updated user
-        run: vi.fn().mockResolvedValue({ success: true })
       };
 
       await expect(
-        upsertUser(mockDb, 'existing@example.com', 'Updated Name', 'entra', 'entra-789')
-      ).rejects.toThrow('Failed to retrieve updated user record');
+        upsertUser(mockDb, 'invalid-email', 'Test User', 'entra', 'entra-123')
+      ).rejects.toThrow('Invalid email format');
+    });
+
+    it('should validate required parameters', async () => {
+      mockDb = {
+        prepare: vi.fn().mockReturnThis(),
+        bind: vi.fn().mockReturnThis(),
+        first: vi.fn()
+      };
+
+      // Empty email
+      await expect(
+        upsertUser(mockDb, '', 'Test User', 'entra', 'entra-123')
+      ).rejects.toThrow('Email is required');
+
+      // Empty name
+      await expect(
+        upsertUser(mockDb, 'test@example.com', '', 'entra', 'entra-123')
+      ).rejects.toThrow('Name is required');
+
+      // Empty SSO provider
+      await expect(
+        upsertUser(mockDb, 'test@example.com', 'Test User', '', 'entra-123')
+      ).rejects.toThrow('SSO provider is required');
+
+      // Empty SSO ID
+      await expect(
+        upsertUser(mockDb, 'test@example.com', 'Test User', 'entra', '')
+      ).rejects.toThrow('SSO ID is required');
     });
 
     it('should update name if changed in SSO', async () => {
-      const existingUser: User = {
+      const updatedUser: User = {
         id: 'user-id',
         email: 'user@example.com',
-        name: 'Old Name',
+        name: 'Updated Name from SSO',
         sso_provider: 'entra',
         sso_id: 'entra-999',
         password_hash: null,
         entra_id: null,
         role: 'user',
         created_at: 1000000,
-        updated_at: 1000000,
-        last_login_at: 1000000,
-        is_active: 1
-      };
-
-      const updatedUser: User = {
-        ...existingUser,
-        name: 'Updated Name from SSO',
         updated_at: Date.now(),
-        last_login_at: Date.now()
+        last_login_at: Date.now(),
+        is_active: 1
       };
 
       mockDb = {
         prepare: vi.fn().mockReturnThis(),
         bind: vi.fn().mockReturnThis(),
-        first: vi.fn()
-          .mockResolvedValueOnce(existingUser)
-          .mockResolvedValueOnce(updatedUser),
-        run: vi.fn().mockResolvedValue({ success: true })
+        first: vi.fn().mockResolvedValue(updatedUser)
       };
 
       const result = await upsertUser(
@@ -235,14 +219,6 @@ describe('User Service', () => {
         'Updated Name from SSO',
         'entra',
         'entra-999'
-      );
-
-      // Verify UPDATE includes the new name
-      expect(mockDb.bind).toHaveBeenCalledWith(
-        expect.any(Number), // now timestamp
-        expect.any(Number), // now timestamp
-        'Updated Name from SSO',
-        'user-id'
       );
 
       expect(result.name).toBe('Updated Name from SSO');
