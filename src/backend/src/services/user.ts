@@ -2,6 +2,11 @@ import { nanoid } from 'nanoid';
 import type { User } from '../types';
 
 /**
+ * Default role for new SSO users
+ */
+const DEFAULT_USER_ROLE = 'user';
+
+/**
  * Upsert a user based on SSO provider and SSO ID
  * - If the user doesn't exist, create a new record
  * - If the user exists, update last_login_at, updated_at, and name
@@ -13,8 +18,6 @@ export async function upsertUser(
   ssoProvider: string,
   ssoId: string
 ): Promise<User> {
-  console.log('Upserting user:', { email, name, ssoProvider, ssoId });
-
   // Query for existing user by sso_provider and sso_id
   const existingUser = await db
     .prepare('SELECT * FROM users WHERE sso_provider = ? AND sso_id = ?')
@@ -27,16 +30,14 @@ export async function upsertUser(
     // First-time login: INSERT new user with SSO provider information
     const userId = nanoid();
 
-    console.log('Creating new user:', { userId, email, ssoProvider });
-
     await db
       .prepare(`
         INSERT INTO users (
           id, email, name, sso_provider, sso_id,
           created_at, updated_at, last_login_at, is_active, role
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 'user')
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
       `)
-      .bind(userId, email, name, ssoProvider, ssoId, now, now, now)
+      .bind(userId, email, name, ssoProvider, ssoId, now, now, now, DEFAULT_USER_ROLE)
       .run();
 
     // Return the newly created user
@@ -46,15 +47,14 @@ export async function upsertUser(
       .first<User>();
 
     if (!newUser) {
-      throw new Error('Failed to create user');
+      throw new Error(
+        `Failed to create user record for ${email} (SSO: ${ssoProvider})`
+      );
     }
 
-    console.log('User created successfully:', { userId, email });
     return newUser;
   } else {
     // Subsequent login: UPDATE only timestamps and name (in case it changed in SSO)
-    console.log('Updating existing user:', { id: existingUser.id, email });
-
     await db
       .prepare(`
         UPDATE users 
@@ -71,10 +71,12 @@ export async function upsertUser(
       .first<User>();
 
     if (!updatedUser) {
-      throw new Error('Failed to update user');
+      throw new Error(
+        `Failed to retrieve updated user record for ${email} (ID: ${existingUser.id})`
+      );
     }
 
-    console.log('User updated successfully:', { id: existingUser.id });
     return updatedUser;
   }
 }
+

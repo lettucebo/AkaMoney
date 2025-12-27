@@ -194,7 +194,7 @@ describe('User Service', () => {
 
       await expect(
         upsertUser(mockDb, 'existing@example.com', 'Updated Name', 'entra', 'entra-789')
-      ).rejects.toThrow('Failed to update user');
+      ).rejects.toThrow('Failed to retrieve updated user record');
     });
 
     it('should update name if changed in SSO', async () => {
