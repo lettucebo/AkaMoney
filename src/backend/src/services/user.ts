@@ -67,36 +67,51 @@ export async function upsertUser(
 
   // Atomic UPSERT using INSERT ... ON CONFLICT
   // This prevents race conditions by making the operation atomic
-  const user = await db
-    .prepare(`
-      INSERT INTO users (
-        id,
-        email,
-        name,
-        sso_provider,
-        sso_id,
-        created_at,
-        updated_at,
-        last_login_at,
-        is_active,
-        role
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
-      ON CONFLICT (sso_provider, sso_id) 
-      WHERE sso_provider IS NOT NULL AND sso_id IS NOT NULL
-      DO UPDATE SET
-        last_login_at = excluded.last_login_at,
-        updated_at = excluded.updated_at,
-        name = excluded.name
-      RETURNING *
-    `)
-    .bind(userId, email, name, ssoProvider, ssoId, now, now, now, DEFAULT_USER_ROLE)
-    .first<User>();
+  // Note: The WHERE clause is part of the unique index definition, not the ON CONFLICT clause
+  try {
+    const user = await db
+      .prepare(`
+        INSERT INTO users (
+          id,
+          email,
+          name,
+          sso_provider,
+          sso_id,
+          created_at,
+          updated_at,
+          last_login_at,
+          is_active,
+          role
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+        ON CONFLICT (sso_provider, sso_id) 
+        DO UPDATE SET
+          email = excluded.email,
+          name = excluded.name,
+          last_login_at = excluded.last_login_at,
+          updated_at = excluded.updated_at
+        RETURNING *
+      `)
+      .bind(userId, email, name, ssoProvider, ssoId, now, now, now, DEFAULT_USER_ROLE)
+      .first<User>();
 
-  if (!user) {
+    if (!user) {
+      throw new Error(
+        `Failed to upsert user record for ${email} (SSO: ${ssoProvider})`
+      );
+    }
+
+    return user;
+  } catch (error) {
+    // Enhanced error logging to help diagnose SQL errors
+    console.error('Failed to upsert user:', {
+      email,
+      ssoProvider,
+      ssoId,
+      error: error instanceof Error ? error.message : String(error)
+    });
     throw new Error(
-      `Failed to upsert user record for ${email} (SSO: ${ssoProvider})`
+      `Failed to upsert user record for ${email} (SSO: ${ssoProvider})`,
+      { cause: error instanceof Error ? error : new Error(String(error)) }
     );
   }
-
-  return user;
 }
