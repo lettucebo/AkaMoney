@@ -98,6 +98,27 @@ export interface AnalyticsResponse {
   recent_clicks: ClickRecord[];
 }
 
+export interface TopLink {
+  short_code: string;
+  original_url: string;
+  click_count: number;
+  title?: string;
+}
+
+export interface OverallStatsResponse {
+  total_clicks: number;
+  active_links: number;
+  total_links: number;
+  click_trend: Record<string, number>;
+  top_links: TopLink[];
+  country_distribution: Record<string, number>;
+  device_distribution: Record<string, number>;
+  date_range: {
+    start: string;
+    end: string;
+  };
+}
+
 export interface LoginRequest {
   email: string;
   password: string;

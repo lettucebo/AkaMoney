@@ -5,6 +5,7 @@ import type {
   CreateUrlRequest,
   UpdateUrlRequest,
   AnalyticsResponse,
+  OverallStatsResponse,
   PaginatedResponse,
   ApiError
 } from '@/types';
@@ -272,6 +273,64 @@ class ApiService {
 
   async getPublicAnalytics(shortCode: string): Promise<{ short_code: string; total_clicks: number; created_at: number }> {
     const response = await this.api.get(`/api/public/analytics/${shortCode}`);
+    return response.data;
+  }
+
+  // Overall Statistics
+  async getOverallStats(startDate?: string, endDate?: string): Promise<OverallStatsResponse> {
+    // Return mock overall stats in skip auth mode
+    if (isAuthSkipped()) {
+      const now = new Date();
+      const start = startDate || new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString().split('T')[0];
+      const end = endDate || new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0)).toISOString().split('T')[0];
+      
+      return {
+        total_clicks: 515,
+        active_links: 3,
+        total_links: 4,
+        click_trend: {
+          [new Date(Date.now() - 6 * 86400000).toISOString().split('T')[0]]: 45,
+          [new Date(Date.now() - 5 * 86400000).toISOString().split('T')[0]]: 62,
+          [new Date(Date.now() - 4 * 86400000).toISOString().split('T')[0]]: 78,
+          [new Date(Date.now() - 3 * 86400000).toISOString().split('T')[0]]: 91,
+          [new Date(Date.now() - 2 * 86400000).toISOString().split('T')[0]]: 85,
+          [new Date(Date.now() - 1 * 86400000).toISOString().split('T')[0]]: 72,
+          [new Date().toISOString().split('T')[0]]: 82
+        },
+        top_links: [
+          { short_code: 'docs', original_url: 'https://docs.example.com/getting-started/introduction', click_count: 256, title: 'Documentation' },
+          { short_code: 'github', original_url: 'https://github.com/AkaMoney/AkaMoney', click_count: 128, title: 'AkaMoney Repository' },
+          { short_code: 'archived', original_url: 'https://example.com/archived-content', click_count: 89, title: 'Archived Link' },
+          { short_code: 'demo1', original_url: 'https://example.com/very-long-url-that-needs-shortening', click_count: 42, title: 'Example Website' }
+        ],
+        country_distribution: {
+          'TW': 310,
+          'US': 103,
+          'JP': 52,
+          'CN': 30,
+          'KR': 20
+        },
+        device_distribution: {
+          'desktop': 360,
+          'mobile': 130,
+          'tablet': 25
+        },
+        date_range: {
+          start,
+          end
+        }
+      };
+    }
+
+    // Build query string with optional date parameters
+    const params = new URLSearchParams();
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    
+    const queryString = params.toString();
+    const url = queryString ? `/api/stats/overall?${queryString}` : '/api/stats/overall';
+    
+    const response = await this.api.get<OverallStatsResponse>(url);
     return response.data;
   }
 
