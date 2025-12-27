@@ -15,16 +15,13 @@ CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 
 -- Create a unique composite index to ensure (sso_provider, sso_id) combination is unique
 -- This prevents duplicate users from the same SSO provider
+-- Note: This will be replaced in migration 0003 with a proper UNIQUE constraint
+-- to enable ON CONFLICT clause compatibility
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_sso_provider_id ON users(sso_provider, sso_id) WHERE sso_provider IS NOT NULL AND sso_id IS NOT NULL;
 
--- Ensure that SSO fields are either both NULL (non-SSO users) or both non-NULL (SSO users)
--- This maintains data integrity for SSO vs password-based authentication
-ALTER TABLE users ADD CONSTRAINT users_sso_fields_all_or_none
-  CHECK (
-    (sso_provider IS NULL AND sso_id IS NULL)
-    OR
-    (sso_provider IS NOT NULL AND sso_id IS NOT NULL)
-  );
+-- Note: CHECK constraint for SSO fields will be added in migration 0003
+-- SQLite doesn't support ALTER TABLE ADD CONSTRAINT CHECK, so we need to recreate the table
+-- The constraint ensures SSO fields are either both NULL or both non-NULL
 
 -- Note: The existing entra_id column is kept for backward compatibility
 -- New SSO logins will use sso_provider='entra' and sso_id fields
