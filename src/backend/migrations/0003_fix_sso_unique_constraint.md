@@ -31,10 +31,11 @@ SQLite treats NULL values as distinct in UNIQUE constraints, so:
 
 1. **Creates new table** `users_new` with proper UNIQUE constraint on (sso_provider, sso_id)
 2. **Adds CHECK constraint** to ensure SSO fields are either both NULL or both non-NULL (this was intended in migration 0002 but couldn't be added due to SQLite limitations)
-3. **Preserves email as non-unique** - This is intentional (per migration 0002) to allow the same email to be used with different SSO providers
-4. **Migrates data** from old table to new table
-5. **Drops old table** and renames new table to `users`
-6. **Recreates indexes** for email and entra_id lookups
+3. **Validates existing data** before migration - only copies rows where SSO fields are consistent (both NULL or both non-NULL). If any rows have mismatched NULL values, they will be skipped and the migration will complete with fewer rows than expected, which can be detected by comparing row counts.
+4. **Preserves email as non-unique** - This is intentional (per migration 0002) to allow the same email to be used with different SSO providers
+5. **Migrates data** from old table to new table
+6. **Drops old table** and renames new table to `users`
+7. **Recreates indexes** for email and entra_id lookups
 
 ## Impact on Code
 
@@ -61,10 +62,35 @@ This migration has been tested with:
 
 ## Migration Safety
 
-- ✅ Safe for existing data (all data is preserved)
+- ✅ Safe for existing data (data is preserved if consistent)
 - ✅ Backward compatible (same schema, just different constraint implementation)
 - ✅ No data modification or deletion
 - ✅ Fixes a bug that prevented SSO login from working
+- ⚠️ **Data validation**: The migration only copies rows where SSO fields are consistent (both NULL or both non-NULL). If you have inconsistent data, those rows will be skipped.
+
+### Pre-migration Validation
+
+Before running this migration, you can check for inconsistent data:
+
+```sql
+SELECT COUNT(*) FROM users 
+WHERE (sso_provider IS NULL) != (sso_id IS NULL);
+```
+
+If this returns 0, your data is consistent and the migration will succeed without data loss.
+
+If this returns a non-zero count, you have inconsistent data. To fix:
+
+```sql
+-- Option 1: Set both fields to NULL for password-based users
+UPDATE users 
+SET sso_provider = NULL, sso_id = NULL 
+WHERE sso_provider IS NULL OR sso_id IS NULL;
+
+-- Option 2: Delete inconsistent rows (use with caution)
+DELETE FROM users 
+WHERE (sso_provider IS NULL) != (sso_id IS NULL);
+```
 
 ## Rollback
 

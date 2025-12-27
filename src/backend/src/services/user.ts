@@ -85,9 +85,10 @@ export async function upsertUser(
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
         ON CONFLICT (sso_provider, sso_id) 
         DO UPDATE SET
+          email = excluded.email,
+          name = excluded.name,
           last_login_at = excluded.last_login_at,
-          updated_at = excluded.updated_at,
-          name = excluded.name
+          updated_at = excluded.updated_at
         RETURNING *
       `)
       .bind(userId, email, name, ssoProvider, ssoId, now, now, now, DEFAULT_USER_ROLE)

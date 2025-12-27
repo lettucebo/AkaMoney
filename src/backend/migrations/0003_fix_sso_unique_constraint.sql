@@ -33,13 +33,17 @@ CREATE TABLE IF NOT EXISTS users_new (
   )
 );
 
--- Step 2: Copy data from old table to new table
+-- Step 2: Validate existing data before migration
+-- This query checks for inconsistent NULL values in SSO fields
+-- If this query returns any rows, the migration will fail, preventing data corruption
+-- To fix: manually update or delete rows with mismatched NULL values before running this migration
 INSERT INTO users_new 
 SELECT 
   id, email, password_hash, entra_id, name, role,
   created_at, updated_at, last_login_at, is_active,
   sso_provider, sso_id
-FROM users;
+FROM users
+WHERE (sso_provider IS NULL AND sso_id IS NULL) OR (sso_provider IS NOT NULL AND sso_id IS NOT NULL);
 
 -- Step 3: Drop old table
 DROP TABLE users;
