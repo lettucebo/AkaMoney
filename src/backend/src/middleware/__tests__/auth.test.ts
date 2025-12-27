@@ -8,7 +8,13 @@ vi.mock('jose', () => ({
   createRemoteJWKSet: vi.fn(() => 'mocked-jwks')
 }));
 
+// Mock the user service
+vi.mock('../../services/user', () => ({
+  upsertUser: vi.fn()
+}));
+
 import { jwtVerify } from 'jose';
+import { upsertUser } from '../../services/user';
 
 const TENANT_ID = 'test-tenant-id';
 const CLIENT_ID = 'test-client-id';
@@ -86,14 +92,30 @@ describe('Auth Middleware', () => {
         protectedHeader: { alg: 'RS256' }
       } as any);
 
-      const app = new Hono<{ Bindings: { ENTRA_ID_TENANT_ID: string; ENTRA_ID_CLIENT_ID: string } }>();
+      vi.mocked(upsertUser).mockResolvedValueOnce({
+        id: 'db-user-123',
+        email: 'test@example.com',
+        name: 'Test User',
+        sso_provider: 'entra',
+        sso_id: 'user-123',
+        password_hash: null,
+        entra_id: null,
+        role: 'user',
+        created_at: Date.now(),
+        updated_at: Date.now(),
+        last_login_at: Date.now(),
+        is_active: 1
+      });
+
+      const mockDb = {} as any;
+      const app = new Hono<{ Bindings: { ENTRA_ID_TENANT_ID: string; ENTRA_ID_CLIENT_ID: string; DB: D1Database } }>();
       app.use('*', async (c, next) => {
-        (c.env as any) = { ENTRA_ID_TENANT_ID: TENANT_ID, ENTRA_ID_CLIENT_ID: CLIENT_ID };
+        (c.env as any) = { ENTRA_ID_TENANT_ID: TENANT_ID, ENTRA_ID_CLIENT_ID: CLIENT_ID, DB: mockDb };
         await next();
       });
       app.get('/protected', authMiddleware, (c) => {
         const user = getAuthUser(c);
-        return c.json({ success: true, userId: user?.userId });
+        return c.json({ success: true, userId: user?.userId, dbUserId: user?.dbUserId });
       });
 
       const res = await app.request('/protected', {
@@ -104,6 +126,16 @@ describe('Auth Middleware', () => {
       const body = await res.json();
       expect(body.success).toBe(true);
       expect(body.userId).toBe('user-123');
+      expect(body.dbUserId).toBe('db-user-123');
+
+      // Verify upsertUser was called correctly
+      expect(upsertUser).toHaveBeenCalledWith(
+        mockDb,
+        'test@example.com',
+        'Test User',
+        'entra',
+        'user-123'
+      );
     });
 
     it('should use sub claim if oid is not present', async () => {
@@ -118,9 +150,25 @@ describe('Auth Middleware', () => {
         protectedHeader: { alg: 'RS256' }
       } as any);
 
-      const app = new Hono<{ Bindings: { ENTRA_ID_TENANT_ID: string; ENTRA_ID_CLIENT_ID: string } }>();
+      vi.mocked(upsertUser).mockResolvedValueOnce({
+        id: 'db-user-456',
+        email: 'test@example.com',
+        name: 'Test User',
+        sso_provider: 'entra',
+        sso_id: 'user-456',
+        password_hash: null,
+        entra_id: null,
+        role: 'user',
+        created_at: Date.now(),
+        updated_at: Date.now(),
+        last_login_at: Date.now(),
+        is_active: 1
+      });
+
+      const mockDb = {} as any;
+      const app = new Hono<{ Bindings: { ENTRA_ID_TENANT_ID: string; ENTRA_ID_CLIENT_ID: string; DB: D1Database } }>();
       app.use('*', async (c, next) => {
-        (c.env as any) = { ENTRA_ID_TENANT_ID: TENANT_ID, ENTRA_ID_CLIENT_ID: CLIENT_ID };
+        (c.env as any) = { ENTRA_ID_TENANT_ID: TENANT_ID, ENTRA_ID_CLIENT_ID: CLIENT_ID, DB: mockDb };
         await next();
       });
       app.get('/protected', authMiddleware, (c) => {
@@ -200,9 +248,25 @@ describe('Auth Middleware', () => {
         protectedHeader: { alg: 'RS256' }
       } as any);
 
-      const app = new Hono<{ Bindings: { ENTRA_ID_TENANT_ID: string; ENTRA_ID_CLIENT_ID: string } }>();
+      vi.mocked(upsertUser).mockResolvedValueOnce({
+        id: 'db-user-789',
+        email: 'testv1@example.com',
+        name: 'Test V1 User',
+        sso_provider: 'entra',
+        sso_id: 'user-789',
+        password_hash: null,
+        entra_id: null,
+        role: 'user',
+        created_at: Date.now(),
+        updated_at: Date.now(),
+        last_login_at: Date.now(),
+        is_active: 1
+      });
+
+      const mockDb = {} as any;
+      const app = new Hono<{ Bindings: { ENTRA_ID_TENANT_ID: string; ENTRA_ID_CLIENT_ID: string; DB: D1Database } }>();
       app.use('*', async (c, next) => {
-        (c.env as any) = { ENTRA_ID_TENANT_ID: TENANT_ID, ENTRA_ID_CLIENT_ID: CLIENT_ID };
+        (c.env as any) = { ENTRA_ID_TENANT_ID: TENANT_ID, ENTRA_ID_CLIENT_ID: CLIENT_ID, DB: mockDb };
         await next();
       });
       app.get('/protected', authMiddleware, (c) => {
@@ -233,9 +297,25 @@ describe('Auth Middleware', () => {
         protectedHeader: { alg: 'RS256' }
       } as any);
 
-      const app = new Hono<{ Bindings: { ENTRA_ID_TENANT_ID: string; ENTRA_ID_CLIENT_ID: string } }>();
+      vi.mocked(upsertUser).mockResolvedValueOnce({
+        id: 'db-user-999',
+        email: 'testapi@example.com',
+        name: 'Test API User',
+        sso_provider: 'entra',
+        sso_id: 'user-999',
+        password_hash: null,
+        entra_id: null,
+        role: 'user',
+        created_at: Date.now(),
+        updated_at: Date.now(),
+        last_login_at: Date.now(),
+        is_active: 1
+      });
+
+      const mockDb = {} as any;
+      const app = new Hono<{ Bindings: { ENTRA_ID_TENANT_ID: string; ENTRA_ID_CLIENT_ID: string; DB: D1Database } }>();
       app.use('*', async (c, next) => {
-        (c.env as any) = { ENTRA_ID_TENANT_ID: TENANT_ID, ENTRA_ID_CLIENT_ID: CLIENT_ID };
+        (c.env as any) = { ENTRA_ID_TENANT_ID: TENANT_ID, ENTRA_ID_CLIENT_ID: CLIENT_ID, DB: mockDb };
         await next();
       });
       app.get('/protected', authMiddleware, (c) => {
@@ -285,9 +365,25 @@ describe('Auth Middleware', () => {
         protectedHeader: { alg: 'RS256' }
       } as any);
 
-      const app = new Hono<{ Bindings: { ENTRA_ID_TENANT_ID: string; ENTRA_ID_CLIENT_ID: string } }>();
+      vi.mocked(upsertUser).mockResolvedValueOnce({
+        id: 'db-user-456',
+        email: 'test2@example.com',
+        name: 'Admin User',
+        sso_provider: 'entra',
+        sso_id: 'user-456',
+        password_hash: null,
+        entra_id: null,
+        role: 'user',
+        created_at: Date.now(),
+        updated_at: Date.now(),
+        last_login_at: Date.now(),
+        is_active: 1
+      });
+
+      const mockDb = {} as any;
+      const app = new Hono<{ Bindings: { ENTRA_ID_TENANT_ID: string; ENTRA_ID_CLIENT_ID: string; DB: D1Database } }>();
       app.use('*', async (c, next) => {
-        (c.env as any) = { ENTRA_ID_TENANT_ID: TENANT_ID, ENTRA_ID_CLIENT_ID: CLIENT_ID };
+        (c.env as any) = { ENTRA_ID_TENANT_ID: TENANT_ID, ENTRA_ID_CLIENT_ID: CLIENT_ID, DB: mockDb };
         await next();
       });
       app.get('/optional', optionalAuthMiddleware, (c) => {
