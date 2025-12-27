@@ -56,7 +56,7 @@ The WHERE clause that was previously in the ON CONFLICT statement has been remov
 This migration has been tested with:
 - Creating SSO users (should succeed)
 - Updating existing SSO users via ON CONFLICT (should succeed)
-- Creating multiple password-based users with NULL sso_provider/sso_id (should succeed)
+- Verifying that the schema allows multiple password-based users with NULL sso_provider/sso_id when created via non-SSO code paths (should succeed)
 - Attempting to create duplicate SSO users (should trigger ON CONFLICT and update)
 
 ## Migration Safety
