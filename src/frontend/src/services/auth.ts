@@ -211,17 +211,15 @@ class AuthService {
       return;
     }
 
-    // Get account before setting logout flag
-    const account = this.getAccount();
-    
     // Set explicit logout flag to prevent auto re-authentication
     localStorage.setItem(LOGOUT_FLAG_KEY, 'true');
     localStorage.removeItem('auth_token');
     
-    if (account && this.msalInstance) {
-      await this.msalInstance.logoutPopup({
-        account
-      });
+    // Clear the active MSAL account reference without signing out of the Microsoft account.
+    // Note: setActiveAccount(null) does NOT clear MSAL's cached accounts/tokens from storage;
+    // the LOGOUT_FLAG_KEY is what prevents this app from reusing those cached credentials.
+    if (this.msalInstance) {
+      this.msalInstance.setActiveAccount(null);
     }
   }
 
