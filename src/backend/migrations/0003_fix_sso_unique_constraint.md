@@ -4,7 +4,7 @@ This migration fixes a critical issue where the `ON CONFLICT` clause in the `ups
 
 ## Problem Statement
 
-SQLite's `ON CONFLICT` clause only works with UNIQUE constraints or complete unique indexes, **not** with partial indexes (indexes with WHERE clauses). Migration 0002 created:
+SQLite's `ON CONFLICT` clause only works with proper table-level UNIQUE constraints (which SQLite implements using unique indexes), **not** with partial indexes (indexes with WHERE clauses). Migration 0002 created:
 
 ```sql
 CREATE UNIQUE INDEX idx_users_sso_provider_id 
