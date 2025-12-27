@@ -9,6 +9,8 @@
 -- Step 1: Create new users table with proper UNIQUE constraint
 CREATE TABLE IF NOT EXISTS users_new (
   id TEXT PRIMARY KEY,
+  -- Note: email is NOT unique - this is intentional (see migration 0002)
+  -- This allows the same email to be used with different SSO providers
   email TEXT NOT NULL,
   password_hash TEXT,
   entra_id TEXT UNIQUE,

@@ -31,9 +31,10 @@ SQLite treats NULL values as distinct in UNIQUE constraints, so:
 
 1. **Creates new table** `users_new` with proper UNIQUE constraint on (sso_provider, sso_id)
 2. **Adds CHECK constraint** to ensure SSO fields are either both NULL or both non-NULL (this was intended in migration 0002 but couldn't be added due to SQLite limitations)
-3. **Migrates data** from old table to new table
-4. **Drops old table** and renames new table to `users`
-5. **Recreates indexes** for email and entra_id lookups
+3. **Preserves email as non-unique** - This is intentional (per migration 0002) to allow the same email to be used with different SSO providers
+4. **Migrates data** from old table to new table
+5. **Drops old table** and renames new table to `users`
+6. **Recreates indexes** for email and entra_id lookups
 
 ## Impact on Code
 
