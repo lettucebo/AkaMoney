@@ -1,4 +1,5 @@
 import { nanoid } from 'nanoid';
+import type { D1Database } from '@cloudflare/workers-types';
 import type { User } from '../types';
 
 /**
@@ -79,4 +80,3 @@ export async function upsertUser(
     return updatedUser;
   }
 }
-
