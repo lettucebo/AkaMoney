@@ -109,7 +109,8 @@ export async function upsertUser(
       error: error instanceof Error ? error.message : String(error)
     });
     throw new Error(
-      `Failed to upsert user record for ${email} (SSO: ${ssoProvider}): ${error instanceof Error ? error.message : String(error)}`
+      `Failed to upsert user record for ${email} (SSO: ${ssoProvider})`,
+      { cause: error instanceof Error ? error : new Error(String(error)) }
     );
   }
 }
