@@ -376,9 +376,11 @@ export async function getOverallStats(
     .bind(...urlIds, startTimestamp, endTimestamp)
     .all<{ short_code: string; click_count: number }>();
   
+  // Create a Map for O(1) lookup instead of O(n) find operation
+  const urlMap = new Map(allUrls.map(u => [u.short_code, u]));
   const top_links: TopLink[] = [];
   for (const row of topLinksResult.results || []) {
-    const url = allUrls.find(u => u.short_code === row.short_code);
+    const url = urlMap.get(row.short_code);
     if (url) {
       top_links.push({
         short_code: row.short_code,
