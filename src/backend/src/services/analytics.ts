@@ -320,6 +320,8 @@ export async function getOverallStats(
   }
   
   // Build placeholders for IN clause
+  // Note: This is safe because placeholders only contains '?' characters (not user input)
+  // The actual urlIds values are bound separately using .bind()
   const placeholders = urlIds.map(() => '?').join(',');
   
   // Get total clicks in date range

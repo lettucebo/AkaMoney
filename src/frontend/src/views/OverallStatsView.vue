@@ -242,7 +242,9 @@ const endDate = ref<string>(currentMonthEnd.toISOString().split('T')[0]);
 
 const maxClickCount = computed(() => {
   if (!stats.value || Object.keys(stats.value.click_trend).length === 0) return 1;
-  return Math.max(...Object.values(stats.value.click_trend));
+  const values = Object.values(stats.value.click_trend);
+  // Use reduce to avoid potential stack overflow with large arrays
+  return values.reduce((max, val) => Math.max(max, val), 0) || 1;
 });
 
 const fetchStats = async () => {
@@ -269,7 +271,15 @@ const resetToCurrentMonth = () => {
 };
 
 const formatDate = (dateString: string) => {
-  return new Date(dateString).toLocaleDateString();
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) {
+      return dateString; // Return original string if invalid
+    }
+    return date.toLocaleDateString();
+  } catch {
+    return dateString;
+  }
 };
 
 const getRankBadgeClass = (index: number) => {
