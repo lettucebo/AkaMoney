@@ -781,8 +781,7 @@ app.post('/api/storage/upload', authMiddleware, async (c) => {
     console.error('Error uploading file:', error);
     return c.json({
       error: 'Internal Server Error',
-      message: 'Failed to upload file',
-      details: error instanceof Error ? error.message : String(error)
+      message: 'Failed to upload file'
     }, 500);
   }
 });
@@ -805,6 +804,14 @@ app.get('/api/storage/files/:key{.+}', authMiddleware, async (c) => {
     const storage = createStorageProvider(c.env);
     const key = c.req.param('key');
 
+    // Verify the file belongs to the user
+    if (!key.startsWith(`uploads/${user.userId}/`)) {
+      return c.json({ 
+        error: 'Forbidden', 
+        message: 'You can only access your own files' 
+      }, 403);
+    }
+
     const info = await storage.getInfo(key);
     
     if (!info) {
@@ -822,8 +829,7 @@ app.get('/api/storage/files/:key{.+}', authMiddleware, async (c) => {
     console.error('Error getting file info:', error);
     return c.json({
       error: 'Internal Server Error',
-      message: 'Failed to get file info',
-      details: error instanceof Error ? error.message : String(error)
+      message: 'Failed to get file info'
     }, 500);
   }
 });
@@ -844,7 +850,12 @@ app.get('/api/storage/files', authMiddleware, async (c) => {
     }
 
     const storage = createStorageProvider(c.env);
-    const limit = parseInt(c.req.query('limit') || '50');
+    const rawLimit = c.req.query('limit');
+    const parsedLimit = rawLimit ? parseInt(rawLimit, 10) : NaN;
+    const defaultLimit = 50;
+    const maxLimit = 100;
+    const effectiveLimit = Number.isNaN(parsedLimit) || parsedLimit <= 0 ? defaultLimit : parsedLimit;
+    const limit = Math.min(effectiveLimit, maxLimit);
     const cursor = c.req.query('cursor') || undefined;
 
     // Only list files for the current user
@@ -867,8 +878,7 @@ app.get('/api/storage/files', authMiddleware, async (c) => {
     console.error('Error listing files:', error);
     return c.json({
       error: 'Internal Server Error',
-      message: 'Failed to list files',
-      details: error instanceof Error ? error.message : String(error)
+      message: 'Failed to list files'
     }, 500);
   }
 });
@@ -908,8 +918,7 @@ app.delete('/api/storage/files/:key{.+}', authMiddleware, async (c) => {
     console.error('Error deleting file:', error);
     return c.json({
       error: 'Internal Server Error',
-      message: 'Failed to delete file',
-      details: error instanceof Error ? error.message : String(error)
+      message: 'Failed to delete file'
     }, 500);
   }
 });

@@ -157,10 +157,11 @@ export class AzureStorageProvider implements StorageProvider {
     const lastModified = response.headers.get('Last-Modified');
 
     // Extract custom metadata from headers
+    // Azure lowercases header names, so we lowercase the extracted key for consistency
     const metadata: Record<string, string> = {};
     response.headers.forEach((value, header) => {
       if (header.toLowerCase().startsWith('x-ms-meta-')) {
-        const metaKey = header.substring('x-ms-meta-'.length);
+        const metaKey = header.substring('x-ms-meta-'.length).toLowerCase();
         metadata[metaKey] = value;
       }
     });
