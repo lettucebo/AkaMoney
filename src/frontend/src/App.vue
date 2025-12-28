@@ -24,11 +24,6 @@
               </router-link>
             </li>
             <li v-if="authStore.isAuthenticated" class="nav-item">
-              <router-link to="/storage" class="nav-link">
-                <i class="bi bi-cloud-upload me-1"></i>Storage
-              </router-link>
-            </li>
-            <li v-if="authStore.isAuthenticated" class="nav-item">
               <router-link to="/db-usage" class="nav-link">
                 <i class="bi bi-database me-1"></i>Usage
               </router-link>

@@ -331,6 +331,70 @@
                 ></textarea>
               </div>
 
+              <!-- Preview Image Upload -->
+              <div class="mb-3">
+                <label class="form-label">
+                  <i class="bi bi-image me-1"></i>Preview Image (Optional)
+                </label>
+                <div class="form-text mb-2">
+                  Upload an image for link preview when sharing on social media
+                </div>
+                
+                <!-- Current/Preview Image -->
+                <div v-if="editPreviewImageUrl || editForm.image_url" class="mb-2">
+                  <div class="position-relative d-inline-block">
+                    <img 
+                      :src="editPreviewImageUrl || editForm.image_url" 
+                      alt="Preview" 
+                      class="img-thumbnail"
+                      style="max-width: 200px; max-height: 150px;"
+                    >
+                    <button 
+                      type="button"
+                      class="btn btn-sm btn-danger position-absolute top-0 end-0"
+                      @click="clearEditPreviewImage"
+                      title="Remove image"
+                    >
+                      <i class="bi bi-x"></i>
+                    </button>
+                  </div>
+                </div>
+                
+                <!-- Upload Area -->
+                <div 
+                  v-if="!editPreviewImageUrl && !editForm.image_url"
+                  class="upload-area p-3 text-center border border-2 border-dashed rounded"
+                  :class="{ 'drag-over': editIsDragging, 'border-primary': editIsDragging }"
+                  @dragover.prevent="editIsDragging = true"
+                  @dragleave.prevent="editIsDragging = false"
+                  @drop.prevent="handleEditDrop"
+                  @click="triggerEditFileInput"
+                  style="cursor: pointer;"
+                >
+                  <i class="bi bi-cloud-arrow-up fs-4 text-muted"></i>
+                  <p class="mb-0 small text-muted">Drag & drop or click to upload</p>
+                  <small class="text-muted">JPEG, PNG, GIF, WebP (Max 10MB)</small>
+                </div>
+                <input 
+                  type="file" 
+                  ref="editFileInput"
+                  class="d-none" 
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  @change="handleEditFileSelect"
+                >
+                
+                <!-- Upload Progress -->
+                <div v-if="editImageUploading" class="mt-2">
+                  <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                  <span class="small">Uploading image...</span>
+                </div>
+                
+                <!-- Image Error -->
+                <div v-if="editImageError" class="alert alert-danger mt-2 py-1 px-2 small">
+                  {{ editImageError }}
+                </div>
+              </div>
+
               <!-- Active Status -->
               <div class="mb-3 form-check">
                 <input
@@ -423,6 +487,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import { useUrlStore } from '@/stores/url';
+import apiService from '@/services/api';
 import UrlCreateForm from '@/components/UrlCreateForm.vue';
 import type { UrlResponse, UpdateUrlRequest } from '@/types';
 
@@ -622,11 +687,19 @@ const editForm = ref({
   original_url: '',
   title: '',
   description: '',
+  image_url: '',
   is_active: true,
   expires_at_local: ''
 });
 const editLoading = ref(false);
 const editError = ref<string | null>(null);
+
+// Edit image upload state
+const editFileInput = ref<HTMLInputElement | null>(null);
+const editIsDragging = ref(false);
+const editPreviewImageUrl = ref<string | null>(null);
+const editImageUploading = ref(false);
+const editImageError = ref<string | null>(null);
 
 onMounted(() => {
   urlStore.fetchUrls();
@@ -746,10 +819,13 @@ const openEditModal = (url: UrlResponse) => {
     original_url: url.original_url,
     title: url.title || '',
     description: url.description || '',
+    image_url: url.image_url || '',
     is_active: url.is_active,
     expires_at_local: url.expires_at ? timestampToLocalDatetime(url.expires_at) : ''
   };
   editError.value = null;
+  editImageError.value = null;
+  editPreviewImageUrl.value = null;
   showEditModal.value = true;
 };
 
@@ -757,6 +833,76 @@ const openEditModal = (url: UrlResponse) => {
 const closeEditModal = () => {
   showEditModal.value = false;
   editError.value = null;
+  editImageError.value = null;
+  if (editPreviewImageUrl.value) {
+    URL.revokeObjectURL(editPreviewImageUrl.value);
+    editPreviewImageUrl.value = null;
+  }
+};
+
+// Edit image upload functions
+const triggerEditFileInput = () => {
+  editFileInput.value?.click();
+};
+
+const handleEditFileSelect = (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  if (target.files && target.files[0]) {
+    uploadEditImage(target.files[0]);
+  }
+};
+
+const handleEditDrop = (event: DragEvent) => {
+  editIsDragging.value = false;
+  if (event.dataTransfer?.files && event.dataTransfer.files[0]) {
+    uploadEditImage(event.dataTransfer.files[0]);
+  }
+};
+
+const uploadEditImage = async (file: File) => {
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+  if (!allowedTypes.includes(file.type)) {
+    editImageError.value = 'Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed.';
+    return;
+  }
+  
+  if (file.size > 10 * 1024 * 1024) {
+    editImageError.value = 'File too large. Maximum size is 10MB.';
+    return;
+  }
+  
+  editImageError.value = null;
+  editImageUploading.value = true;
+  
+  if (editPreviewImageUrl.value) {
+    URL.revokeObjectURL(editPreviewImageUrl.value);
+  }
+  editPreviewImageUrl.value = URL.createObjectURL(file);
+  
+  try {
+    const result = await apiService.uploadImage(file);
+    editForm.value.image_url = result.url || '';
+  } catch (err: any) {
+    editImageError.value = err.response?.data?.message || 'Failed to upload image';
+    if (editPreviewImageUrl.value) {
+      URL.revokeObjectURL(editPreviewImageUrl.value);
+      editPreviewImageUrl.value = null;
+    }
+  } finally {
+    editImageUploading.value = false;
+  }
+};
+
+const clearEditPreviewImage = () => {
+  if (editPreviewImageUrl.value) {
+    URL.revokeObjectURL(editPreviewImageUrl.value);
+    editPreviewImageUrl.value = null;
+  }
+  editForm.value.image_url = '';
+  editImageError.value = null;
+  if (editFileInput.value) {
+    editFileInput.value.value = '';
+  }
 };
 
 // Handle edit form submission
@@ -769,6 +915,7 @@ const handleEditSubmit = async () => {
       original_url: editForm.value.original_url,
       title: editForm.value.title || undefined,
       description: editForm.value.description || undefined,
+      image_url: editForm.value.image_url || undefined,
       is_active: editForm.value.is_active
     };
 
@@ -916,5 +1063,23 @@ const formatDate = (timestamp: number) => {
     width: 100%;
     margin-bottom: 0.25rem;
   }
+}
+
+/* Upload area styling */
+.upload-area {
+  transition: all 0.2s ease;
+  background-color: var(--bs-body-bg);
+}
+
+.upload-area:hover {
+  background-color: var(--bs-tertiary-bg);
+}
+
+.upload-area.drag-over {
+  background-color: var(--bs-primary-bg-subtle);
+}
+
+.border-dashed {
+  border-style: dashed !important;
 }
 </style>

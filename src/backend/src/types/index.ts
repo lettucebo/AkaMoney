@@ -31,6 +31,7 @@ export interface Url {
   user_id: string | null;
   title: string | null;
   description: string | null;
+  image_url: string | null;
   created_at: number;
   updated_at: number;
   expires_at: number | null;
@@ -74,6 +75,7 @@ export interface CreateUrlRequest {
   short_code?: string;
   title?: string;
   description?: string;
+  image_url?: string;
   expires_at?: number;
 }
 
@@ -81,6 +83,7 @@ export interface UpdateUrlRequest {
   original_url?: string;
   title?: string;
   description?: string;
+  image_url?: string;
   expires_at?: number;
   is_active?: boolean;
 }
@@ -92,6 +95,7 @@ export interface UrlResponse {
   short_url: string;
   title?: string;
   description?: string;
+  image_url?: string;
   created_at: number;
   updated_at: number;
   expires_at?: number;

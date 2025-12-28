@@ -100,6 +100,7 @@ export async function createUrl(
     user_id: userId || null,
     title: data.title || null,
     description: data.description || null,
+    image_url: data.image_url || null,
     created_at: now,
     updated_at: now,
     expires_at: data.expires_at || null,
@@ -110,9 +111,9 @@ export async function createUrl(
   await db
     .prepare(`
       INSERT INTO urls (
-        id, short_code, original_url, user_id, title, description,
+        id, short_code, original_url, user_id, title, description, image_url,
         created_at, updated_at, expires_at, is_active, click_count
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
     .bind(
       url.id,
@@ -121,6 +122,7 @@ export async function createUrl(
       url.user_id,
       url.title,
       url.description,
+      url.image_url,
       url.created_at,
       url.updated_at,
       url.expires_at,
@@ -202,6 +204,11 @@ export async function updateUrl(
     values.push(data.description);
   }
 
+  if (data.image_url !== undefined) {
+    updates.push('image_url = ?');
+    values.push(data.image_url);
+  }
+
   if (data.expires_at !== undefined) {
     updates.push('expires_at = ?');
     values.push(data.expires_at);
@@ -275,6 +282,7 @@ function formatUrlResponse(url: Url, baseUrl?: string): UrlResponse {
     short_url: shortUrl,
     title: url.title || undefined,
     description: url.description || undefined,
+    image_url: url.image_url || undefined,
     created_at: url.created_at,
     updated_at: url.updated_at,
     expires_at: url.expires_at || undefined,
