@@ -24,6 +24,26 @@ export interface StorageEnv {
   AZURE_STORAGE_SAS_TOKEN?: string;
   /** Public URL for Azure storage */
   AZURE_PUBLIC_URL?: string;
+  /** CDN URL (overrides storage-specific public URLs) */
+  CDN_URL?: string;
+}
+
+/**
+ * Get the public URL for storage, respecting CDN_URL override
+ */
+function getPublicUrl(env: StorageEnv, provider: StorageProviderType): string | undefined {
+  // CDN_URL takes priority over storage-specific public URLs
+  if (env.CDN_URL) {
+    return env.CDN_URL;
+  }
+
+  if (provider === 'r2') {
+    return env.R2_PUBLIC_URL;
+  } else if (provider === 'azure') {
+    return env.AZURE_PUBLIC_URL;
+  }
+
+  return undefined;
 }
 
 /**
@@ -31,13 +51,7 @@ export interface StorageEnv {
  */
 export function getStorageConfig(env: StorageEnv): StorageConfig {
   const provider = (env.STORAGE_PROVIDER || 'r2') as StorageProviderType;
-  
-  let publicUrl: string | undefined;
-  if (provider === 'r2') {
-    publicUrl = env.R2_PUBLIC_URL;
-  } else if (provider === 'azure') {
-    publicUrl = env.AZURE_PUBLIC_URL;
-  }
+  const publicUrl = getPublicUrl(env, provider);
 
   return {
     provider,
@@ -54,13 +68,14 @@ export function getStorageConfig(env: StorageEnv): StorageConfig {
  */
 export function createStorageProvider(env: StorageEnv): StorageProvider {
   const provider = (env.STORAGE_PROVIDER || 'r2') as StorageProviderType;
+  const publicUrl = getPublicUrl(env, provider);
 
   switch (provider) {
     case 'r2':
       if (!env.BUCKET) {
         throw new Error('R2 storage requires BUCKET binding');
       }
-      return new R2StorageProvider(env.BUCKET, env.R2_PUBLIC_URL);
+      return new R2StorageProvider(env.BUCKET, publicUrl);
 
     case 'azure':
       if (!env.AZURE_STORAGE_ACCOUNT) {
@@ -77,7 +92,7 @@ export function createStorageProvider(env: StorageEnv): StorageProvider {
         accountName: env.AZURE_STORAGE_ACCOUNT,
         containerName: env.AZURE_STORAGE_CONTAINER,
         sasToken: env.AZURE_STORAGE_SAS_TOKEN,
-        publicUrl: env.AZURE_PUBLIC_URL
+        publicUrl: publicUrl
       };
       return new AzureStorageProvider(azureConfig);
 

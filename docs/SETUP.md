@@ -160,6 +160,22 @@ wrangler secret put AZURE_PUBLIC_URL
 
 > **Note**: When using Azure Storage, you don't need to configure the R2 bucket. The storage provider is selected based on the `STORAGE_PROVIDER` environment variable.
 
+##### Using a CDN
+
+To serve images through a CDN instead of directly from storage (recommended for cost savings):
+
+```bash
+wrangler secret put CDN_URL
+# Enter: https://your-cdn.example.com
+```
+
+The `CDN_URL` setting takes priority over `R2_PUBLIC_URL` and `AZURE_PUBLIC_URL`. When set, all image URLs will use this base URL instead of the storage provider's public URL.
+
+**Example CDN configurations:**
+- Cloudflare CDN: `https://cdn.your-domain.com`
+- Azure CDN: `https://your-cdn.azureedge.net/container`
+- AWS CloudFront: `https://d1234567890.cloudfront.net`
+
 ### 3. Configure Environment Variables
 
 #### Backend Environment

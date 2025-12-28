@@ -158,6 +158,22 @@ wrangler secret put AZURE_PUBLIC_URL
 
 > **注意**：使用 Azure Storage 時，不需要配置 R2 bucket。儲存提供者根據 `STORAGE_PROVIDER` 環境變數選擇。
 
+##### 使用 CDN
+
+若要透過 CDN 提供圖片而非直接從儲存空間取得（建議以節省成本）：
+
+```bash
+wrangler secret put CDN_URL
+# 輸入：https://your-cdn.example.com
+```
+
+`CDN_URL` 設定優先於 `R2_PUBLIC_URL` 和 `AZURE_PUBLIC_URL`。設定後，所有圖片 URL 將使用此基礎 URL，而非儲存提供者的公開 URL。
+
+**CDN 配置範例：**
+- Cloudflare CDN：`https://cdn.your-domain.com`
+- Azure CDN：`https://your-cdn.azureedge.net/container`
+- AWS CloudFront：`https://d1234567890.cloudfront.net`
+
 ### 3. 配置環境變數
 
 #### 後端環境

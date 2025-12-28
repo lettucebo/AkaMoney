@@ -21,6 +21,8 @@ export interface Env {
   AZURE_STORAGE_CONTAINER?: string;
   AZURE_STORAGE_SAS_TOKEN?: string;
   AZURE_PUBLIC_URL?: string;
+  // CDN URL (overrides storage public URLs)
+  CDN_URL?: string;
 }
 
 // Database Models
