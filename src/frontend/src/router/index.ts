@@ -27,6 +27,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true }
   },
   {
+    path: '/storage',
+    name: 'Storage',
+    component: () => import('@/views/StorageView.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/db-usage',
     name: 'DbUsage',
     component: () => import('@/views/DbUsageView.vue'),
