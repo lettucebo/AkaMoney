@@ -13,6 +13,7 @@ import {
 import { getAnalytics, getOverallStats } from './services/analytics';
 import { cleanupOldClickRecords } from './services/cleanup';
 import { fetchD1Analytics } from './services/cloudflare-analytics';
+import { createStorageProvider, isStorageConfigured, getStorageConfig } from './services/storage';
 import type { CreateUrlRequest, UpdateUrlRequest } from './types';
 import type { ExecutionContext, ExportedHandler, ScheduledEvent } from '@cloudflare/workers-types';
 
@@ -661,6 +662,237 @@ app.post('/api/admin/cleanup', authMiddleware, async (c) => {
     console.error('Manual cleanup failed:', error);
     return c.json({
       error: 'Cleanup failed',
+      details: error instanceof Error ? error.message : String(error)
+    }, 500);
+  }
+});
+
+// Storage API Routes
+
+// Get storage configuration info
+app.get('/api/storage/config', authMiddleware, async (c) => {
+  try {
+    const user = getAuthUser(c);
+    if (!user) {
+      return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+    }
+
+    const configured = isStorageConfigured(c.env);
+    const config = getStorageConfig(c.env);
+
+    return c.json({
+      configured,
+      provider: config.provider,
+      hasPublicUrl: !!config.publicUrl
+    });
+  } catch (error) {
+    console.error('Error getting storage config:', error);
+    return c.json({
+      error: 'Internal Server Error',
+      message: 'Failed to get storage configuration',
+      details: error instanceof Error ? error.message : String(error)
+    }, 500);
+  }
+});
+
+// Upload an image
+app.post('/api/storage/upload', authMiddleware, async (c) => {
+  try {
+    const user = getAuthUser(c);
+    if (!user) {
+      return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+    }
+
+    if (!isStorageConfigured(c.env)) {
+      return c.json({ 
+        error: 'Configuration Error', 
+        message: 'Storage is not configured' 
+      }, 500);
+    }
+
+    const storage = createStorageProvider(c.env);
+    const formData = await c.req.formData();
+    const file = formData.get('file') as File | null;
+
+    if (!file) {
+      return c.json({ error: 'Bad Request', message: 'No file provided' }, 400);
+    }
+
+    // Validate file type (only images allowed)
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+    if (!allowedTypes.includes(file.type)) {
+      return c.json({ 
+        error: 'Bad Request', 
+        message: 'Invalid file type. Only images are allowed (JPEG, PNG, GIF, WebP, SVG)' 
+      }, 400);
+    }
+
+    // Validate file size (max 10MB)
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      return c.json({ 
+        error: 'Bad Request', 
+        message: 'File too large. Maximum size is 10MB' 
+      }, 400);
+    }
+
+    // Generate unique key with user prefix
+    const timestamp = Date.now();
+    const extension = file.name.split('.').pop() || 'bin';
+    const key = `uploads/${user.userId}/${timestamp}-${crypto.randomUUID()}.${extension}`;
+
+    const arrayBuffer = await file.arrayBuffer();
+    
+    const result = await storage.upload(key, arrayBuffer, {
+      contentType: file.type,
+      customMetadata: {
+        originalName: file.name,
+        uploadedBy: user.userId,
+        uploadedAt: new Date().toISOString()
+      }
+    });
+
+    console.log('File uploaded successfully:', { key: result.key, size: result.size });
+
+    return c.json({
+      key: result.key,
+      url: result.url,
+      size: result.size,
+      contentType: file.type,
+      originalName: file.name
+    }, 201);
+  } catch (error) {
+    console.error('Error uploading file:', error);
+    return c.json({
+      error: 'Internal Server Error',
+      message: 'Failed to upload file',
+      details: error instanceof Error ? error.message : String(error)
+    }, 500);
+  }
+});
+
+// Get file info
+app.get('/api/storage/files/:key{.+}', authMiddleware, async (c) => {
+  try {
+    const user = getAuthUser(c);
+    if (!user) {
+      return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+    }
+
+    if (!isStorageConfigured(c.env)) {
+      return c.json({ 
+        error: 'Configuration Error', 
+        message: 'Storage is not configured' 
+      }, 500);
+    }
+
+    const storage = createStorageProvider(c.env);
+    const key = c.req.param('key');
+
+    const info = await storage.getInfo(key);
+    
+    if (!info) {
+      return c.json({ error: 'Not Found', message: 'File not found' }, 404);
+    }
+
+    return c.json({
+      key: info.key,
+      size: info.size,
+      lastModified: info.lastModified?.toISOString(),
+      contentType: info.contentType,
+      url: storage.getPublicUrl?.(key)
+    });
+  } catch (error) {
+    console.error('Error getting file info:', error);
+    return c.json({
+      error: 'Internal Server Error',
+      message: 'Failed to get file info',
+      details: error instanceof Error ? error.message : String(error)
+    }, 500);
+  }
+});
+
+// List user's files
+app.get('/api/storage/files', authMiddleware, async (c) => {
+  try {
+    const user = getAuthUser(c);
+    if (!user) {
+      return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+    }
+
+    if (!isStorageConfigured(c.env)) {
+      return c.json({ 
+        error: 'Configuration Error', 
+        message: 'Storage is not configured' 
+      }, 500);
+    }
+
+    const storage = createStorageProvider(c.env);
+    const limit = parseInt(c.req.query('limit') || '50');
+    const cursor = c.req.query('cursor') || undefined;
+
+    // Only list files for the current user
+    const prefix = `uploads/${user.userId}/`;
+
+    const result = await storage.list({ prefix, limit, cursor });
+
+    return c.json({
+      files: result.files.map(f => ({
+        key: f.key,
+        size: f.size,
+        lastModified: f.lastModified?.toISOString(),
+        contentType: f.contentType,
+        url: storage.getPublicUrl?.(f.key)
+      })),
+      hasMore: result.hasMore,
+      cursor: result.cursor
+    });
+  } catch (error) {
+    console.error('Error listing files:', error);
+    return c.json({
+      error: 'Internal Server Error',
+      message: 'Failed to list files',
+      details: error instanceof Error ? error.message : String(error)
+    }, 500);
+  }
+});
+
+// Delete a file
+app.delete('/api/storage/files/:key{.+}', authMiddleware, async (c) => {
+  try {
+    const user = getAuthUser(c);
+    if (!user) {
+      return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+    }
+
+    if (!isStorageConfigured(c.env)) {
+      return c.json({ 
+        error: 'Configuration Error', 
+        message: 'Storage is not configured' 
+      }, 500);
+    }
+
+    const storage = createStorageProvider(c.env);
+    const key = c.req.param('key');
+
+    // Verify the file belongs to the user
+    if (!key.startsWith(`uploads/${user.userId}/`)) {
+      return c.json({ 
+        error: 'Forbidden', 
+        message: 'You can only delete your own files' 
+      }, 403);
+    }
+
+    await storage.delete(key);
+
+    console.log('File deleted successfully:', { key });
+
+    return c.json({ message: 'File deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting file:', error);
+    return c.json({
+      error: 'Internal Server Error',
+      message: 'Failed to delete file',
       details: error instanceof Error ? error.message : String(error)
     }, 500);
   }

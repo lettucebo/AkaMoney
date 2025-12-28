@@ -1,7 +1,9 @@
+import type { StorageProviderType } from '../services/storage';
+
 // Environment bindings
 export interface Env {
   DB: D1Database;
-  BUCKET: R2Bucket;
+  BUCKET?: R2Bucket;
   JWT_SECRET: string;
   JWT_EXPIRES_IN: string;
   ENTRA_ID_TENANT_ID?: string;
@@ -12,6 +14,13 @@ export interface Env {
   D1_ANALYTICS_ACCOUNT_ID?: string;
   D1_ANALYTICS_API_TOKEN?: string;
   D1_ANALYTICS_DATABASE_ID?: string;
+  // Storage configuration
+  STORAGE_PROVIDER?: StorageProviderType;
+  R2_PUBLIC_URL?: string;
+  AZURE_STORAGE_ACCOUNT?: string;
+  AZURE_STORAGE_CONTAINER?: string;
+  AZURE_STORAGE_SAS_TOKEN?: string;
+  AZURE_PUBLIC_URL?: string;
 }
 
 // Database Models

@@ -110,6 +110,54 @@ wrangler secret put D1_ANALYTICS_DATABASE_ID
 > 2. 在 https://dash.cloudflare.com/profile/api-tokens 建立具有「Analytics:Read」權限的 API token
 > 3. 使用您先前建立的 D1 database ID
 
+#### 儲存空間配置
+
+AkaMoney 支援兩種儲存空間提供者用於圖片上傳：
+
+1. **Cloudflare R2**（預設）- 推薦用於 Cloudflare 部署
+2. **Azure Blob Storage** - 適用於 Azure 相關部署
+
+##### 使用 Cloudflare R2（預設）
+
+R2 為預設配置。將 `STORAGE_PROVIDER` 環境變數設定為 `r2`（或保持未設定）：
+
+```toml
+# 在 wrangler.toml 或 wrangler.local.toml 中
+[vars]
+STORAGE_PROVIDER = "r2"
+# R2_PUBLIC_URL = "https://storage.your-domain.com"  # 選用：用於公開 URL
+```
+
+##### 使用 Azure Blob Storage
+
+若要使用 Azure Blob Storage 而非 R2：
+
+1. 建立 Azure 儲存帳戶和容器
+2. 產生具有讀取、寫入、刪除和列表權限的 SAS token
+3. 配置環境變數：
+
+```bash
+# 設定儲存提供者為 Azure
+wrangler secret put STORAGE_PROVIDER
+# 輸入：azure
+
+# 設定 Azure 憑證
+wrangler secret put AZURE_STORAGE_ACCOUNT
+# 輸入您的儲存帳戶名稱
+
+wrangler secret put AZURE_STORAGE_CONTAINER
+# 輸入您的容器名稱
+
+wrangler secret put AZURE_STORAGE_SAS_TOKEN
+# 輸入您的 SAS token（可含或不含前導 '?'）
+
+# （選用）如果使用 CDN 或自訂網域，設定公開 URL
+wrangler secret put AZURE_PUBLIC_URL
+# 輸入：https://your-cdn.azureedge.net/container
+```
+
+> **注意**：使用 Azure Storage 時，不需要配置 R2 bucket。儲存提供者根據 `STORAGE_PROVIDER` 環境變數選擇。
+
 ### 3. 配置環境變數
 
 #### 後端環境

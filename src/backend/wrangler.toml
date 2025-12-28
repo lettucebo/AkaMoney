@@ -15,7 +15,8 @@ binding = "DB"
 database_name = "akamoney-clicks"
 database_id = ""
 
-# R2 Storage binding
+# R2 Storage binding (used when STORAGE_PROVIDER = "r2")
+# Note: To use Azure Storage instead, set STORAGE_PROVIDER = "azure" and configure Azure secrets
 [[r2_buckets]]
 binding = "BUCKET"
 bucket_name = "akamoney-storage"
@@ -25,6 +26,8 @@ preview_bucket_name = "akamoney-storage-preview"
 [vars]
 ENVIRONMENT = "development"
 JWT_EXPIRES_IN = "7d"
+# Storage provider: "r2" (default) or "azure"
+STORAGE_PROVIDER = "r2"
 
 # Routes for production (admin API - requires JWT authentication)
 # [[routes]]
