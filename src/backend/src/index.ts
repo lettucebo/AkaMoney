@@ -736,9 +736,25 @@ app.post('/api/storage/upload', authMiddleware, async (c) => {
       }, 400);
     }
 
+    // Map MIME type to safe file extension
+    const mimeToExtension: Record<string, string> = {
+      'image/jpeg': 'jpg',
+      'image/png': 'png',
+      'image/gif': 'gif',
+      'image/webp': 'webp',
+      'image/svg+xml': 'svg'
+    };
+    
+    const extension = mimeToExtension[file.type];
+    if (!extension) {
+      return c.json({ 
+        error: 'Bad Request', 
+        message: 'Unsupported file type' 
+      }, 400);
+    }
+
     // Generate unique key with user prefix
     const timestamp = Date.now();
-    const extension = file.name.split('.').pop() || 'bin';
     const key = `uploads/${user.userId}/${timestamp}-${crypto.randomUUID()}.${extension}`;
 
     const arrayBuffer = await file.arrayBuffer();

@@ -84,20 +84,31 @@ export class AzureStorageProvider implements StorageProvider {
     }
 
     // Add custom metadata as headers
+    // Azure metadata keys must be valid HTTP header names (alphanumeric and hyphens only)
     if (options?.customMetadata) {
       for (const [key, value] of Object.entries(options.customMetadata)) {
-        headers[`x-ms-meta-${key}`] = value;
+        // Sanitize key: only allow alphanumeric and hyphens, replace other chars with hyphen
+        const sanitizedKey = key.replace(/[^a-zA-Z0-9-]/g, '-');
+        if (sanitizedKey.length > 0) {
+          headers[`x-ms-meta-${sanitizedKey}`] = value;
+        }
       }
     }
 
-    // Convert data to appropriate format
-    let body: BodyInit;
+    // Convert data to appropriate format and calculate size
+    let body: ArrayBuffer | Uint8Array;
+    let size: number;
+    
     if (data instanceof Blob) {
       body = await data.arrayBuffer();
+      size = body.byteLength;
     } else if (typeof data === 'string') {
-      body = new TextEncoder().encode(data);
+      const encoded = new TextEncoder().encode(data);
+      body = encoded;
+      size = encoded.length;
     } else {
       body = data;
+      size = data.byteLength;
     }
 
     const response = await fetch(url, {
@@ -112,7 +123,6 @@ export class AzureStorageProvider implements StorageProvider {
     }
 
     const etag = response.headers.get('ETag') || undefined;
-    const size = body instanceof ArrayBuffer ? body.byteLength : (body as Uint8Array).length;
 
     return {
       key,
