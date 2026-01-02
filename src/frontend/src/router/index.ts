@@ -27,12 +27,6 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true }
   },
   {
-    path: '/db-usage',
-    name: 'DbUsage',
-    component: () => import('@/views/DbUsageView.vue'),
-    meta: { requiresAuth: true }
-  },
-  {
     path: '/login',
     name: 'Login',
     component: () => import('@/views/LoginView.vue')

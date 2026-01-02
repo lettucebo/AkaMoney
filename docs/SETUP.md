@@ -100,17 +100,7 @@ wrangler secret put JWT_SECRET
 
 # If using Entra ID, set these secrets:
 wrangler secret put ENTRA_ID_CLIENT_SECRET
-
-# (Optional) For real-time D1 analytics, set Cloudflare API credentials:
-wrangler secret put D1_ANALYTICS_API_TOKEN
-wrangler secret put D1_ANALYTICS_ACCOUNT_ID
-wrangler secret put D1_ANALYTICS_DATABASE_ID
 ```
-
-> **Note**: Cloudflare API credentials are optional. If not set, the D1 usage monitoring will fall back to estimated values based on local database click counts. To use real-time D1 analytics:
-> 1. Get your Account ID from the Cloudflare dashboard URL or API
-> 2. Create an API token with "Analytics:Read" permission at https://dash.cloudflare.com/profile/api-tokens
-> 3. Use the same D1 database ID you created earlier
 
 #### Storage Configuration
 
