@@ -257,10 +257,11 @@ describe('URL Service - Database Functions', () => {
       mockDb._mockRun.mockResolvedValue({});
       
       const result = await createUrl(mockDb as any, {
-        original_url: 'https://example.com'
+        original_url: 'https://example.com',
+        short_code: 'abc123'
       });
       
-      expect(result.short_code).toHaveLength(6);
+      expect(result.short_code).toBe('abc123');
       expect(result.original_url).toBe('https://example.com');
     });
 
@@ -270,7 +271,8 @@ describe('URL Service - Database Functions', () => {
       mockDb._mockRun.mockResolvedValue({});
       
       const result = await createUrl(mockDb as any, {
-        original_url: 'https://example.com'
+        original_url: 'https://example.com',
+        short_code: 'user123'
       }, 'user-123');
       
       expect(result).toBeDefined();
@@ -284,6 +286,7 @@ describe('URL Service - Database Functions', () => {
       const expiresAt = Date.now() + 86400000;
       const result = await createUrl(mockDb as any, {
         original_url: 'https://example.com',
+        short_code: 'expiry1',
         expires_at: expiresAt
       });
       
