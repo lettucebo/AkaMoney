@@ -17,7 +17,7 @@
 
       <div class="mb-3">
         <label for="shortCode" class="form-label">
-          Custom short code (optional)
+          Custom short code *
         </label>
         <div v-if="mode === 'page'" class="input-group">
           <span class="input-group-text">{{ shortDomain }}/</span>
@@ -28,19 +28,38 @@
             v-model="formData.short_code"
             placeholder="my-link"
             pattern="[a-zA-Z0-9-_]{3,20}"
+            required
           />
+          <button
+            type="button"
+            class="btn btn-outline-secondary"
+            @click="generateRandomCode"
+            title="Generate random 8-character code"
+          >
+            <i class="bi bi-shuffle"></i> Random
+          </button>
         </div>
-        <input
-          v-else
-          type="text"
-          class="form-control"
-          id="shortCode"
-          v-model="formData.short_code"
-          placeholder="my-link"
-          pattern="[a-zA-Z0-9-_]{3,20}"
-        />
+        <div v-else class="input-group">
+          <input
+            type="text"
+            class="form-control"
+            id="shortCode"
+            v-model="formData.short_code"
+            placeholder="my-link"
+            pattern="[a-zA-Z0-9-_]{3,20}"
+            required
+          />
+          <button
+            type="button"
+            class="btn btn-outline-secondary"
+            @click="generateRandomCode"
+            title="Generate random 8-character code"
+          >
+            <i class="bi bi-shuffle"></i> Random
+          </button>
+        </div>
         <div class="form-text">
-          3-20 characters: letters, numbers, hyphens, and underscores only
+          3-20 characters: letters, numbers, hyphens, and underscores only. Click "Random" to generate an 8-character code.
         </div>
       </div>
 
@@ -172,6 +191,7 @@
 
 <script setup lang="ts">
 import { ref, onBeforeUnmount } from 'vue';
+import { nanoid } from 'nanoid';
 import { useUrlStore } from '@/stores/url';
 import apiService from '@/services/api';
 import type { UrlResponse, CreateUrlRequest } from '@/types';
@@ -284,6 +304,8 @@ const clearPreviewImage = () => {
   if (fileInput.value) {
     fileInput.value.value = '';
   }
+const generateRandomCode = () => {
+  formData.value.short_code = nanoid(8);
 };
 
 const handleSubmit = async () => {
@@ -292,12 +314,9 @@ const handleSubmit = async () => {
 
   try {
     const data: CreateUrlRequest = {
-      original_url: formData.value.original_url
+      original_url: formData.value.original_url,
+      short_code: formData.value.short_code
     };
-
-    if (formData.value.short_code) {
-      data.short_code = formData.value.short_code;
-    }
 
     if (formData.value.title) {
       data.title = formData.value.title;

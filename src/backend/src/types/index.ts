@@ -74,7 +74,7 @@ export interface User {
 // API Request/Response types
 export interface CreateUrlRequest {
   original_url: string;
-  short_code?: string;
+  short_code: string;
   title?: string;
   description?: string;
   image_url?: string;
