@@ -192,6 +192,11 @@ jobs:
           SECRET_D1_ANALYTICS_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           SECRET_D1_ANALYTICS_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           SECRET_D1_ANALYTICS_DATABASE_ID: ${{ vars.CLOUDFLARE_D1_DATABASE_ID }}
+          # Storage configuration (optional - defaults to R2 if not set)
+          SECRET_STORAGE_PROVIDER: ${{ vars.STORAGE_PROVIDER }}
+          SECRET_AZURE_STORAGE_ACCOUNT: ${{ vars.AZURE_STORAGE_ACCOUNT }}
+          SECRET_AZURE_STORAGE_CONTAINER: ${{ vars.AZURE_STORAGE_CONTAINER }}
+          SECRET_AZURE_STORAGE_SAS_TOKEN: ${{ secrets.AZURE_STORAGE_SAS_TOKEN }}
         run: |
           set -e
           cd src/backend
@@ -238,6 +243,32 @@ jobs:
             npx wrangler secret put D1_ANALYTICS_DATABASE_ID <<< "$SECRET_D1_ANALYTICS_DATABASE_ID"
           else
             echo "Warning: D1_ANALYTICS_DATABASE_ID for D1 analytics is not set, D1 stats will use estimation mode..."
+          fi
+
+          # Configure Azure Storage credentials (optional - only needed if using Azure instead of R2)
+          if [ -n "$SECRET_STORAGE_PROVIDER" ]; then
+            npx wrangler secret put STORAGE_PROVIDER <<< "$SECRET_STORAGE_PROVIDER"
+            echo "Storage provider configured: $SECRET_STORAGE_PROVIDER"
+          else
+            echo "Info: STORAGE_PROVIDER is not set, defaulting to R2..."
+          fi
+
+          if [ -n "$SECRET_AZURE_STORAGE_ACCOUNT" ]; then
+            npx wrangler secret put AZURE_STORAGE_ACCOUNT <<< "$SECRET_AZURE_STORAGE_ACCOUNT"
+          else
+            echo "Info: AZURE_STORAGE_ACCOUNT is not set (only needed for Azure storage)..."
+          fi
+
+          if [ -n "$SECRET_AZURE_STORAGE_CONTAINER" ]; then
+            npx wrangler secret put AZURE_STORAGE_CONTAINER <<< "$SECRET_AZURE_STORAGE_CONTAINER"
+          else
+            echo "Info: AZURE_STORAGE_CONTAINER is not set (only needed for Azure storage)..."
+          fi
+
+          if [ -n "$SECRET_AZURE_STORAGE_SAS_TOKEN" ]; then
+            npx wrangler secret put AZURE_STORAGE_SAS_TOKEN <<< "$SECRET_AZURE_STORAGE_SAS_TOKEN"
+          else
+            echo "Info: AZURE_STORAGE_SAS_TOKEN is not set (only needed for Azure storage)..."
           fi
 
           echo "Worker secrets configured successfully"

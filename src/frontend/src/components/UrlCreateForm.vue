@@ -85,6 +85,70 @@
         ></textarea>
       </div>
 
+      <!-- Preview Image Upload -->
+      <div class="mb-3">
+        <label class="form-label">
+          <i class="bi bi-image me-1"></i>Preview Image (optional)
+        </label>
+        <div class="form-text mb-2">
+          Upload an image for link preview when sharing on social media
+        </div>
+        
+        <!-- Current/Preview Image -->
+        <div v-if="previewImageUrl || formData.image_url" class="mb-2">
+          <div class="position-relative d-inline-block">
+            <img 
+              :src="previewImageUrl || formData.image_url" 
+              alt="Preview" 
+              class="img-thumbnail"
+              style="max-width: 200px; max-height: 150px;"
+            >
+            <button 
+              type="button"
+              class="btn btn-sm btn-danger position-absolute top-0 end-0"
+              @click="clearPreviewImage"
+              title="Remove image"
+            >
+              <i class="bi bi-x"></i>
+            </button>
+          </div>
+        </div>
+        
+        <!-- Upload Area -->
+        <div 
+          v-if="!previewImageUrl && !formData.image_url"
+          class="upload-area p-3 text-center border border-2 border-dashed rounded"
+          :class="{ 'drag-over': isDragging, 'border-primary': isDragging }"
+          @dragover.prevent="isDragging = true"
+          @dragleave.prevent="isDragging = false"
+          @drop.prevent="handleDrop"
+          @click="triggerFileInput"
+          style="cursor: pointer;"
+        >
+          <i class="bi bi-cloud-arrow-up fs-4 text-muted"></i>
+          <p class="mb-0 small text-muted">Drag & drop or click to upload</p>
+          <small class="text-muted">JPEG, PNG, GIF, WebP (Max 10MB)</small>
+        </div>
+        <input 
+          type="file" 
+          ref="fileInput"
+          class="d-none" 
+          accept="image/jpeg,image/png,image/gif,image/webp"
+          @change="handleFileSelect"
+        >
+        
+        <!-- Upload Progress -->
+        <div v-if="imageUploading" class="mt-2">
+          <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+          <span class="small">Uploading image...</span>
+        </div>
+        
+        <!-- Image Error -->
+        <div v-if="imageError" class="alert alert-danger mt-2 py-1 px-2 small">
+          {{ imageError }}
+        </div>
+      </div>
+
       <div class="mb-3">
         <label for="expiresAt" class="form-label">Expiration date (optional)</label>
         <input
@@ -106,7 +170,7 @@
         <button
           type="submit"
           class="btn btn-primary btn-lg"
-          :disabled="loading"
+          :disabled="loading || imageUploading"
         >
           <span v-if="loading" class="spinner-border spinner-border-sm me-2"></span>
           Shorten URL
@@ -116,7 +180,7 @@
         <button type="button" class="btn btn-secondary" @click="handleCancel">
           Cancel
         </button>
-        <button type="submit" class="btn btn-primary" :disabled="loading">
+        <button type="submit" class="btn btn-primary" :disabled="loading || imageUploading">
           <span v-if="loading" class="spinner-border spinner-border-sm me-2"></span>
           Create
         </button>
@@ -126,9 +190,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onBeforeUnmount } from 'vue';
 import { nanoid } from 'nanoid';
 import { useUrlStore } from '@/stores/url';
+import apiService from '@/services/api';
 import type { UrlResponse, CreateUrlRequest } from '@/types';
 
 interface Props {
@@ -151,12 +216,95 @@ const formData = ref({
   original_url: '',
   short_code: '',
   title: '',
-  description: ''
+  description: '',
+  image_url: ''
 });
 
 const expiresAtInput = ref('');
 const loading = ref(false);
 const error = ref<string | null>(null);
+
+// Image upload state
+const fileInput = ref<HTMLInputElement | null>(null);
+const isDragging = ref(false);
+const previewImageUrl = ref<string | null>(null);
+const imageUploading = ref(false);
+const imageError = ref<string | null>(null);
+
+// Cleanup preview URL on unmount
+onBeforeUnmount(() => {
+  if (previewImageUrl.value) {
+    URL.revokeObjectURL(previewImageUrl.value);
+  }
+});
+
+const triggerFileInput = () => {
+  fileInput.value?.click();
+};
+
+const handleFileSelect = (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  if (target.files && target.files[0]) {
+    uploadImage(target.files[0]);
+  }
+};
+
+const handleDrop = (event: DragEvent) => {
+  isDragging.value = false;
+  if (event.dataTransfer?.files && event.dataTransfer.files[0]) {
+    uploadImage(event.dataTransfer.files[0]);
+  }
+};
+
+const uploadImage = async (file: File) => {
+  // Validate file type
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+  if (!allowedTypes.includes(file.type)) {
+    imageError.value = 'Invalid file type. Only JPEG, PNG, GIF, WebP, and SVG are allowed.';
+    return;
+  }
+  
+  // Validate file size (10MB)
+  if (file.size > 10 * 1024 * 1024) {
+    imageError.value = 'File too large. Maximum size is 10MB.';
+    return;
+  }
+  
+  imageError.value = null;
+  imageUploading.value = true;
+  
+  // Create local preview
+  if (previewImageUrl.value) {
+    URL.revokeObjectURL(previewImageUrl.value);
+  }
+  previewImageUrl.value = URL.createObjectURL(file);
+  
+  try {
+    const result = await apiService.uploadImage(file);
+    formData.value.image_url = result.url || '';
+  } catch (err: any) {
+    imageError.value = err.response?.data?.message || 'Failed to upload image';
+    // Clear preview on error
+    if (previewImageUrl.value) {
+      URL.revokeObjectURL(previewImageUrl.value);
+      previewImageUrl.value = null;
+    }
+  } finally {
+    imageUploading.value = false;
+  }
+};
+
+const clearPreviewImage = () => {
+  if (previewImageUrl.value) {
+    URL.revokeObjectURL(previewImageUrl.value);
+    previewImageUrl.value = null;
+  }
+  formData.value.image_url = '';
+  imageError.value = null;
+  if (fileInput.value) {
+    fileInput.value.value = '';
+  }
+};
 
 const generateRandomCode = () => {
   formData.value.short_code = nanoid(8);
@@ -180,6 +328,10 @@ const handleSubmit = async () => {
       data.description = formData.value.description;
     }
 
+    if (formData.value.image_url) {
+      data.image_url = formData.value.image_url;
+    }
+
     if (expiresAtInput.value) {
       const expiresDate = new Date(expiresAtInput.value);
       data.expires_at = expiresDate.getTime();
@@ -192,9 +344,11 @@ const handleSubmit = async () => {
       original_url: '',
       short_code: '',
       title: '',
-      description: ''
+      description: '',
+      image_url: ''
     };
     expiresAtInput.value = '';
+    clearPreviewImage();
 
     // Emit created event
     emit('created', result);
@@ -209,3 +363,22 @@ const handleCancel = () => {
   emit('cancel');
 };
 </script>
+
+<style scoped>
+.upload-area {
+  transition: all 0.2s ease;
+  background-color: var(--bs-body-bg);
+}
+
+.upload-area:hover {
+  background-color: var(--bs-tertiary-bg);
+}
+
+.upload-area.drag-over {
+  background-color: var(--bs-primary-bg-subtle);
+}
+
+.border-dashed {
+  border-style: dashed !important;
+}
+</style>

@@ -280,6 +280,113 @@ Authorization: Bearer <token>
 }
 ```
 
+### Storage API Endpoints (JWT Required)
+
+The Storage API provides endpoints for uploading and managing images. It supports both Cloudflare R2 and Azure Blob Storage backends.
+
+#### Get Storage Configuration
+```http
+GET /api/storage/config
+Authorization: Bearer <token>
+```
+
+**Response:** 200 OK
+```json
+{
+  "configured": true,
+  "provider": "r2",
+  "hasPublicUrl": true
+}
+```
+
+#### Upload Image
+```http
+POST /api/storage/upload
+Authorization: Bearer <token>
+Content-Type: multipart/form-data
+```
+
+**Request Body:**
+- `file`: Image file (JPEG, PNG, GIF, WebP, SVG)
+- Maximum file size: 10MB
+
+**Response:** 201 Created
+```json
+{
+  "key": "uploads/user123/1702834567890-uuid.jpg",
+  "url": "https://storage.example.com/uploads/user123/1702834567890-uuid.jpg",
+  "size": 102400,
+  "contentType": "image/jpeg",
+  "originalName": "my-image.jpg"
+}
+```
+
+**Error Responses:**
+- 400: No file provided or invalid file type
+- 400: File too large (max 10MB)
+- 500: Storage not configured
+
+#### Get File Info
+```http
+GET /api/storage/files/:key
+Authorization: Bearer <token>
+```
+
+**Response:** 200 OK
+```json
+{
+  "key": "uploads/user123/1702834567890-uuid.jpg",
+  "size": 102400,
+  "lastModified": "2024-12-17T12:34:56.789Z",
+  "contentType": "image/jpeg",
+  "url": "https://storage.example.com/uploads/user123/1702834567890-uuid.jpg"
+}
+```
+
+#### List User Files
+```http
+GET /api/storage/files?limit=50&cursor=nextPageCursor
+Authorization: Bearer <token>
+```
+
+**Query Parameters:**
+- `limit` (optional): Maximum number of files to return, default 50
+- `cursor` (optional): Pagination cursor from previous response
+
+**Response:** 200 OK
+```json
+{
+  "files": [
+    {
+      "key": "uploads/user123/1702834567890-uuid.jpg",
+      "size": 102400,
+      "lastModified": "2024-12-17T12:34:56.789Z",
+      "contentType": "image/jpeg",
+      "url": "https://storage.example.com/uploads/user123/1702834567890-uuid.jpg"
+    }
+  ],
+  "hasMore": true,
+  "cursor": "nextPageCursor"
+}
+```
+
+#### Delete File
+```http
+DELETE /api/storage/files/:key
+Authorization: Bearer <token>
+```
+
+**Response:** 200 OK
+```json
+{
+  "message": "File deleted successfully"
+}
+```
+
+**Error Responses:**
+- 403: Cannot delete files owned by other users
+- 404: File not found
+
 ## Error Responses
 
 All error responses follow this format:

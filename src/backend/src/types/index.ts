@@ -1,7 +1,9 @@
+import type { StorageProviderType } from '../services/storage';
+
 // Environment bindings
 export interface Env {
   DB: D1Database;
-  BUCKET: R2Bucket;
+  BUCKET?: R2Bucket;
   JWT_SECRET: string;
   JWT_EXPIRES_IN: string;
   ENTRA_ID_TENANT_ID?: string;
@@ -12,6 +14,15 @@ export interface Env {
   D1_ANALYTICS_ACCOUNT_ID?: string;
   D1_ANALYTICS_API_TOKEN?: string;
   D1_ANALYTICS_DATABASE_ID?: string;
+  // Storage configuration
+  STORAGE_PROVIDER?: StorageProviderType;
+  R2_PUBLIC_URL?: string;
+  AZURE_STORAGE_ACCOUNT?: string;
+  AZURE_STORAGE_CONTAINER?: string;
+  AZURE_STORAGE_SAS_TOKEN?: string;
+  AZURE_PUBLIC_URL?: string;
+  // CDN URL (overrides storage public URLs)
+  CDN_URL?: string;
 }
 
 // Database Models
@@ -22,6 +33,7 @@ export interface Url {
   user_id: string | null;
   title: string | null;
   description: string | null;
+  image_url: string | null;
   created_at: number;
   updated_at: number;
   expires_at: number | null;
@@ -65,6 +77,7 @@ export interface CreateUrlRequest {
   short_code: string;
   title?: string;
   description?: string;
+  image_url?: string;
   expires_at?: number;
 }
 
@@ -72,6 +85,7 @@ export interface UpdateUrlRequest {
   original_url?: string;
   title?: string;
   description?: string;
+  image_url?: string;
   expires_at?: number;
   is_active?: boolean;
 }
@@ -83,6 +97,7 @@ export interface UrlResponse {
   short_url: string;
   title?: string;
   description?: string;
+  image_url?: string;
   created_at: number;
   updated_at: number;
   expires_at?: number;

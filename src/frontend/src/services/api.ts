@@ -36,6 +36,7 @@ const getInitialMockUrls = (): UrlResponse[] => [
     short_url: 'http://localhost:8787/demo1',
     title: 'Example Website',
     description: 'A demo shortened URL for testing',
+    image_url: 'https://picsum.photos/seed/demo1/1200/630',
     created_at: Date.now() - 86400000,
     updated_at: Date.now() - 86400000,
     is_active: true,
@@ -60,6 +61,7 @@ const getInitialMockUrls = (): UrlResponse[] => [
     short_url: 'http://localhost:8787/docs',
     title: 'Documentation',
     description: 'Getting started guide',
+    image_url: 'https://picsum.photos/seed/docs/1200/630',
     created_at: Date.now() - 259200000,
     updated_at: Date.now() - 259200000,
     is_active: true,
@@ -168,6 +170,7 @@ class ApiService {
         short_url: `http://localhost:8787/${data.short_code || `short${Date.now()}`}`,
         title: data.title,
         description: data.description,
+        image_url: data.image_url,
         created_at: Date.now(),
         updated_at: Date.now(),
         expires_at: data.expires_at,
@@ -381,6 +384,106 @@ class ApiService {
   async healthCheck(): Promise<{ status: string; timestamp: number }> {
     const response = await this.api.get('/health');
     return response.data;
+  }
+
+  // Storage API
+
+  // Get storage configuration
+  async getStorageConfig(): Promise<{ configured: boolean; provider: string; hasPublicUrl: boolean }> {
+    // Return mock config in skip auth mode
+    if (isAuthSkipped()) {
+      return {
+        configured: true,
+        provider: 'r2',
+        hasPublicUrl: true
+      };
+    }
+
+    const response = await this.api.get('/api/storage/config');
+    return response.data;
+  }
+
+  // Upload an image
+  async uploadImage(file: File): Promise<{
+    key: string;
+    url?: string;
+    size?: number;
+    contentType: string;
+    originalName: string;
+  }> {
+    // Return mock response in skip auth mode
+    if (isAuthSkipped()) {
+      return {
+        key: `uploads/mock-user/${Date.now()}-${file.name}`,
+        url: `https://storage.example.com/uploads/mock-user/${Date.now()}-${file.name}`,
+        size: file.size,
+        contentType: file.type,
+        originalName: file.name
+      };
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await this.api.post('/api/storage/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+    return response.data;
+  }
+
+  // List user files
+  async listFiles(limit: number = 50, cursor?: string): Promise<{
+    files: Array<{
+      key: string;
+      size: number;
+      lastModified?: string;
+      contentType?: string;
+      url?: string;
+    }>;
+    hasMore: boolean;
+    cursor?: string;
+  }> {
+    // Return mock files in skip auth mode
+    if (isAuthSkipped()) {
+      return {
+        files: [
+          {
+            key: 'uploads/mock-user/1702834567890-example.jpg',
+            size: 102400,
+            lastModified: new Date().toISOString(),
+            contentType: 'image/jpeg',
+            url: 'https://storage.example.com/uploads/mock-user/example.jpg'
+          },
+          {
+            key: 'uploads/mock-user/1702834567891-logo.png',
+            size: 51200,
+            lastModified: new Date(Date.now() - 86400000).toISOString(),
+            contentType: 'image/png',
+            url: 'https://storage.example.com/uploads/mock-user/logo.png'
+          }
+        ],
+        hasMore: false
+      };
+    }
+
+    const params = new URLSearchParams();
+    params.append('limit', limit.toString());
+    if (cursor) params.append('cursor', cursor);
+
+    const response = await this.api.get(`/api/storage/files?${params.toString()}`);
+    return response.data;
+  }
+
+  // Delete a file
+  async deleteFile(key: string): Promise<void> {
+    // Handle mock deletion in skip auth mode
+    if (isAuthSkipped()) {
+      return;
+    }
+
+    await this.api.delete(`/api/storage/files/${encodeURIComponent(key)}`);
   }
 }
 

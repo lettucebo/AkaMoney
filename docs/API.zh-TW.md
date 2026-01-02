@@ -280,6 +280,113 @@ Authorization: ******
 }
 ```
 
+### 儲存空間 API 端點（需要 JWT）
+
+儲存空間 API 提供上傳和管理圖片的端點。支援 Cloudflare R2 和 Azure Blob Storage 後端。
+
+#### 取得儲存空間配置
+```http
+GET /api/storage/config
+Authorization: Bearer <token>
+```
+
+**回應：** 200 OK
+```json
+{
+  "configured": true,
+  "provider": "r2",
+  "hasPublicUrl": true
+}
+```
+
+#### 上傳圖片
+```http
+POST /api/storage/upload
+Authorization: Bearer <token>
+Content-Type: multipart/form-data
+```
+
+**請求本體：**
+- `file`：圖片檔案（JPEG、PNG、GIF、WebP、SVG）
+- 最大檔案大小：10MB
+
+**回應：** 201 Created
+```json
+{
+  "key": "uploads/user123/1702834567890-uuid.jpg",
+  "url": "https://storage.example.com/uploads/user123/1702834567890-uuid.jpg",
+  "size": 102400,
+  "contentType": "image/jpeg",
+  "originalName": "my-image.jpg"
+}
+```
+
+**錯誤回應：**
+- 400：未提供檔案或檔案類型無效
+- 400：檔案過大（最大 10MB）
+- 500：儲存空間未配置
+
+#### 取得檔案資訊
+```http
+GET /api/storage/files/:key
+Authorization: Bearer <token>
+```
+
+**回應：** 200 OK
+```json
+{
+  "key": "uploads/user123/1702834567890-uuid.jpg",
+  "size": 102400,
+  "lastModified": "2024-12-17T12:34:56.789Z",
+  "contentType": "image/jpeg",
+  "url": "https://storage.example.com/uploads/user123/1702834567890-uuid.jpg"
+}
+```
+
+#### 列出使用者檔案
+```http
+GET /api/storage/files?limit=50&cursor=nextPageCursor
+Authorization: Bearer <token>
+```
+
+**查詢參數：**
+- `limit`（選用）：最大回傳檔案數量，預設 50
+- `cursor`（選用）：上一次回應的分頁游標
+
+**回應：** 200 OK
+```json
+{
+  "files": [
+    {
+      "key": "uploads/user123/1702834567890-uuid.jpg",
+      "size": 102400,
+      "lastModified": "2024-12-17T12:34:56.789Z",
+      "contentType": "image/jpeg",
+      "url": "https://storage.example.com/uploads/user123/1702834567890-uuid.jpg"
+    }
+  ],
+  "hasMore": true,
+  "cursor": "nextPageCursor"
+}
+```
+
+#### 刪除檔案
+```http
+DELETE /api/storage/files/:key
+Authorization: Bearer <token>
+```
+
+**回應：** 200 OK
+```json
+{
+  "message": "File deleted successfully"
+}
+```
+
+**錯誤回應：**
+- 403：無法刪除其他使用者的檔案
+- 404：找不到檔案
+
 ## 錯誤回應
 
 所有錯誤回應遵循此格式：

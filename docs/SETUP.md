@@ -112,6 +112,70 @@ wrangler secret put D1_ANALYTICS_DATABASE_ID
 > 2. Create an API token with "Analytics:Read" permission at https://dash.cloudflare.com/profile/api-tokens
 > 3. Use the same D1 database ID you created earlier
 
+#### Storage Configuration
+
+AkaMoney supports two storage providers for image uploads:
+
+1. **Cloudflare R2** (default) - Recommended for Cloudflare deployments
+2. **Azure Blob Storage** - For Azure-based deployments
+
+##### Using Cloudflare R2 (Default)
+
+R2 is configured by default. Set the `STORAGE_PROVIDER` environment variable to `r2` (or leave it unset):
+
+```toml
+# In wrangler.toml or wrangler.local.toml
+[vars]
+STORAGE_PROVIDER = "r2"
+# R2_PUBLIC_URL = "https://storage.your-domain.com"  # Optional: for public URLs
+```
+
+##### Using Azure Blob Storage
+
+To use Azure Blob Storage instead of R2:
+
+1. Create an Azure Storage Account and a container
+2. Generate a SAS token with read, write, delete, and list permissions
+3. Configure the environment variables:
+
+```bash
+# Set storage provider to Azure
+wrangler secret put STORAGE_PROVIDER
+# Enter: azure
+
+# Set Azure credentials
+wrangler secret put AZURE_STORAGE_ACCOUNT
+# Enter your storage account name
+
+wrangler secret put AZURE_STORAGE_CONTAINER
+# Enter your container name
+
+wrangler secret put AZURE_STORAGE_SAS_TOKEN
+# Enter your SAS token (with or without leading '?')
+
+# (Optional) Set public URL if using a CDN or custom domain
+wrangler secret put AZURE_PUBLIC_URL
+# Enter: https://your-cdn.azureedge.net/container
+```
+
+> **Note**: When using Azure Storage, you don't need to configure the R2 bucket. The storage provider is selected based on the `STORAGE_PROVIDER` environment variable.
+
+##### Using a CDN
+
+To serve images through a CDN instead of directly from storage (recommended for cost savings):
+
+```bash
+wrangler secret put CDN_URL
+# Enter: https://your-cdn.example.com
+```
+
+The `CDN_URL` setting takes priority over `R2_PUBLIC_URL` and `AZURE_PUBLIC_URL`. When set, all image URLs will use this base URL instead of the storage provider's public URL.
+
+**Example CDN configurations:**
+- Cloudflare CDN: `https://cdn.your-domain.com`
+- Azure CDN: `https://your-cdn.azureedge.net/container`
+- AWS CloudFront: `https://d1234567890.cloudfront.net`
+
 ### 3. Configure Environment Variables
 
 #### Backend Environment
