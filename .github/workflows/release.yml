@@ -237,12 +237,13 @@ jobs:
           fi
 
           # Storage configuration (optional - defaults to R2 if not set)
-          if [ -n "$VAR_STORAGE_PROVIDER" ]; then
+          # Note: STORAGE_PROVIDER is already defined in wrangler.toml, so we only override if a different value is set
+          if [ -n "$VAR_STORAGE_PROVIDER" ] && [ "$VAR_STORAGE_PROVIDER" != "r2" ]; then
             echo "STORAGE_PROVIDER = \"${VAR_STORAGE_PROVIDER}\"" >> "$TEMP_VARS_FILE"
             HAS_VARS=true
             echo "Storage provider configured: $VAR_STORAGE_PROVIDER"
           else
-            echo "Info: STORAGE_PROVIDER is not set, defaulting to R2..."
+            echo "Info: STORAGE_PROVIDER is not set or using default (r2)..."
           fi
 
           if [ -n "$VAR_AZURE_STORAGE_ACCOUNT" ]; then
@@ -259,11 +260,12 @@ jobs:
             echo "Info: AZURE_STORAGE_CONTAINER is not set (only needed for Azure storage)..."
           fi
 
-          # Append variables to the [vars] section (after STORAGE_PROVIDER = "r2")
+          # Append variables to the [vars] section (after STORAGE_PROVIDER line)
           if [ "$HAS_VARS" = true ]; then
             # Use awk to append variables after the STORAGE_PROVIDER line in the [vars] section
+            # The pattern matches any STORAGE_PROVIDER line regardless of its value
             awk -v file="$TEMP_VARS_FILE" '
-                /^STORAGE_PROVIDER = "r2"$/ {
+                /^STORAGE_PROVIDER = / {
                     print
                     while ((getline line < file) > 0) print line
                     close(file)
