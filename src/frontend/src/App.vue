@@ -23,11 +23,7 @@
                 <i class="bi bi-bar-chart-line me-1"></i>Statistics
               </router-link>
             </li>
-            <li v-if="authStore.isAuthenticated" class="nav-item">
-              <router-link to="/db-usage" class="nav-link">
-                <i class="bi bi-database me-1"></i>Usage
-              </router-link>
-            </li>
+
             <li class="nav-item">
               <button
                 class="nav-link btn btn-link"

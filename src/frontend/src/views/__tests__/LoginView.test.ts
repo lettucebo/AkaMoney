@@ -177,7 +177,7 @@ describe('LoginView', () => {
       authStore.isAuthenticated = true;
       authStore.initialized = true;
 
-      await router.push('/login?redirect=/db-usage');
+      await router.push('/login?redirect=/stats');
       
       const pushSpy = vi.spyOn(router, 'push');
 
@@ -190,7 +190,7 @@ describe('LoginView', () => {
       await flushPromises();
 
       // Should redirect to the internal path
-      expect(pushSpy).toHaveBeenCalledWith('/db-usage');
+      expect(pushSpy).toHaveBeenCalledWith('/stats');
     });
 
     it('should reject URLs containing protocol scheme', async () => {

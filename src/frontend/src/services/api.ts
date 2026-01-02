@@ -337,49 +337,6 @@ class ApiService {
     return response.data;
   }
 
-  // D1 Usage Statistics
-  async getD1Stats(startDate?: string, endDate?: string): Promise<any> {
-    // Return mock D1 stats in skip auth mode
-    if (isAuthSkipped()) {
-      return {
-        storage: {
-          estimatedSizeMB: 2.5,
-          estimatedSizeGB: 0.0024,
-          limitGB: 5,
-          usagePercent: 0.05
-        },
-        reads: {
-          total: 1368,
-          limitPerDay: 5000000,
-          usagePercent: 0.03
-        },
-        writes: {
-          total: 456,
-          limitPerDay: 100000,
-          usagePercent: 0.46
-        },
-        dateRange: {
-          start: startDate || new Date().toISOString().split('T')[0],
-          end: endDate || new Date().toISOString().split('T')[0]
-        },
-        dataSource: 'cloudflare',
-        fallbackReason: undefined,
-        timestamp: new Date().toISOString()
-      };
-    }
-
-    // Build query string with optional date parameters
-    const params = new URLSearchParams();
-    if (startDate) params.append('startDate', startDate);
-    if (endDate) params.append('endDate', endDate);
-    
-    const queryString = params.toString();
-    const url = queryString ? `/api/stats/d1?${queryString}` : '/api/stats/d1';
-    
-    const response = await this.api.get(url);
-    return response.data;
-  }
-
   // Health Check
   async healthCheck(): Promise<{ status: string; timestamp: number }> {
     const response = await this.api.get('/health');

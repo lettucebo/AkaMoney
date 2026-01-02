@@ -106,28 +106,3 @@ export interface LoginResponse {
   user: User;
 }
 
-export interface D1UsageStats {
-  storage: {
-    estimatedSizeMB: number;
-    estimatedSizeGB: number;
-    limitGB: number;
-    usagePercent: number;
-  };
-  reads: {
-    total: number;
-    limitPerDay: number;
-    usagePercent: number;
-  };
-  writes: {
-    total: number;
-    limitPerDay: number;
-    usagePercent: number;
-  };
-  dateRange: {
-    start: string;
-    end: string;
-  };
-  dataSource: 'cloudflare' | 'estimated';
-  fallbackReason?: string;
-  timestamp: string;
-}
