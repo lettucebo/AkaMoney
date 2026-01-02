@@ -237,13 +237,13 @@ jobs:
           fi
 
           # Storage configuration (optional - defaults to R2 if not set)
-          # Note: STORAGE_PROVIDER is already defined in wrangler.toml, so we only override if a different value is set
-          if [ -n "$VAR_STORAGE_PROVIDER" ] && [ "$VAR_STORAGE_PROVIDER" != "r2" ]; then
-            echo "STORAGE_PROVIDER = \"${VAR_STORAGE_PROVIDER}\"" >> "$TEMP_VARS_FILE"
-            HAS_VARS=true
+          # Note: STORAGE_PROVIDER is already defined in wrangler.toml, so we replace it instead of appending
+          if [ -n "$VAR_STORAGE_PROVIDER" ]; then
+            # Replace the existing STORAGE_PROVIDER value in wrangler.toml
+            sed -i "s/^STORAGE_PROVIDER = .*/STORAGE_PROVIDER = \"${VAR_STORAGE_PROVIDER}\"/" wrangler.toml
             echo "Storage provider configured: $VAR_STORAGE_PROVIDER"
           else
-            echo "Info: STORAGE_PROVIDER is not set or using default (r2)..."
+            echo "Info: STORAGE_PROVIDER is not set, using default from wrangler.toml (r2)..."
           fi
 
           if [ -n "$VAR_AZURE_STORAGE_ACCOUNT" ]; then
