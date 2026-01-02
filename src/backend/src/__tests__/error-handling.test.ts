@@ -56,7 +56,9 @@ describe('API Error Handling', () => {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({})
+        body: JSON.stringify({
+          short_code: 'test123'
+        })
       });
       
       // Should get error with details
@@ -78,7 +80,8 @@ describe('API Error Handling', () => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          original_url: 'not-a-valid-url'
+          original_url: 'not-a-valid-url',
+          short_code: 'test456'
         })
       });
       

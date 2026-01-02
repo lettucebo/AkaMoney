@@ -15,7 +15,7 @@ export interface UrlResponse {
 
 export interface CreateUrlRequest {
   original_url: string;
-  short_code?: string;
+  short_code: string;
   title?: string;
   description?: string;
   expires_at?: number;

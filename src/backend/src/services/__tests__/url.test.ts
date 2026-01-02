@@ -208,6 +208,33 @@ describe('URL Service - Database Functions', () => {
       })).rejects.toThrow(ValidationError);
     });
 
+    it('should throw ValidationError for whitespace-only short code', async () => {
+      const mockDb = createMockDb();
+      
+      await expect(createUrl(mockDb as any, {
+        original_url: 'https://example.com',
+        short_code: '   ' // Only whitespace
+      })).rejects.toThrow(ValidationError);
+      
+      await expect(createUrl(mockDb as any, {
+        original_url: 'https://example.com',
+        short_code: '\t\n' // Tabs and newlines
+      })).rejects.toThrow(ValidationError);
+    });
+
+    it('should trim whitespace from short code', async () => {
+      const mockDb = createMockDb();
+      mockDb._mockFirst.mockResolvedValue(null);
+      mockDb._mockRun.mockResolvedValue({});
+      
+      const result = await createUrl(mockDb as any, {
+        original_url: 'https://example.com',
+        short_code: '  mycode  ' // Whitespace around code
+      });
+      
+      expect(result.short_code).toBe('mycode'); // Should be trimmed
+    });
+
     it('should throw ConflictError when custom short code exists', async () => {
       const mockDb = createMockDb();
       mockDb._mockFirst.mockResolvedValue({ id: 'existing-id' });
@@ -251,26 +278,14 @@ describe('URL Service - Database Functions', () => {
       expect(result.description).toBe('Test Description');
     });
 
-    it('should create URL with generated short code', async () => {
-      const mockDb = createMockDb();
-      mockDb._mockFirst.mockResolvedValue(null);
-      mockDb._mockRun.mockResolvedValue({});
-      
-      const result = await createUrl(mockDb as any, {
-        original_url: 'https://example.com'
-      });
-      
-      expect(result.short_code).toHaveLength(6);
-      expect(result.original_url).toBe('https://example.com');
-    });
-
     it('should create URL with user ID', async () => {
       const mockDb = createMockDb();
       mockDb._mockFirst.mockResolvedValue(null);
       mockDb._mockRun.mockResolvedValue({});
       
       const result = await createUrl(mockDb as any, {
-        original_url: 'https://example.com'
+        original_url: 'https://example.com',
+        short_code: 'user123'
       }, 'user-123');
       
       expect(result).toBeDefined();
@@ -284,6 +299,7 @@ describe('URL Service - Database Functions', () => {
       const expiresAt = Date.now() + 86400000;
       const result = await createUrl(mockDb as any, {
         original_url: 'https://example.com',
+        short_code: 'expiry1',
         expires_at: expiresAt
       });
       
