@@ -304,6 +304,8 @@ const clearPreviewImage = () => {
   if (fileInput.value) {
     fileInput.value.value = '';
   }
+};
+
 const generateRandomCode = () => {
   formData.value.short_code = nanoid(8);
 };
