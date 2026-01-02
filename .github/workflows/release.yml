@@ -259,11 +259,18 @@ jobs:
             echo "Info: AZURE_STORAGE_CONTAINER is not set (only needed for Azure storage)..."
           fi
 
-          # Append variables to the [vars] section (before the next section)
+          # Append variables to the [vars] section (after STORAGE_PROVIDER = "r2")
           if [ "$HAS_VARS" = true ]; then
-            # Insert variables before the "# Routes for production" comment line
-            # This keeps them within the [vars] section
-            sed -i '/^# Routes for production/e cat '"$TEMP_VARS_FILE" wrangler.toml
+            # Use awk to append variables after the STORAGE_PROVIDER line in the [vars] section
+            awk -v file="$TEMP_VARS_FILE" '
+                /^STORAGE_PROVIDER = "r2"$/ {
+                    print
+                    while ((getline line < file) > 0) print line
+                    close(file)
+                    next
+                }
+                { print }
+            ' wrangler.toml > wrangler.toml.new && mv wrangler.toml.new wrangler.toml
             echo "Worker variables injected successfully"
           else
             echo "No variables to inject"
