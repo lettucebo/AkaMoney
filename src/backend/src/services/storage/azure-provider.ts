@@ -86,9 +86,9 @@ export class AzureStorageProvider implements StorageProvider {
     // Add custom metadata as headers
     // Azure metadata keys must be valid HTTP header names (alphanumeric and hyphens only)
     if (options?.customMetadata) {
-      for (const [key, value] of Object.entries(options.customMetadata)) {
+      for (const [metaKey, value] of Object.entries(options.customMetadata)) {
         // Sanitize key: only allow alphanumeric and hyphens, replace other chars with hyphen
-        const sanitizedKey = key.replace(/[^a-zA-Z0-9-]/g, '-');
+        const sanitizedKey = metaKey.replace(/[^a-zA-Z0-9-]/g, '-');
         if (sanitizedKey.length > 0) {
           headers[`x-ms-meta-${sanitizedKey}`] = value;
         }

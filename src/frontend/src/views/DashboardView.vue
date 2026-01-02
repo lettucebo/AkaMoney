@@ -860,9 +860,9 @@ const handleEditDrop = (event: DragEvent) => {
 };
 
 const uploadEditImage = async (file: File) => {
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
   if (!allowedTypes.includes(file.type)) {
-    editImageError.value = 'Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed.';
+    editImageError.value = 'Invalid file type. Only JPEG, PNG, GIF, WebP, and SVG are allowed.';
     return;
   }
   

@@ -258,9 +258,9 @@ const handleDrop = (event: DragEvent) => {
 
 const uploadImage = async (file: File) => {
   // Validate file type
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
   if (!allowedTypes.includes(file.type)) {
-    imageError.value = 'Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed.';
+    imageError.value = 'Invalid file type. Only JPEG, PNG, GIF, WebP, and SVG are allowed.';
     return;
   }
   
