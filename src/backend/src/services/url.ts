@@ -55,39 +55,24 @@ export async function createUrl(
     throw new ValidationError('Invalid URL format');
   }
 
-  // Generate or validate short code
-  let shortCode = data.short_code;
-  if (shortCode) {
-    if (!isValidShortCode(shortCode)) {
-      throw new ValidationError('Invalid short code format. Use 3-20 alphanumeric characters, hyphens, or underscores.');
-    }
-    
-    // Check if short code already exists (case-insensitive)
-    const existing = await db
-      .prepare('SELECT id FROM urls WHERE LOWER(short_code) = LOWER(?)')
-      .bind(shortCode)
-      .first();
-    
-    if (existing) {
-      throw new ConflictError('Short code already exists. Please choose a different one.');
-    }
-  } else {
-    // Generate unique short code
-    let attempts = 0;
-    while (attempts < MAX_SHORT_CODE_GENERATION_ATTEMPTS) {
-      shortCode = generateShortCode();
-      const existing = await db
-        .prepare('SELECT id FROM urls WHERE LOWER(short_code) = LOWER(?)')
-        .bind(shortCode)
-        .first();
-      
-      if (!existing) break;
-      attempts++;
-    }
-    
-    if (attempts === MAX_SHORT_CODE_GENERATION_ATTEMPTS) {
-      throw new Error('Failed to generate unique short code');
-    }
+  // Validate short code is provided
+  if (!data.short_code) {
+    throw new ValidationError('Short code is required');
+  }
+
+  // Validate short code format
+  if (!isValidShortCode(data.short_code)) {
+    throw new ValidationError('Invalid short code format. Use 3-20 alphanumeric characters, hyphens, or underscores.');
+  }
+  
+  // Check if short code already exists (case-insensitive)
+  const existing = await db
+    .prepare('SELECT id FROM urls WHERE LOWER(short_code) = LOWER(?)')
+    .bind(data.short_code)
+    .first();
+  
+  if (existing) {
+    throw new ConflictError('Short code already exists. Please choose a different one.');
   }
 
   const now = Date.now();
@@ -95,7 +80,7 @@ export async function createUrl(
 
   const url: Url = {
     id,
-    short_code: shortCode!,
+    short_code: data.short_code,
     original_url: data.original_url,
     user_id: userId || null,
     title: data.title || null,
