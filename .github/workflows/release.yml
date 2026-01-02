@@ -260,19 +260,33 @@ jobs:
             echo "Info: AZURE_STORAGE_CONTAINER is not set (only needed for Azure storage)..."
           fi
 
-          # Append variables to the [vars] section (after STORAGE_PROVIDER line)
+          # Append variables to the [vars] section (after STORAGE_PROVIDER line or after [vars] header)
           if [ "$HAS_VARS" = true ]; then
-            # Use awk to append variables after the STORAGE_PROVIDER line in the [vars] section
-            # The pattern matches any STORAGE_PROVIDER line regardless of its value
-            awk -v file="$TEMP_VARS_FILE" '
-                /^STORAGE_PROVIDER = / {
-                    print
-                    while ((getline line < file) > 0) print line
-                    close(file)
-                    next
-                }
-                { print }
-            ' wrangler.toml > wrangler.toml.new && mv wrangler.toml.new wrangler.toml
+            # Check if STORAGE_PROVIDER line exists, then append after it
+            # Otherwise, fall back to appending after [vars] section header
+            if grep -q '^STORAGE_PROVIDER = ' wrangler.toml; then
+              # STORAGE_PROVIDER exists, append after it
+              awk -v file="$TEMP_VARS_FILE" '
+                  /^STORAGE_PROVIDER = / {
+                      print
+                      while ((getline line < file) > 0) print line
+                      close(file)
+                      next
+                  }
+                  { print }
+              ' wrangler.toml > wrangler.toml.new && mv wrangler.toml.new wrangler.toml
+            else
+              # STORAGE_PROVIDER not found, append after [vars] section header
+              awk -v file="$TEMP_VARS_FILE" '
+                  /^\[vars\]$/ {
+                      print
+                      while ((getline line < file) > 0) print line
+                      close(file)
+                      next
+                  }
+                  { print }
+              ' wrangler.toml > wrangler.toml.new && mv wrangler.toml.new wrangler.toml
+            fi
             echo "Worker variables injected successfully"
           else
             echo "No variables to inject"
