@@ -181,38 +181,107 @@ jobs:
             echo "Bucket '$BUCKET_NAME' created successfully"
           fi
 
+      - name: Inject Worker variables into wrangler.toml
+        env:
+          VAR_ENTRA_ID_TENANT_ID: ${{ vars.ENTRA_ID_TENANT_ID }}
+          VAR_ENTRA_ID_CLIENT_ID: ${{ vars.ENTRA_ID_CLIENT_ID }}
+          VAR_SHORT_DOMAIN: ${{ vars.SHORT_DOMAIN }}
+          VAR_D1_ANALYTICS_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          VAR_D1_ANALYTICS_DATABASE_ID: ${{ vars.CLOUDFLARE_D1_DATABASE_ID }}
+          VAR_STORAGE_PROVIDER: ${{ vars.STORAGE_PROVIDER }}
+          VAR_AZURE_STORAGE_ACCOUNT: ${{ vars.AZURE_STORAGE_ACCOUNT }}
+          VAR_AZURE_STORAGE_CONTAINER: ${{ vars.AZURE_STORAGE_CONTAINER }}
+        run: |
+          set -e
+          cd src/backend
+          echo "Injecting Worker variables into wrangler.toml..."
+
+          # Create a temporary file for variables
+          TEMP_VARS_FILE=$(mktemp)
+          HAS_VARS=false
+
+          if [ -n "$VAR_ENTRA_ID_TENANT_ID" ]; then
+            echo "ENTRA_ID_TENANT_ID = \"${VAR_ENTRA_ID_TENANT_ID}\"" >> "$TEMP_VARS_FILE"
+            HAS_VARS=true
+          else
+            echo "Warning: ENTRA_ID_TENANT_ID is not set, skipping..."
+          fi
+
+          if [ -n "$VAR_ENTRA_ID_CLIENT_ID" ]; then
+            echo "ENTRA_ID_CLIENT_ID = \"${VAR_ENTRA_ID_CLIENT_ID}\"" >> "$TEMP_VARS_FILE"
+            HAS_VARS=true
+          else
+            echo "Warning: ENTRA_ID_CLIENT_ID is not set, skipping..."
+          fi
+
+          if [ -n "$VAR_SHORT_DOMAIN" ]; then
+            echo "SHORT_DOMAIN = \"${VAR_SHORT_DOMAIN}\"" >> "$TEMP_VARS_FILE"
+            HAS_VARS=true
+          else
+            echo "Warning: SHORT_DOMAIN is not set, skipping..."
+          fi
+
+          # D1 Analytics configuration (optional)
+          if [ -n "$VAR_D1_ANALYTICS_ACCOUNT_ID" ]; then
+            echo "D1_ANALYTICS_ACCOUNT_ID = \"${VAR_D1_ANALYTICS_ACCOUNT_ID}\"" >> "$TEMP_VARS_FILE"
+            HAS_VARS=true
+          else
+            echo "Warning: D1_ANALYTICS_ACCOUNT_ID for D1 analytics is not set, D1 stats will use estimation mode..."
+          fi
+
+          if [ -n "$VAR_D1_ANALYTICS_DATABASE_ID" ]; then
+            echo "D1_ANALYTICS_DATABASE_ID = \"${VAR_D1_ANALYTICS_DATABASE_ID}\"" >> "$TEMP_VARS_FILE"
+            HAS_VARS=true
+          else
+            echo "Warning: D1_ANALYTICS_DATABASE_ID for D1 analytics is not set, D1 stats will use estimation mode..."
+          fi
+
+          # Storage configuration (optional - defaults to R2 if not set)
+          if [ -n "$VAR_STORAGE_PROVIDER" ]; then
+            echo "STORAGE_PROVIDER = \"${VAR_STORAGE_PROVIDER}\"" >> "$TEMP_VARS_FILE"
+            HAS_VARS=true
+            echo "Storage provider configured: $VAR_STORAGE_PROVIDER"
+          else
+            echo "Info: STORAGE_PROVIDER is not set, defaulting to R2..."
+          fi
+
+          if [ -n "$VAR_AZURE_STORAGE_ACCOUNT" ]; then
+            echo "AZURE_STORAGE_ACCOUNT = \"${VAR_AZURE_STORAGE_ACCOUNT}\"" >> "$TEMP_VARS_FILE"
+            HAS_VARS=true
+          else
+            echo "Info: AZURE_STORAGE_ACCOUNT is not set (only needed for Azure storage)..."
+          fi
+
+          if [ -n "$VAR_AZURE_STORAGE_CONTAINER" ]; then
+            echo "AZURE_STORAGE_CONTAINER = \"${VAR_AZURE_STORAGE_CONTAINER}\"" >> "$TEMP_VARS_FILE"
+            HAS_VARS=true
+          else
+            echo "Info: AZURE_STORAGE_CONTAINER is not set (only needed for Azure storage)..."
+          fi
+
+          # Append variables to the [vars] section (before the next section)
+          if [ "$HAS_VARS" = true ]; then
+            # Insert variables before the "# Routes for production" comment line
+            # This keeps them within the [vars] section
+            sed -i '/^# Routes for production/e cat '"$TEMP_VARS_FILE" wrangler.toml
+            echo "Worker variables injected successfully"
+          else
+            echo "No variables to inject"
+          fi
+
+          rm -f "$TEMP_VARS_FILE"
+
       - name: Configure Worker secrets
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-          SECRET_ENTRA_ID_TENANT_ID: ${{ vars.ENTRA_ID_TENANT_ID }}
-          SECRET_ENTRA_ID_CLIENT_ID: ${{ vars.ENTRA_ID_CLIENT_ID }}
           SECRET_ENTRA_ID_CLIENT_SECRET: ${{ secrets.ENTRA_ID_CLIENT_SECRET }}
-          SECRET_SHORT_DOMAIN: ${{ vars.SHORT_DOMAIN }}
           SECRET_D1_ANALYTICS_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          SECRET_D1_ANALYTICS_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-          SECRET_D1_ANALYTICS_DATABASE_ID: ${{ vars.CLOUDFLARE_D1_DATABASE_ID }}
-          # Storage configuration (optional - defaults to R2 if not set)
-          SECRET_STORAGE_PROVIDER: ${{ vars.STORAGE_PROVIDER }}
-          SECRET_AZURE_STORAGE_ACCOUNT: ${{ vars.AZURE_STORAGE_ACCOUNT }}
-          SECRET_AZURE_STORAGE_CONTAINER: ${{ vars.AZURE_STORAGE_CONTAINER }}
           SECRET_AZURE_STORAGE_SAS_TOKEN: ${{ secrets.AZURE_STORAGE_SAS_TOKEN }}
         run: |
           set -e
           cd src/backend
           echo "Configuring Worker secrets..."
-
-          if [ -n "$SECRET_ENTRA_ID_TENANT_ID" ]; then
-            npx wrangler secret put ENTRA_ID_TENANT_ID <<< "$SECRET_ENTRA_ID_TENANT_ID"
-          else
-            echo "Warning: ENTRA_ID_TENANT_ID is not set, skipping..."
-          fi
-
-          if [ -n "$SECRET_ENTRA_ID_CLIENT_ID" ]; then
-            npx wrangler secret put ENTRA_ID_CLIENT_ID <<< "$SECRET_ENTRA_ID_CLIENT_ID"
-          else
-            echo "Warning: ENTRA_ID_CLIENT_ID is not set, skipping..."
-          fi
 
           if [ -n "$SECRET_ENTRA_ID_CLIENT_SECRET" ]; then
             npx wrangler secret put ENTRA_ID_CLIENT_SECRET <<< "$SECRET_ENTRA_ID_CLIENT_SECRET"
@@ -220,51 +289,14 @@ jobs:
             echo "Warning: ENTRA_ID_CLIENT_SECRET is not set, skipping..."
           fi
 
-          if [ -n "$SECRET_SHORT_DOMAIN" ]; then
-            npx wrangler secret put SHORT_DOMAIN <<< "$SECRET_SHORT_DOMAIN"
-          else
-            echo "Warning: SHORT_DOMAIN is not set, skipping..."
-          fi
-
-          # Configure Cloudflare D1 Analytics credentials (optional)
+          # Configure Cloudflare D1 Analytics API token (optional - this is a secret)
           if [ -n "$SECRET_D1_ANALYTICS_API_TOKEN" ]; then
             npx wrangler secret put D1_ANALYTICS_API_TOKEN <<< "$SECRET_D1_ANALYTICS_API_TOKEN"
           else
             echo "Warning: D1_ANALYTICS_API_TOKEN for D1 analytics is not set, D1 stats will use estimation mode..."
           fi
 
-          if [ -n "$SECRET_D1_ANALYTICS_ACCOUNT_ID" ]; then
-            npx wrangler secret put D1_ANALYTICS_ACCOUNT_ID <<< "$SECRET_D1_ANALYTICS_ACCOUNT_ID"
-          else
-            echo "Warning: D1_ANALYTICS_ACCOUNT_ID for D1 analytics is not set, D1 stats will use estimation mode..."
-          fi
-
-          if [ -n "$SECRET_D1_ANALYTICS_DATABASE_ID" ]; then
-            npx wrangler secret put D1_ANALYTICS_DATABASE_ID <<< "$SECRET_D1_ANALYTICS_DATABASE_ID"
-          else
-            echo "Warning: D1_ANALYTICS_DATABASE_ID for D1 analytics is not set, D1 stats will use estimation mode..."
-          fi
-
-          # Configure Azure Storage credentials (optional - only needed if using Azure instead of R2)
-          if [ -n "$SECRET_STORAGE_PROVIDER" ]; then
-            npx wrangler secret put STORAGE_PROVIDER <<< "$SECRET_STORAGE_PROVIDER"
-            echo "Storage provider configured: $SECRET_STORAGE_PROVIDER"
-          else
-            echo "Info: STORAGE_PROVIDER is not set, defaulting to R2..."
-          fi
-
-          if [ -n "$SECRET_AZURE_STORAGE_ACCOUNT" ]; then
-            npx wrangler secret put AZURE_STORAGE_ACCOUNT <<< "$SECRET_AZURE_STORAGE_ACCOUNT"
-          else
-            echo "Info: AZURE_STORAGE_ACCOUNT is not set (only needed for Azure storage)..."
-          fi
-
-          if [ -n "$SECRET_AZURE_STORAGE_CONTAINER" ]; then
-            npx wrangler secret put AZURE_STORAGE_CONTAINER <<< "$SECRET_AZURE_STORAGE_CONTAINER"
-          else
-            echo "Info: AZURE_STORAGE_CONTAINER is not set (only needed for Azure storage)..."
-          fi
-
+          # Configure Azure Storage SAS token (optional - only needed if using Azure instead of R2)
           if [ -n "$SECRET_AZURE_STORAGE_SAS_TOKEN" ]; then
             npx wrangler secret put AZURE_STORAGE_SAS_TOKEN <<< "$SECRET_AZURE_STORAGE_SAS_TOKEN"
           else
