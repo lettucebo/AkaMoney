@@ -55,7 +55,7 @@
             @click="generateRandomCode"
             title="Generate random 8-character code"
           >
-            <i class="bi bi-shuffle"></i>
+            <i class="bi bi-shuffle"></i> Random
           </button>
         </div>
         <div class="form-text">

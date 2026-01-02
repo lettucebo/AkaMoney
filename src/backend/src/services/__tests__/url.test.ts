@@ -251,7 +251,7 @@ describe('URL Service - Database Functions', () => {
       expect(result.description).toBe('Test Description');
     });
 
-    it('should create URL with generated short code', async () => {
+    it('should create URL with provided short code', async () => {
       const mockDb = createMockDb();
       mockDb._mockFirst.mockResolvedValue(null);
       mockDb._mockRun.mockResolvedValue({});
