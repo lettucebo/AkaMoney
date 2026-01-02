@@ -55,20 +55,21 @@ export async function createUrl(
     throw new ValidationError('Invalid URL format');
   }
 
-  // Validate short code is provided
-  if (!data.short_code) {
+  // Validate short code is provided and trim whitespace
+  const shortCode = data.short_code?.trim();
+  if (!shortCode) {
     throw new ValidationError('Short code is required');
   }
 
   // Validate short code format
-  if (!isValidShortCode(data.short_code)) {
+  if (!isValidShortCode(shortCode)) {
     throw new ValidationError('Invalid short code format. Use 3-20 alphanumeric characters, hyphens, or underscores.');
   }
   
   // Check if short code already exists (case-insensitive)
   const existing = await db
     .prepare('SELECT id FROM urls WHERE LOWER(short_code) = LOWER(?)')
-    .bind(data.short_code)
+    .bind(shortCode)
     .first();
   
   if (existing) {
@@ -80,7 +81,7 @@ export async function createUrl(
 
   const url: Url = {
     id,
-    short_code: data.short_code,
+    short_code: shortCode,
     original_url: data.original_url,
     user_id: userId || null,
     title: data.title || null,
