@@ -50,7 +50,7 @@ function getPublicUrl(env: StorageEnv, provider: StorageProviderType): string | 
  * Get the storage configuration from environment
  */
 export function getStorageConfig(env: StorageEnv): StorageConfig {
-  const provider = (env.STORAGE_PROVIDER || 'r2') as StorageProviderType;
+  const provider = (env.STORAGE_PROVIDER?.toLowerCase() || 'r2') as StorageProviderType;
   const publicUrl = getPublicUrl(env, provider);
 
   return {
@@ -67,7 +67,7 @@ export function getStorageConfig(env: StorageEnv): StorageConfig {
  * @throws Error if required configuration is missing
  */
 export function createStorageProvider(env: StorageEnv): StorageProvider {
-  const provider = (env.STORAGE_PROVIDER || 'r2') as StorageProviderType;
+  const provider = (env.STORAGE_PROVIDER?.toLowerCase() || 'r2') as StorageProviderType;
   const publicUrl = getPublicUrl(env, provider);
 
   switch (provider) {
@@ -105,7 +105,7 @@ export function createStorageProvider(env: StorageEnv): StorageProvider {
  * Check if storage is configured and available
  */
 export function isStorageConfigured(env: StorageEnv): boolean {
-  const provider = (env.STORAGE_PROVIDER || 'r2') as StorageProviderType;
+  const provider = (env.STORAGE_PROVIDER?.toLowerCase() || 'r2') as StorageProviderType;
 
   switch (provider) {
     case 'r2':

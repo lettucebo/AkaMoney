@@ -26,9 +26,36 @@ describe('Storage Factory', () => {
       expect(config.provider).toBe('azure');
     });
 
+    it('should handle uppercase provider names (Azure)', () => {
+      const config = getStorageConfig({ STORAGE_PROVIDER: 'Azure' as any });
+
+      expect(config.provider).toBe('azure');
+    });
+
+    it('should handle uppercase provider names (R2)', () => {
+      const config = getStorageConfig({ STORAGE_PROVIDER: 'R2' as any });
+
+      expect(config.provider).toBe('r2');
+    });
+
+    it('should handle mixed case provider names (AZURE)', () => {
+      const config = getStorageConfig({ STORAGE_PROVIDER: 'AZURE' as any });
+
+      expect(config.provider).toBe('azure');
+    });
+
     it('should include R2 public URL for r2 provider', () => {
       const config = getStorageConfig({
         STORAGE_PROVIDER: 'r2',
+        R2_PUBLIC_URL: 'https://r2.example.com'
+      });
+
+      expect(config.publicUrl).toBe('https://r2.example.com');
+    });
+
+    it('should include R2 public URL with uppercase provider name', () => {
+      const config = getStorageConfig({
+        STORAGE_PROVIDER: 'R2' as any,
         R2_PUBLIC_URL: 'https://r2.example.com'
       });
 
@@ -42,6 +69,34 @@ describe('Storage Factory', () => {
       });
 
       expect(config.publicUrl).toBe('https://azure.example.com');
+    });
+
+    it('should include Azure public URL with uppercase provider name', () => {
+      const config = getStorageConfig({
+        STORAGE_PROVIDER: 'Azure' as any,
+        AZURE_PUBLIC_URL: 'https://azure.example.com'
+      });
+
+      expect(config.publicUrl).toBe('https://azure.example.com');
+    });
+
+    it('should include Azure public URL with all-caps provider name', () => {
+      const config = getStorageConfig({
+        STORAGE_PROVIDER: 'AZURE' as any,
+        AZURE_PUBLIC_URL: 'https://azure.example.com'
+      });
+
+      expect(config.publicUrl).toBe('https://azure.example.com');
+    });
+
+    it('should prioritize CDN_URL over storage-specific URLs with uppercase provider', () => {
+      const config = getStorageConfig({
+        STORAGE_PROVIDER: 'Azure' as any,
+        AZURE_PUBLIC_URL: 'https://azure.example.com',
+        CDN_URL: 'https://cdn.example.com'
+      });
+
+      expect(config.publicUrl).toBe('https://cdn.example.com');
     });
   });
 
@@ -68,6 +123,17 @@ describe('Storage Factory', () => {
       expect(provider).toBeInstanceOf(R2StorageProvider);
     });
 
+    it('should create R2StorageProvider with uppercase provider name', () => {
+      const env: StorageEnv = {
+        STORAGE_PROVIDER: 'R2' as any,
+        BUCKET: mockR2Bucket
+      };
+
+      const provider = createStorageProvider(env);
+
+      expect(provider).toBeInstanceOf(R2StorageProvider);
+    });
+
     it('should throw error when R2 bucket is missing', () => {
       const env: StorageEnv = {
         STORAGE_PROVIDER: 'r2'
@@ -80,6 +146,32 @@ describe('Storage Factory', () => {
     it('should create AzureStorageProvider when specified', () => {
       const env: StorageEnv = {
         STORAGE_PROVIDER: 'azure',
+        AZURE_STORAGE_ACCOUNT: 'testaccount',
+        AZURE_STORAGE_CONTAINER: 'testcontainer',
+        AZURE_STORAGE_SAS_TOKEN: 'sv=2021-06-08&sig=test'
+      };
+
+      const provider = createStorageProvider(env);
+
+      expect(provider).toBeInstanceOf(AzureStorageProvider);
+    });
+
+    it('should create AzureStorageProvider with uppercase provider name', () => {
+      const env: StorageEnv = {
+        STORAGE_PROVIDER: 'Azure' as any,
+        AZURE_STORAGE_ACCOUNT: 'testaccount',
+        AZURE_STORAGE_CONTAINER: 'testcontainer',
+        AZURE_STORAGE_SAS_TOKEN: 'sv=2021-06-08&sig=test'
+      };
+
+      const provider = createStorageProvider(env);
+
+      expect(provider).toBeInstanceOf(AzureStorageProvider);
+    });
+
+    it('should create AzureStorageProvider with all uppercase provider name', () => {
+      const env: StorageEnv = {
+        STORAGE_PROVIDER: 'AZURE' as any,
         AZURE_STORAGE_ACCOUNT: 'testaccount',
         AZURE_STORAGE_CONTAINER: 'testcontainer',
         AZURE_STORAGE_SAS_TOKEN: 'sv=2021-06-08&sig=test'
@@ -153,6 +245,28 @@ describe('Storage Factory', () => {
     it('should return true when Azure is fully configured', () => {
       const env: StorageEnv = {
         STORAGE_PROVIDER: 'azure',
+        AZURE_STORAGE_ACCOUNT: 'testaccount',
+        AZURE_STORAGE_CONTAINER: 'testcontainer',
+        AZURE_STORAGE_SAS_TOKEN: 'token'
+      };
+
+      expect(isStorageConfigured(env)).toBe(true);
+    });
+
+    it('should return true when Azure is fully configured with uppercase provider', () => {
+      const env: StorageEnv = {
+        STORAGE_PROVIDER: 'Azure' as any,
+        AZURE_STORAGE_ACCOUNT: 'testaccount',
+        AZURE_STORAGE_CONTAINER: 'testcontainer',
+        AZURE_STORAGE_SAS_TOKEN: 'token'
+      };
+
+      expect(isStorageConfigured(env)).toBe(true);
+    });
+
+    it('should return true when Azure is fully configured with all uppercase provider', () => {
+      const env: StorageEnv = {
+        STORAGE_PROVIDER: 'AZURE' as any,
         AZURE_STORAGE_ACCOUNT: 'testaccount',
         AZURE_STORAGE_CONTAINER: 'testcontainer',
         AZURE_STORAGE_SAS_TOKEN: 'token'
