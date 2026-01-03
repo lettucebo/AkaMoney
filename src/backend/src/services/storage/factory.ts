@@ -32,14 +32,17 @@ export interface StorageEnv {
  * Get the public URL for storage, respecting CDN_URL override
  */
 function getPublicUrl(env: StorageEnv, provider: StorageProviderType): string | undefined {
+  // Normalize provider to lowercase for case-insensitive comparison
+  const normalizedProvider = provider.toLowerCase() as StorageProviderType;
+  
   // CDN_URL takes priority over storage-specific public URLs
   if (env.CDN_URL) {
     return env.CDN_URL;
   }
 
-  if (provider === 'r2') {
+  if (normalizedProvider === 'r2') {
     return env.R2_PUBLIC_URL;
-  } else if (provider === 'azure') {
+  } else if (normalizedProvider === 'azure') {
     return env.AZURE_PUBLIC_URL;
   }
 
@@ -50,7 +53,7 @@ function getPublicUrl(env: StorageEnv, provider: StorageProviderType): string | 
  * Get the storage configuration from environment
  */
 export function getStorageConfig(env: StorageEnv): StorageConfig {
-  const provider = (env.STORAGE_PROVIDER || 'r2') as StorageProviderType;
+  const provider = (env.STORAGE_PROVIDER?.toLowerCase() || 'r2') as StorageProviderType;
   const publicUrl = getPublicUrl(env, provider);
 
   return {
@@ -67,7 +70,7 @@ export function getStorageConfig(env: StorageEnv): StorageConfig {
  * @throws Error if required configuration is missing
  */
 export function createStorageProvider(env: StorageEnv): StorageProvider {
-  const provider = (env.STORAGE_PROVIDER || 'r2') as StorageProviderType;
+  const provider = (env.STORAGE_PROVIDER?.toLowerCase() || 'r2') as StorageProviderType;
   const publicUrl = getPublicUrl(env, provider);
 
   switch (provider) {
@@ -105,7 +108,7 @@ export function createStorageProvider(env: StorageEnv): StorageProvider {
  * Check if storage is configured and available
  */
 export function isStorageConfigured(env: StorageEnv): boolean {
-  const provider = (env.STORAGE_PROVIDER || 'r2') as StorageProviderType;
+  const provider = (env.STORAGE_PROVIDER?.toLowerCase() || 'r2') as StorageProviderType;
 
   switch (provider) {
     case 'r2':
