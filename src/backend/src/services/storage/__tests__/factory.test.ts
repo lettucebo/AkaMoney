@@ -53,6 +53,15 @@ describe('Storage Factory', () => {
       expect(config.publicUrl).toBe('https://r2.example.com');
     });
 
+    it('should include R2 public URL with uppercase provider name', () => {
+      const config = getStorageConfig({
+        STORAGE_PROVIDER: 'R2' as any,
+        R2_PUBLIC_URL: 'https://r2.example.com'
+      });
+
+      expect(config.publicUrl).toBe('https://r2.example.com');
+    });
+
     it('should include Azure public URL for azure provider', () => {
       const config = getStorageConfig({
         STORAGE_PROVIDER: 'azure',
@@ -60,6 +69,34 @@ describe('Storage Factory', () => {
       });
 
       expect(config.publicUrl).toBe('https://azure.example.com');
+    });
+
+    it('should include Azure public URL with uppercase provider name', () => {
+      const config = getStorageConfig({
+        STORAGE_PROVIDER: 'Azure' as any,
+        AZURE_PUBLIC_URL: 'https://azure.example.com'
+      });
+
+      expect(config.publicUrl).toBe('https://azure.example.com');
+    });
+
+    it('should include Azure public URL with all-caps provider name', () => {
+      const config = getStorageConfig({
+        STORAGE_PROVIDER: 'AZURE' as any,
+        AZURE_PUBLIC_URL: 'https://azure.example.com'
+      });
+
+      expect(config.publicUrl).toBe('https://azure.example.com');
+    });
+
+    it('should prioritize CDN_URL over storage-specific URLs with uppercase provider', () => {
+      const config = getStorageConfig({
+        STORAGE_PROVIDER: 'Azure' as any,
+        AZURE_PUBLIC_URL: 'https://azure.example.com',
+        CDN_URL: 'https://cdn.example.com'
+      });
+
+      expect(config.publicUrl).toBe('https://cdn.example.com');
     });
   });
 

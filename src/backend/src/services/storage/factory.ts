@@ -32,17 +32,14 @@ export interface StorageEnv {
  * Get the public URL for storage, respecting CDN_URL override
  */
 function getPublicUrl(env: StorageEnv, provider: StorageProviderType): string | undefined {
-  // Normalize provider to lowercase for case-insensitive comparison
-  const normalizedProvider = provider.toLowerCase() as StorageProviderType;
-  
   // CDN_URL takes priority over storage-specific public URLs
   if (env.CDN_URL) {
     return env.CDN_URL;
   }
 
-  if (normalizedProvider === 'r2') {
+  if (provider === 'r2') {
     return env.R2_PUBLIC_URL;
-  } else if (normalizedProvider === 'azure') {
+  } else if (provider === 'azure') {
     return env.AZURE_PUBLIC_URL;
   }
 
