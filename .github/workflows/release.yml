@@ -240,7 +240,9 @@ jobs:
           # Note: STORAGE_PROVIDER is already defined in wrangler.toml, so we replace it instead of appending
           if [ -n "$VAR_STORAGE_PROVIDER" ]; then
             # Replace the existing STORAGE_PROVIDER value in wrangler.toml
-            sed -i "s/^STORAGE_PROVIDER = .*/STORAGE_PROVIDER = \"${VAR_STORAGE_PROVIDER}\"/" wrangler.toml
+            # Using | as delimiter to avoid conflicts with / in values, and escape special chars
+            ESCAPED_PROVIDER=$(printf '%s\n' "$VAR_STORAGE_PROVIDER" | sed 's/[&/\]/\\&/g')
+            sed -i "s|^[[:space:]]*STORAGE_PROVIDER[[:space:]]*=.*|STORAGE_PROVIDER = \"${ESCAPED_PROVIDER}\"|" wrangler.toml
             echo "Storage provider configured: $VAR_STORAGE_PROVIDER"
           else
             echo "Info: STORAGE_PROVIDER is not set, using default from wrangler.toml (r2)..."
