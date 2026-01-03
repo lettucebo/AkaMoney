@@ -7,6 +7,16 @@ AkaMoney 專案的所有重要變更都將記錄在此檔案中。
 格式基於 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 此專案遵循 [語義化版本](https://semver.org/spec/v2.0.0.html)。
 
+## [1.1.6] - 2026-01-03
+
+### 修正
+- 修正 STORAGE_PROVIDER 環境變數大小寫敏感問題
+  - 儲存提供者名稱（r2、azure）現在不區分大小寫
+  - 使用者可以設定 STORAGE_PROVIDER 為 "r2"、"R2"、"azure"、"Azure" 或 "AZURE"
+  - 在 `getStorageConfig()`、`createStorageProvider()` 和 `isStorageConfigured()` 函數中標準化提供者名稱
+  - 新增 12 個全面的測試案例以測試大小寫不敏感行為
+  - 避免因大小寫不符而導致的「儲存未配置」錯誤
+
 ## [1.1.5] - 2025-12-26
 
 ### 修正

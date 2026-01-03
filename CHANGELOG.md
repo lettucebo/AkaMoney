@@ -7,6 +7,16 @@ All notable changes to the AkaMoney project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.6] - 2026-01-03
+
+### Fixed
+- Fixed case-sensitive STORAGE_PROVIDER environment variable handling
+  - Storage provider names (r2, azure) are now case-insensitive
+  - Users can set STORAGE_PROVIDER as "r2", "R2", "azure", "Azure", or "AZURE"
+  - Normalized provider names in `getStorageConfig()`, `createStorageProvider()`, and `isStorageConfigured()` functions
+  - Added 12 comprehensive test cases for case-insensitive behavior
+  - Prevents "Storage is not configured" errors caused by case mismatches
+
 ## [1.1.5] - 2025-12-26
 
 ### Fixed
