@@ -67,7 +67,7 @@ jobs:
           VITE_ENTRA_ID_CLIENT_ID: ${{ vars.ENTRA_ID_CLIENT_ID }}
           VITE_ENTRA_ID_TENANT_ID: ${{ vars.ENTRA_ID_TENANT_ID }}
           VITE_ENTRA_ID_REDIRECT_URI: ${{ vars.ENTRA_ID_REDIRECT_URI }}
-          VITE_API_URL: https://akamoney-admin-api.akamoney.workers.dev
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
           VITE_APP_NAME: AkaMoney
           VITE_SHORT_DOMAIN: ${{ vars.SHORT_DOMAIN }}
           VITE_ARCHIVED_REDIRECT_URL: ${{ vars.ARCHIVED_REDIRECT_URL }}
