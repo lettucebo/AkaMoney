@@ -19,6 +19,7 @@
     "test:frontend": "cd src/frontend && npm run test",
     "test:backend": "cd src/backend && npm run test",
     "test:redirect": "cd src/redirect && npm run test",
+    "test:e2e": "cd src/frontend && npm run test:e2e",
     "test:coverage": "npm run test:coverage:frontend && npm run test:coverage:backend && npm run test:coverage:redirect",
     "test:coverage:frontend": "cd src/frontend && npm run test:coverage",
     "test:coverage:backend": "cd src/backend && npm run test:coverage",
