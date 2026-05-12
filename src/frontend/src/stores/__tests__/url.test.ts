@@ -264,4 +264,113 @@ describe('URL Store', () => {
       expect(store.error).toBeNull();
     });
   });
+
+  describe('error fallback messages (no response payload)', () => {
+    beforeEach(() => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+    });
+
+    it('fetchUrls falls back to default message when error has no response', async () => {
+      vi.mocked(apiService.getUrls).mockRejectedValue(new Error('network'));
+      const store = useUrlStore();
+      await store.fetchUrls();
+      expect(store.error).toBe('Failed to fetch URLs');
+    });
+
+    it('fetchUrl falls back to default message when error has no response', async () => {
+      vi.mocked(apiService.getUrl).mockRejectedValue(new Error('network'));
+      const store = useUrlStore();
+      await store.fetchUrl('1');
+      expect(store.error).toBe('Failed to fetch URL');
+    });
+
+    it('createUrl falls back to default message when error has no response', async () => {
+      vi.mocked(apiService.createUrl).mockRejectedValue(new Error('network'));
+      const store = useUrlStore();
+      await expect(store.createUrl({ original_url: 'x' })).rejects.toBeDefined();
+      expect(store.error).toBe('Failed to create short URL');
+    });
+
+    it('updateUrl falls back to default message when error has no response', async () => {
+      vi.mocked(apiService.updateUrl).mockRejectedValue(new Error('network'));
+      const store = useUrlStore();
+      await expect(store.updateUrl('1', {})).rejects.toBeDefined();
+      expect(store.error).toBe('Failed to update URL');
+    });
+
+    it('deleteUrl falls back to default message when error has no response', async () => {
+      vi.mocked(apiService.deleteUrl).mockRejectedValue(new Error('network'));
+      const store = useUrlStore();
+      await expect(store.deleteUrl('1')).rejects.toBeDefined();
+      expect(store.error).toBe('Failed to delete URL');
+    });
+
+    it('archiveUrl falls back to default message when error has no response', async () => {
+      vi.mocked(apiService.updateUrl).mockRejectedValue(new Error('network'));
+      const store = useUrlStore();
+      await expect(store.archiveUrl('1')).rejects.toBeDefined();
+      expect(store.error).toBe('Failed to archive URL');
+    });
+
+    it('restoreUrl falls back to default message when error has no response', async () => {
+      vi.mocked(apiService.updateUrl).mockRejectedValue(new Error('network'));
+      const store = useUrlStore();
+      await expect(store.restoreUrl('1')).rejects.toBeDefined();
+      expect(store.error).toBe('Failed to restore URL');
+    });
+  });
+
+  describe('list/currentUrl edge cases', () => {
+    it('updateUrl succeeds when URL is not in list and currentUrl is null', async () => {
+      const updatedUrl = { id: '99', short_code: 'xx', original_url: 'https://x.com', is_active: true, click_count: 0 };
+      vi.mocked(apiService.updateUrl).mockResolvedValue(updatedUrl as any);
+      const store = useUrlStore();
+      const result = await store.updateUrl('99', { title: 't' });
+      expect(result).toEqual(updatedUrl);
+      expect(store.urls).toEqual([]);
+      expect(store.currentUrl).toBeNull();
+    });
+
+    it('updateUrl does not mutate currentUrl when ids differ', async () => {
+      const existing = { id: '1', short_code: 'abc', original_url: 'https://example.com', is_active: true, click_count: 0 };
+      const otherCurrent = { id: '2', short_code: 'def', original_url: 'https://other.com', is_active: true, click_count: 0 };
+      const updated = { ...existing, title: 'New' };
+      vi.mocked(apiService.updateUrl).mockResolvedValue(updated as any);
+      const store = useUrlStore();
+      store.urls = [existing as any];
+      store.currentUrl = otherCurrent as any;
+      await store.updateUrl('1', { title: 'New' });
+      expect(store.urls[0].title).toBe('New');
+      expect(store.currentUrl?.id).toBe('2');
+    });
+
+    it('deleteUrl succeeds when URL is not in list and currentUrl is null', async () => {
+      vi.mocked(apiService.deleteUrl).mockResolvedValue(undefined);
+      const store = useUrlStore();
+      await store.deleteUrl('does-not-exist');
+      expect(store.urls).toEqual([]);
+      expect(store.currentUrl).toBeNull();
+    });
+
+    it('deleteUrl does not clear currentUrl when ids differ', async () => {
+      const other = { id: '2', short_code: 'def', original_url: 'https://other.com' };
+      vi.mocked(apiService.deleteUrl).mockResolvedValue(undefined);
+      const store = useUrlStore();
+      store.urls = [{ id: '1', short_code: 'abc', original_url: 'https://example.com' } as any];
+      store.currentUrl = other as any;
+      await store.deleteUrl('1');
+      expect(store.urls).toEqual([]);
+      expect(store.currentUrl?.id).toBe('2');
+    });
+
+    it('updateUrlActiveStatus (via archive) succeeds when URL is not in list and currentUrl is null', async () => {
+      const updated = { id: '99', short_code: 'zz', original_url: 'https://z.com', is_active: false, click_count: 0 };
+      vi.mocked(apiService.updateUrl).mockResolvedValue(updated as any);
+      const store = useUrlStore();
+      const result = await store.archiveUrl('99');
+      expect(result).toEqual(updated);
+      expect(store.urls).toEqual([]);
+      expect(store.currentUrl).toBeNull();
+    });
+  });
 });
