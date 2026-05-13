@@ -30,7 +30,7 @@
     "@vue/test-utils": "^2.4.6",
     "happy-dom": "^20.8.8",
     "typescript": "^5.7.2",
-    "vite": "^6.0.3",
+    "vite": "^6.4.2",
     "vitest": "^4.0.16",
     "vue-tsc": "^2.1.10"
   }
