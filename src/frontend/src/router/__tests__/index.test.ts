@@ -11,6 +11,14 @@ interface MockAuthService {
   getToken: ReturnType<typeof vi.fn<() => Promise<string>>>;
 }
 
+const routeViewMocks = [
+  '@/views/DashboardView.vue',
+  '@/views/OverallStatsView.vue',
+  '@/views/LoginView.vue',
+  '@/views/AnalyticsView.vue',
+  '@/views/NotFoundView.vue'
+] as const;
+
 const authenticatedAccount: AccountInfo = {
   homeAccountId: 'home-account-id',
   localAccountId: 'local-account-id',
@@ -28,6 +36,14 @@ const createAuthenticatedAuthService = (): MockAuthService => ({
   getAccount: vi.fn(() => authenticatedAccount),
   getToken: vi.fn(async () => 'test-token')
 });
+
+const mockRouteViews = () => {
+  for (const viewPath of routeViewMocks) {
+    vi.doMock(viewPath, () => ({
+      default: { name: viewPath.split('/').pop()?.replace('.vue', '') ?? 'RouteViewStub' }
+    }));
+  }
+};
 
 const createAuthenticatedRouter = async (): Promise<Router> => {
   vi.resetModules();
@@ -47,6 +63,7 @@ const createAuthenticatedRouter = async (): Promise<Router> => {
     },
     isAuthSkipped: () => false
   }));
+  mockRouteViews();
 
   const { createPinia, setActivePinia } = await import('pinia');
   setActivePinia(createPinia());
@@ -78,6 +95,9 @@ const navigateFromAsAuthenticatedUser = async (
 };
 
 afterEach(() => {
+  for (const viewPath of routeViewMocks) {
+    vi.doUnmock(viewPath);
+  }
   vi.doUnmock('@/services/auth');
   vi.resetModules();
   vi.clearAllMocks();
