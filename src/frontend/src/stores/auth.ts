@@ -9,6 +9,8 @@ interface AuthState {
   initialized: boolean;
 }
 
+let initializePromise: Promise<void> | null = null;
+
 export const useAuthStore = defineStore('auth', {
   state: (): AuthState => ({
     user: null,
@@ -24,22 +26,46 @@ export const useAuthStore = defineStore('auth', {
 
   actions: {
     async initialize() {
-      if (this.initialized || this.loading) {
+      if (this.initialized) {
         return;
       }
-      this.loading = true;
-      try {
-        await authService.initialize();
-        const account = authService.getAccount();
-        if (account) {
-          this.user = account;
-          this.isAuthenticated = true;
+
+      if (initializePromise) {
+        await initializePromise;
+        return;
+      }
+
+      let resolveInitialization!: () => void;
+      let rejectInitialization!: (reason?: unknown) => void;
+      const promise = new Promise<void>((resolve, reject) => {
+        resolveInitialization = resolve;
+        rejectInitialization = reject;
+      });
+      initializePromise = promise;
+
+      void (async () => {
+        this.loading = true;
+        try {
+          await authService.initialize();
+          const account = authService.getAccount();
+          if (account) {
+            this.user = account;
+            this.isAuthenticated = true;
+          }
+        } catch (error) {
+          console.error('Auth initialization error:', error);
+        } finally {
+          this.loading = false;
+          this.initialized = true;
         }
-      } catch (error) {
-        console.error('Auth initialization error:', error);
+      })().then(resolveInitialization, rejectInitialization);
+
+      try {
+        await promise;
       } finally {
-        this.loading = false;
-        this.initialized = true;
+        if (initializePromise === promise) {
+          initializePromise = null;
+        }
       }
     },
 
