@@ -47,6 +47,7 @@ import { ref, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { AuthConfigurationError, isAuthSkipped } from '@/services/auth';
+import { getValidatedRedirect } from '@/utils/redirect';
 
 const router = useRouter();
 const route = useRoute();
@@ -56,35 +57,13 @@ const loading = ref(false);
 const error = ref<string | null>(null);
 const authSkipped = ref(isAuthSkipped());
 
-/**
- * Validates a redirect path to prevent open redirect vulnerabilities.
- * Only allows internal paths that start with '/' and don't contain protocol schemes.
- * @param redirectPath - The path to validate
- * @returns The validated path or '/dashboard' if invalid
- */
-const getValidatedRedirect = (redirectPath: string | undefined): string => {
-  if (!redirectPath) {
-    return '/dashboard';
-  }
-  
-  // Prevent open redirects by only allowing paths that:
-  // 1. Start with '/' (internal path)
-  // 2. Don't start with '//' (protocol-relative URLs)
-  // 3. Don't contain '://' (absolute URLs with protocol)
-  if (redirectPath.startsWith('/') && !redirectPath.startsWith('//') && !redirectPath.includes('://')) {
-    return redirectPath;
-  }
-  
-  return '/dashboard';
-};
-
 onMounted(async () => {
   // Auto-login when auth is skipped in development mode
   if (authSkipped.value) {
     loading.value = true;
     try {
       await authStore.login();
-      const redirect = getValidatedRedirect(route.query.redirect as string);
+      const redirect = getValidatedRedirect(route.query.redirect);
       router.push(redirect);
     } catch (err) {
       console.error('Auto-login failed:', err);
@@ -92,17 +71,6 @@ onMounted(async () => {
         'Development configuration error: auto-login failed in skip-auth mode. Check console for details.';
     } finally {
       loading.value = false;
-    }
-  } else {
-    // Wait for auth initialization if not already done, similar to router guard
-    if (!authStore.initialized) {
-      await authStore.initialize();
-    }
-    
-    // Redirect authenticated users (e.g., after login redirect callback)
-    if (authStore.isAuthenticated) {
-      const redirect = getValidatedRedirect(route.query.redirect as string);
-      router.push(redirect);
     }
   }
 });
