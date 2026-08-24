@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import type { RouteRecordRaw } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+import { getValidatedRedirect } from '@/utils/redirect';
 
 // Extend vue-router RouteMeta interface to include requiresAuth
 declare module 'vue-router' {
@@ -62,8 +63,8 @@ router.beforeEach(async (to, _from, next) => {
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     next({ name: 'Login', query: { redirect: to.fullPath } });
   } else if (to.name === 'Login' && authStore.isAuthenticated) {
-    // Redirect authenticated users away from login page, preserving redirect target if present
-    const redirect = (to.query.redirect as string) || '/dashboard';
+    // Single non-skip-auth decision point for post-login redirects.
+    const redirect = getValidatedRedirect(to.query.redirect);
     next(redirect);
   } else {
     next();

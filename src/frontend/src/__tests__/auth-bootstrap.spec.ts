@@ -16,6 +16,7 @@ interface MockAuthService {
   loginRedirect: ReturnType<typeof vi.fn<() => Promise<void>>>;
   logout: ReturnType<typeof vi.fn<() => Promise<void>>>;
   getAccount: ReturnType<typeof vi.fn<() => AccountInfo | null>>;
+  getToken: ReturnType<typeof vi.fn<() => Promise<string>>>;
 }
 
 interface BootstrapScenario {
@@ -56,7 +57,8 @@ const createAuthServiceMock = (authInitialization: Deferred<void>): MockAuthServ
     login: vi.fn(async () => account),
     loginRedirect: vi.fn(async () => {}),
     logout: vi.fn(async () => {}),
-    getAccount: vi.fn(() => (initialized ? account : null))
+    getAccount: vi.fn(() => (initialized ? account : null)),
+    getToken: vi.fn(async () => 'test-token')
   };
 };
 
@@ -95,6 +97,19 @@ const bootstrapRealAppAt = async (path: string): Promise<BootstrapScenario> => {
     },
     isAuthSkipped: () => false
   }));
+  vi.doMock('@/services/api', () => ({
+    default: {
+      getUrls: vi.fn(async () => ({
+        data: [],
+        pagination: {
+          page: 1,
+          limit: 20,
+          total: 0,
+          total_pages: 0
+        }
+      }))
+    }
+  }));
 
   const [{ createApp }, { createPinia }, { default: App }, { default: router }] = await Promise.all([
     import('vue'),
@@ -126,6 +141,7 @@ afterEach(async () => {
   localStorage.clear();
   sessionStorage.clear();
   vi.doUnmock('@/services/auth');
+  vi.doUnmock('@/services/api');
   vi.resetModules();
   vi.clearAllMocks();
   window.history.replaceState({}, '', '/');
