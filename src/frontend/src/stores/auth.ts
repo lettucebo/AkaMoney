@@ -35,15 +35,7 @@ export const useAuthStore = defineStore('auth', {
         return;
       }
 
-      let resolveInitialization!: () => void;
-      let rejectInitialization!: (reason?: unknown) => void;
-      const promise = new Promise<void>((resolve, reject) => {
-        resolveInitialization = resolve;
-        rejectInitialization = reject;
-      });
-      initializePromise = promise;
-
-      void (async () => {
+      const promise = (async () => {
         this.loading = true;
         try {
           await authService.initialize();
@@ -58,7 +50,8 @@ export const useAuthStore = defineStore('auth', {
           this.loading = false;
           this.initialized = true;
         }
-      })().then(resolveInitialization, rejectInitialization);
+      })();
+      initializePromise = promise;
 
       try {
         await promise;

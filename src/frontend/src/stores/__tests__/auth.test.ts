@@ -3,6 +3,15 @@ import { setActivePinia, createPinia } from 'pinia';
 import { useAuthStore } from '../auth';
 import authService, { AuthConfigurationError } from '@/services/auth';
 
+const createDeferred = <T>() => {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  const promise = new Promise<T>((promiseResolve) => {
+    resolve = promiseResolve;
+  });
+
+  return { promise, resolve };
+};
+
 // Mock the auth service
 vi.mock('@/services/auth', () => ({
   default: {
@@ -121,6 +130,41 @@ describe('Auth Store', () => {
       await store.initialize(); // Call again
       
       expect(authService.initialize).toHaveBeenCalledTimes(1);
+    });
+
+    it('should share one in-flight initialization between concurrent callers on the same store', async () => {
+      const mockAccount = { name: 'John', username: 'john@example.com' };
+      const deferred = createDeferred<void>();
+      vi.mocked(authService.initialize).mockReturnValue(deferred.promise);
+      vi.mocked(authService.getAccount).mockReturnValue(mockAccount as any);
+
+      const store = useAuthStore();
+      let firstCompleted = false;
+      let secondCompleted = false;
+
+      const firstInitialize = store.initialize().then(() => {
+        firstCompleted = true;
+      });
+      const secondInitialize = store.initialize().then(() => {
+        secondCompleted = true;
+      });
+
+      await Promise.resolve();
+
+      expect(authService.initialize).toHaveBeenCalledTimes(1);
+      expect(firstCompleted).toBe(false);
+      expect(secondCompleted).toBe(false);
+      expect(store.initialized).toBe(false);
+
+      deferred.resolve();
+      await Promise.all([firstInitialize, secondInitialize]);
+
+      expect(firstCompleted).toBe(true);
+      expect(secondCompleted).toBe(true);
+      expect(store.user).toEqual(mockAccount);
+      expect(store.isAuthenticated).toBe(true);
+      expect(store.initialized).toBe(true);
+      expect(store.loading).toBe(false);
     });
   });
 

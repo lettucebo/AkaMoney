@@ -141,6 +141,28 @@ describe('LoginView', () => {
       expect(loginSpy).toHaveBeenCalledOnce();
       expect(pushSpy).toHaveBeenCalledWith('/dashboard');
     });
+
+    it('shows the development configuration error and stays on login when auto-login fails', async () => {
+      vi.mocked(isAuthSkipped).mockReturnValue(true);
+      await setRoute('/login?redirect=/stats');
+      const authStore = useAuthStore();
+      const error = new Error('Skip-auth login failed');
+      const loginSpy = vi.spyOn(authStore, 'login').mockRejectedValue(error);
+      const pushSpy = vi.spyOn(router, 'push');
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const wrapper = mountLoginView();
+
+      await flushPromises();
+
+      expect(loginSpy).toHaveBeenCalledOnce();
+      expect(consoleErrorSpy).toHaveBeenCalledWith('Auto-login failed:', error);
+      expect(pushSpy).not.toHaveBeenCalled();
+      expect(wrapper.text()).toContain(
+        'Development configuration error: auto-login failed in skip-auth mode. Check console for details.'
+      );
+      expect(wrapper.find('button').attributes('disabled')).toBeUndefined();
+    });
   });
 
   describe('handleLogin', () => {
