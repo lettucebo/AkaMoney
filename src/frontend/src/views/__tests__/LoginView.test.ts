@@ -1,10 +1,19 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { mount, flushPromises } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { createRouter, createMemoryHistory } from 'vue-router';
 import LoginView from '../LoginView.vue';
 import { useAuthStore } from '@/stores/auth';
-import authService, { AuthConfigurationError } from '@/services/auth';
+import authService, { AuthConfigurationError, isAuthSkipped } from '@/services/auth';
+
+const mockAccount = {
+  homeAccountId: 'mock-home-account-id',
+  localAccountId: 'mock-local-account-id',
+  environment: 'development.local',
+  tenantId: 'mock-tenant-id',
+  username: 'dev@localhost',
+  name: 'Development User'
+};
 
 // Mock the auth service
 vi.mock('@/services/auth', () => ({
@@ -25,213 +34,148 @@ vi.mock('@/services/auth', () => ({
 }));
 
 describe('LoginView', () => {
-  let router: any;
-  let pinia: any;
+  let router: ReturnType<typeof createRouter>;
+  let pinia: ReturnType<typeof createPinia>;
+
+  const setRoute = async (path: string) => {
+    await router.push(path);
+    await router.isReady();
+  };
+
+  const mountLoginView = () =>
+    mount(LoginView, {
+      global: {
+        plugins: [pinia, router]
+      }
+    });
 
   beforeEach(() => {
-    // Create a new pinia instance for each test
     pinia = createPinia();
     setActivePinia(pinia);
 
-    // Create a mock router
     router = createRouter({
       history: createMemoryHistory(),
       routes: [
+        { path: '/', redirect: '/dashboard' },
         { path: '/login', name: 'Login', component: LoginView },
-        { path: '/dashboard', name: 'Dashboard', component: { template: '<div>Dashboard</div>' } }
+        { path: '/dashboard', name: 'Dashboard', component: { template: '<div>Dashboard</div>' } },
+        { path: '/stats', name: 'OverallStats', component: { template: '<div>Stats</div>' } },
+        {
+          path: '/analytics/:shortCode',
+          name: 'Analytics',
+          component: { template: '<div>Analytics</div>' }
+        }
       ]
     });
 
+    vi.mocked(isAuthSkipped).mockReturnValue(false);
+    vi.mocked(authService.login).mockResolvedValue(mockAccount);
+    vi.mocked(authService.loginRedirect).mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
     vi.clearAllMocks();
   });
 
-  describe('onMounted redirect behavior', () => {
-    it('should redirect authenticated users to dashboard on mount', async () => {
-      // Setup: User is already authenticated
+  describe('non-skip-auth mount boundary', () => {
+    it('does not initialize auth or navigate on normal mount', async () => {
+      await setRoute('/login?redirect=/stats');
       const authStore = useAuthStore();
       authStore.isAuthenticated = true;
-      authStore.initialized = true;
-      
-      const pushSpy = vi.spyOn(router, 'push');
-
-      // Mount the component
-      mount(LoginView, {
-        global: {
-          plugins: [pinia, router]
-        }
-      });
-
-      await flushPromises();
-
-      // Verify redirect was called
-      expect(pushSpy).toHaveBeenCalledWith('/dashboard');
-    });
-
-    it('should wait for auth initialization before checking authentication', async () => {
-      const authStore = useAuthStore();
-      authStore.isAuthenticated = false;
       authStore.initialized = false;
-
       const initializeSpy = vi.spyOn(authStore, 'initialize').mockResolvedValue();
-      
-      mount(LoginView, {
-        global: {
-          plugins: [pinia, router]
-        }
-      });
-
-      await flushPromises();
-
-      // Verify initialize was called
-      expect(initializeSpy).toHaveBeenCalled();
-    });
-
-    it('should not redirect if user is not authenticated after initialization', async () => {
-      const authStore = useAuthStore();
-      authStore.isAuthenticated = false;
-      authStore.initialized = false;
-
-      vi.spyOn(authStore, 'initialize').mockResolvedValue();
       const pushSpy = vi.spyOn(router, 'push');
 
-      mount(LoginView, {
-        global: {
-          plugins: [pinia, router]
-        }
-      });
+      mountLoginView();
 
       await flushPromises();
 
-      // Verify no redirect happened
+      expect(initializeSpy).not.toHaveBeenCalled();
       expect(pushSpy).not.toHaveBeenCalled();
-    });
-
-    it('should redirect to custom path from query parameter', async () => {
-      const authStore = useAuthStore();
-      authStore.isAuthenticated = true;
-      authStore.initialized = true;
-
-      // Set up router with redirect query
-      await router.push('/login?redirect=/analytics/abc123');
-      
-      const pushSpy = vi.spyOn(router, 'push');
-
-      mount(LoginView, {
-        global: {
-          plugins: [pinia, router]
-        }
-      });
-
-      await flushPromises();
-
-      // Verify redirect was called with custom path
-      expect(pushSpy).toHaveBeenCalledWith('/analytics/abc123');
     });
   });
 
-  describe('redirect validation (open redirect protection)', () => {
-    it('should reject absolute URLs with protocol', async () => {
+  describe('skip-auth auto-login', () => {
+    it('logs in and navigates to a valid redirect query target', async () => {
+      vi.mocked(isAuthSkipped).mockReturnValue(true);
+      await setRoute('/login?redirect=/analytics/abc123');
       const authStore = useAuthStore();
-      authStore.isAuthenticated = true;
-      authStore.initialized = true;
-
-      await router.push('/login?redirect=https://evil.com');
-      
+      const loginSpy = vi.spyOn(authStore, 'login');
       const pushSpy = vi.spyOn(router, 'push');
 
-      mount(LoginView, {
-        global: {
-          plugins: [pinia, router]
-        }
-      });
+      mountLoginView();
 
       await flushPromises();
 
-      // Should redirect to default dashboard instead of evil.com
+      expect(loginSpy).toHaveBeenCalledOnce();
+      expect(pushSpy).toHaveBeenCalledWith('/analytics/abc123');
+    });
+
+    it('logs in and navigates to the shared default when redirect targets login', async () => {
+      vi.mocked(isAuthSkipped).mockReturnValue(true);
+      await setRoute('/login?redirect=/login?next=/dashboard');
+      const authStore = useAuthStore();
+      const loginSpy = vi.spyOn(authStore, 'login');
+      const pushSpy = vi.spyOn(router, 'push');
+
+      mountLoginView();
+
+      await flushPromises();
+
+      expect(loginSpy).toHaveBeenCalledOnce();
       expect(pushSpy).toHaveBeenCalledWith('/dashboard');
     });
 
-    it('should reject protocol-relative URLs', async () => {
+    it('logs in and navigates to the default dashboard without a redirect query', async () => {
+      vi.mocked(isAuthSkipped).mockReturnValue(true);
+      await setRoute('/login');
       const authStore = useAuthStore();
-      authStore.isAuthenticated = true;
-      authStore.initialized = true;
-
-      await router.push('/login?redirect=//evil.com');
-      
+      const loginSpy = vi.spyOn(authStore, 'login');
       const pushSpy = vi.spyOn(router, 'push');
 
-      mount(LoginView, {
-        global: {
-          plugins: [pinia, router]
-        }
-      });
+      mountLoginView();
 
       await flushPromises();
 
-      // Should redirect to default dashboard
+      expect(loginSpy).toHaveBeenCalledOnce();
       expect(pushSpy).toHaveBeenCalledWith('/dashboard');
     });
 
-    it('should accept valid internal paths', async () => {
+    it('shows the development configuration error and stays on login when auto-login fails', async () => {
+      vi.mocked(isAuthSkipped).mockReturnValue(true);
+      await setRoute('/login?redirect=/stats');
       const authStore = useAuthStore();
-      authStore.isAuthenticated = true;
-      authStore.initialized = true;
-
-      await router.push('/login?redirect=/stats');
-      
+      const error = new Error('Skip-auth login failed');
+      const loginSpy = vi.spyOn(authStore, 'login').mockRejectedValue(error);
       const pushSpy = vi.spyOn(router, 'push');
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-      mount(LoginView, {
-        global: {
-          plugins: [pinia, router]
-        }
-      });
+      const wrapper = mountLoginView();
 
       await flushPromises();
 
-      // Should redirect to the internal path
-      expect(pushSpy).toHaveBeenCalledWith('/stats');
-    });
-
-    it('should reject URLs containing protocol scheme', async () => {
-      const authStore = useAuthStore();
-      authStore.isAuthenticated = true;
-      authStore.initialized = true;
-
-      await router.push('/login?redirect=javascript:alert(1)');
-      
-      const pushSpy = vi.spyOn(router, 'push');
-
-      mount(LoginView, {
-        global: {
-          plugins: [pinia, router]
-        }
-      });
-
-      await flushPromises();
-
-      // Should redirect to default dashboard
-      expect(pushSpy).toHaveBeenCalledWith('/dashboard');
+      expect(loginSpy).toHaveBeenCalledOnce();
+      expect(consoleErrorSpy).toHaveBeenCalledWith('Auto-login failed:', error);
+      expect(pushSpy).not.toHaveBeenCalled();
+      expect(wrapper.text()).toContain(
+        'Development configuration error: auto-login failed in skip-auth mode. Check console for details.'
+      );
+      expect(wrapper.find('button').attributes('disabled')).toBeUndefined();
     });
   });
 
   describe('handleLogin', () => {
     it('should call loginRedirect when login button is clicked', async () => {
+      await setRoute('/login');
       const authStore = useAuthStore();
       authStore.isAuthenticated = false;
       authStore.initialized = true;
 
-      vi.mocked(authService.loginRedirect).mockResolvedValue(undefined);
-
-      const wrapper = mount(LoginView, {
-        global: {
-          plugins: [pinia, router]
-        }
-      });
+      const wrapper = mountLoginView();
 
       await flushPromises();
 
-      // Find and click the login button
       const button = wrapper.find('button');
       await button.trigger('click');
 
@@ -241,6 +185,7 @@ describe('LoginView', () => {
     });
 
     it('should show error message when login fails', async () => {
+      await setRoute('/login');
       const authStore = useAuthStore();
       authStore.isAuthenticated = false;
       authStore.initialized = true;
@@ -249,25 +194,20 @@ describe('LoginView', () => {
       vi.mocked(authService.loginRedirect).mockRejectedValue(error);
       vi.spyOn(console, 'error').mockImplementation(() => {});
 
-      const wrapper = mount(LoginView, {
-        global: {
-          plugins: [pinia, router]
-        }
-      });
+      const wrapper = mountLoginView();
 
       await flushPromises();
 
-      // Click login button
       const button = wrapper.find('button');
       await button.trigger('click');
 
       await flushPromises();
 
-      // Check that error message is displayed
       expect(wrapper.text()).toContain('Failed to sign in');
     });
 
     it('should show configuration error message', async () => {
+      await setRoute('/login');
       const authStore = useAuthStore();
       authStore.isAuthenticated = false;
       authStore.initialized = true;
@@ -276,21 +216,15 @@ describe('LoginView', () => {
       vi.mocked(authService.loginRedirect).mockRejectedValue(error);
       vi.spyOn(console, 'error').mockImplementation(() => {});
 
-      const wrapper = mount(LoginView, {
-        global: {
-          plugins: [pinia, router]
-        }
-      });
+      const wrapper = mountLoginView();
 
       await flushPromises();
 
-      // Click login button
       const button = wrapper.find('button');
       await button.trigger('click');
 
       await flushPromises();
 
-      // Check that configuration error message is displayed
       expect(wrapper.text()).toContain('Entra ID client is not configured');
     });
   });

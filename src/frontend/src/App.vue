@@ -71,7 +71,6 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { useThemeStore } from '@/stores/theme';
 import { useRouter } from 'vue-router';
@@ -80,10 +79,6 @@ const appName = import.meta.env.VITE_APP_NAME || 'AkaMoney';
 const authStore = useAuthStore();
 const themeStore = useThemeStore();
 const router = useRouter();
-
-onMounted(async () => {
-  await authStore.initialize();
-});
 
 const handleLogout = async () => {
   await authStore.logout();
