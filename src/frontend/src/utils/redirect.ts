@@ -6,17 +6,18 @@ export function getValidatedRedirect(redirectPath: unknown): string {
     return DEFAULT_REDIRECT;
   }
 
-  if (!redirectPath.startsWith('/')) {
+  const pathComponent = redirectPath.split(/[?#]/, 1)[0];
+  const normalizedPath = pathComponent.replace(/[\t\n\r]/g, '').replace(/\\/g, '/');
+
+  if (!normalizedPath.startsWith('/')) {
     return DEFAULT_REDIRECT;
   }
 
-  if (redirectPath.startsWith('//') || redirectPath.includes('://')) {
+  if (normalizedPath.startsWith('//') || normalizedPath.includes('://')) {
     return DEFAULT_REDIRECT;
   }
 
-  const pathWithoutQueryOrHash = redirectPath.split(/[?#]/, 1)[0];
-
-  if (pathWithoutQueryOrHash === LOGIN_REDIRECT) {
+  if (normalizedPath === LOGIN_REDIRECT) {
     return DEFAULT_REDIRECT;
   }
 

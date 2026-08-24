@@ -24,4 +24,14 @@ describe('getValidatedRedirect', () => {
     expect(getValidatedRedirect('/stats#summary')).toBe('/stats#summary');
     expect(getValidatedRedirect('/login-help')).toBe('/login-help');
   });
+
+  it('rejects protocol-relative lookalikes created by backslashes or stripped control characters', () => {
+    expect(getValidatedRedirect('/\\evil.com')).toBe('/dashboard');
+    expect(getValidatedRedirect('/\t\n\r/evil.com')).toBe('/dashboard');
+  });
+
+  it('preserves internal routes whose query or hash contains literal URL separators', () => {
+    expect(getValidatedRedirect('/dashboard?returnUrl=http://example.com')).toBe('/dashboard?returnUrl=http://example.com');
+    expect(getValidatedRedirect('/report#src=http://example.com')).toBe('/report#src=http://example.com');
+  });
 });
