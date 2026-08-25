@@ -1,0 +1,1880 @@
+<!doctype html>
+<html lang="zh-Hant-TW" data-revealed="false">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AkaMoney 設計提案盲測比較中心</title>
+    <script>
+  (() => {
+    const param = new URLSearchParams(window.location.search).get("scoutTheme");
+    const theme =
+      param || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    document.documentElement.setAttribute("data-theme", theme);
+  })();
+    </script>
+    <style>
+:root {
+  color-scheme: light;
+  --cp-bg: #f7f4ef;
+  --cp-bg-elevated: #fcfbf8;
+  --cp-surface: #ffffff;
+  --cp-surface-soft: #f5f5f5;
+  --cp-border: #dedede;
+  --cp-border-strong: #919191;
+  --cp-text: #242424;
+  --cp-text-muted: #5c5c5c;
+  --cp-text-soft: #6f6f6f;
+  --cp-accent: #b11f4b;
+  --cp-accent-hover: #9a1a41;
+  --cp-accent-soft: rgba(177, 31, 75, 0.08);
+  --cp-accent-fg: #ffffff;
+  --cp-success: #16a34a;
+  --cp-danger: #dc2626;
+  --cp-warning: #f59e0b;
+  --cp-link: #0078d4;
+  --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.12);
+  --cp-overlay: rgba(255, 255, 255, 0.8);
+  --cp-panel: rgba(255, 255, 255, 0.86);
+  --cp-panel-strong: rgba(255, 255, 255, 0.96);
+  --cp-sheen: rgba(255, 255, 255, 0.55);
+  --cp-highlight: rgba(177, 31, 75, 0.12);
+}
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --cp-bg: #3d3b3a;
+  --cp-bg-elevated: #343231;
+  --cp-surface: #292929;
+  --cp-surface-soft: #2e2e2e;
+  --cp-border: #474747;
+  --cp-border-strong: #5f5f5f;
+  --cp-text: #dedede;
+  --cp-text-muted: #919191;
+  --cp-text-soft: #b0b0b0;
+  --cp-accent: #fd8ea1;
+  --cp-accent-hover: #fb7b91;
+  --cp-accent-soft: rgba(253, 142, 161, 0.14);
+  --cp-accent-fg: #1a1a1a;
+  --cp-success: #4ade80;
+  --cp-danger: #f87171;
+  --cp-warning: #fbbf24;
+  --cp-link: #4da6ff;
+  --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+  --cp-overlay: rgba(41, 41, 41, 0.88);
+  --cp-panel: rgba(41, 41, 41, 0.72);
+  --cp-panel-strong: rgba(41, 41, 41, 0.96);
+  --cp-sheen: rgba(255, 255, 255, 0.04);
+  --cp-highlight: rgba(253, 142, 161, 0.12);
+}
+
+:root {
+  --font-sans: "Segoe UI", Aptos, Calibri, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: Consolas, "Courier New", Courier, monospace;
+  --radius-ui: 0.625rem;
+  --radius-card: 16px;
+  --space: 4px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  max-width: 100%;
+}
+
+body {
+  background: var(--cp-bg);
+  color: var(--cp-text);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+select,
+textarea,
+input {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  background: var(--cp-panel-strong);
+  border-bottom: 1px solid var(--cp-border);
+  backdrop-filter: blur(8px);
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.topbar__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 12px;
+}
+
+.topbar__title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+
+.topbar__subtitle {
+  margin: 0;
+  color: var(--cp-text-muted);
+  font-size: 13px;
+}
+
+.progress {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--cp-text-muted);
+  border: 1px solid var(--cp-border);
+  border-radius: 999px;
+  padding: 2px 10px;
+  background: var(--cp-surface);
+}
+
+.control-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.control-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.control-group__label {
+  font-size: 12px;
+  color: var(--cp-text-soft);
+  letter-spacing: 0.04em;
+  margin-right: 2px;
+}
+
+.btn {
+  border: 1px solid var(--cp-border);
+  background: var(--cp-surface);
+  color: var(--cp-text);
+  border-radius: var(--radius-ui);
+  padding: 5px 11px;
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.btn:hover:not(:disabled) {
+  border-color: var(--cp-border-strong);
+  background: var(--cp-surface-soft);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn[aria-pressed="true"] {
+  background: var(--cp-accent-soft);
+  border-color: var(--cp-accent);
+  color: var(--cp-accent);
+  font-weight: 600;
+}
+
+.btn--primary {
+  background: var(--cp-accent);
+  border-color: var(--cp-accent);
+  color: var(--cp-accent-fg);
+  font-weight: 600;
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: var(--cp-accent-hover);
+  border-color: var(--cp-accent-hover);
+  color: var(--cp-accent-fg);
+}
+
+.btn--danger {
+  color: var(--cp-danger);
+  border-color: var(--cp-border);
+}
+
+select {
+  border: 1px solid var(--cp-border);
+  background: var(--cp-surface);
+  border-radius: var(--radius-ui);
+  padding: 5px 8px;
+  font-size: 13px;
+  max-width: 100%;
+  min-width: 0;
+}
+
+select:disabled {
+  opacity: 0.5;
+}
+
+.confirm {
+  border: 1px solid var(--cp-accent);
+  background: var(--cp-accent-soft);
+  border-radius: var(--radius-ui);
+  padding: 10px 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.confirm__text {
+  flex: 1 1 240px;
+  min-width: 0;
+  color: var(--cp-text);
+}
+
+.blind-banner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+  color: var(--cp-text-muted);
+  border: 1px dashed var(--cp-border-strong);
+  border-radius: var(--radius-ui);
+  padding: 8px 12px;
+  background: var(--cp-surface);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  border-radius: 999px;
+  padding: 1px 8px;
+  border: 1px solid var(--cp-border);
+  background: var(--cp-surface-soft);
+  color: var(--cp-text-muted);
+}
+
+main {
+  padding: 16px;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));
+  gap: 14px;
+  align-items: start;
+}
+
+.card {
+  background: var(--cp-surface);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.card[data-selected="true"] {
+  border-color: var(--cp-accent);
+  box-shadow: var(--cp-shadow);
+}
+
+.card__thumb-wrap {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  background: var(--cp-surface-soft);
+  border-bottom: 1px solid var(--cp-border);
+  overflow: hidden;
+}
+
+.card__thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+  display: block;
+}
+
+.card__thumb-wrap[data-device="mobile"] .card__thumb {
+  object-fit: contain;
+  background: var(--cp-bg-elevated);
+}
+
+.card__thumb-caption {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  z-index: 1;
+  border: 1px solid var(--cp-border);
+  border-radius: var(--radius-ui);
+  padding: 2px 7px;
+  background: var(--cp-panel-strong);
+  color: var(--cp-text-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.card__placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+  padding: 12px;
+  color: var(--cp-text-soft);
+  background:
+    repeating-linear-gradient(
+      135deg,
+      var(--cp-surface-soft) 0 10px,
+      var(--cp-bg-elevated) 10px 20px
+    );
+  font-size: 12px;
+}
+
+.card__placeholder-mark {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  color: var(--cp-text-muted);
+}
+
+.card__body {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.card__heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.card__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.card__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--cp-text-muted);
+  border-left: 2px solid var(--cp-accent);
+  padding-left: 8px;
+}
+
+.card__meta code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.capabilities {
+  margin-top: 4px;
+  border-top: 1px solid var(--cp-border);
+  padding-top: 6px;
+}
+
+.capabilities summary {
+  cursor: pointer;
+  color: var(--cp-text);
+  font-weight: 600;
+}
+
+.capabilities__evidence {
+  margin: 5px 0 0;
+}
+
+.capabilities__list {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.capabilities__list li {
+  margin-top: 4px;
+}
+
+.capability-class {
+  display: inline-flex;
+  min-width: 20px;
+  justify-content: center;
+  margin-right: 4px;
+  border: 1px solid var(--cp-border-strong);
+  border-radius: var(--radius-ui);
+  padding: 0 4px;
+  color: var(--cp-text);
+  font-family: var(--font-mono);
+  font-weight: 700;
+}
+
+.manifest-error {
+  color: var(--cp-danger);
+}
+
+.card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  color: var(--cp-text-muted);
+  cursor: pointer;
+}
+
+.checkbox input {
+  accent-color: var(--cp-accent);
+}
+
+.scores {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(112px, 100%), 1fr));
+  gap: 6px;
+}
+
+.score-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.score-field__label {
+  font-size: 11px;
+  color: var(--cp-text-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  border-top: 1px solid var(--cp-border);
+  padding-top: 8px;
+  font-size: 12px;
+  color: var(--cp-text-muted);
+}
+
+.total__value {
+  font-family: var(--font-mono);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--cp-accent);
+}
+
+.total__hint {
+  min-width: 0;
+}
+
+.total__value[data-complete="false"] {
+  color: var(--cp-text-muted);
+}
+
+textarea {
+  width: 100%;
+  min-height: 62px;
+  resize: vertical;
+  border: 1px solid var(--cp-border);
+  border-radius: var(--radius-ui);
+  background: var(--cp-bg-elevated);
+  padding: 7px 9px;
+  font-size: 13px;
+}
+
+textarea:focus,
+select:focus,
+.btn:focus-visible {
+  outline: 2px solid var(--cp-accent);
+  outline-offset: 1px;
+}
+
+.viewer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: var(--topbar-h, 120px);
+  z-index: 40;
+  background: var(--cp-overlay);
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  gap: 10px;
+}
+
+.viewer__bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  background: var(--cp-panel-strong);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--radius-ui);
+  padding: 8px 10px;
+  min-width: 0;
+}
+
+.viewer__title {
+  font-weight: 650;
+  font-size: 14px;
+  min-width: 0;
+}
+
+.viewer__meta {
+  font-size: 12px;
+  color: var(--cp-text-muted);
+  min-width: 0;
+}
+
+.viewer__frames {
+  flex: 1;
+  display: flex;
+  gap: 10px;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+}
+
+.frame-shell {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--cp-surface);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+
+.frame-shell__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--cp-border);
+  font-size: 12px;
+  color: var(--cp-text-muted);
+  background: var(--cp-surface-soft);
+}
+
+.frame-shell__stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  justify-content: center;
+  background: var(--cp-bg-elevated);
+  overflow: auto;
+}
+
+.frame-shell iframe {
+  border: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--cp-surface);
+}
+
+.frame-missing {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 20px;
+  text-align: center;
+  color: var(--cp-text-soft);
+  font-size: 13px;
+  background:
+    repeating-linear-gradient(
+      135deg,
+      var(--cp-surface-soft) 0 10px,
+      var(--cp-bg-elevated) 10px 20px
+    );
+}
+
+.frame-missing__mark {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  color: var(--cp-text-muted);
+}
+
+.viewer[data-device="mobile"] .frame-shell iframe {
+  width: min(390px, 100%);
+}
+
+.footnote {
+  padding: 4px 16px 28px;
+  color: var(--cp-text-soft);
+  font-size: 12px;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.footnote code {
+  font-family: var(--font-mono);
+}
+
+@media (max-width: 640px) {
+  .viewer__frames {
+    flex-direction: column;
+  }
+
+  .topbar {
+    padding: 10px 12px;
+  }
+
+  main {
+    padding: 12px;
+  }
+}
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar__head">
+        <h1 class="topbar__title">AkaMoney 設計提案比較中心</h1>
+        <p class="topbar__subtitle">14 份提案 · 盲測優先 · 加權評分</p>
+        <span class="progress" data-testid="progress">已評分 0 / 14</span>
+      </div>
+
+      <div class="control-rows">
+        <div class="control-group" data-testid="view-controls" aria-describedby="live-controls-note">
+          <span class="control-group__label">檢視</span>
+          <button class="btn" type="button" data-testid="view-dashboard" data-view="dashboard" disabled>儀表板</button>
+          <button class="btn" type="button" data-testid="view-analytics" data-view="analytics" disabled>分析</button>
+          <button class="btn" type="button" data-testid="view-stats" data-view="stats" disabled>總覽統計</button>
+          <button class="btn" type="button" data-testid="view-login" data-view="login" disabled>登入</button>
+          <button class="btn" type="button" data-testid="view-create" data-view="create" disabled>建立</button>
+          <button class="btn" type="button" data-testid="view-notfound" data-view="notfound" disabled>404</button>
+          <span class="control-group__label" id="live-controls-note" data-testid="live-controls-note">
+            僅套用於即時預覽；目前未開啟
+          </span>
+        </div>
+
+        <div class="control-group">
+          <span class="control-group__label">資料集</span>
+          <select data-testid="dataset-select" aria-label="資料情境（僅套用於即時預覽）" aria-describedby="live-controls-note" disabled>
+            <option value="default">default／預設</option>
+            <option value="large250">large250／大量資料</option>
+            <option value="empty">empty／空清單</option>
+            <option value="noResults">noResults／搜尋無結果</option>
+            <option value="edgeCases">edgeCases／邊界值</option>
+            <option value="zeroAnalytics">zeroAnalytics／零分析</option>
+            <option value="apiError">apiError／API 錯誤</option>
+          </select>
+
+          <span class="control-group__label">布景</span>
+          <button class="btn" type="button" data-testid="theme-light" data-theme-value="light">淺色</button>
+          <button class="btn" type="button" data-testid="theme-dark" data-theme-value="dark">深色</button>
+
+          <span class="control-group__label">裝置</span>
+          <button class="btn" type="button" data-testid="device-desktop" data-device-value="desktop">桌機</button>
+          <button class="btn" type="button" data-testid="device-mobile" data-device-value="mobile">行動</button>
+        </div>
+
+        <div class="control-group">
+          <button class="btn btn--primary" type="button" data-testid="compare-button" disabled>並排比較（0/2）</button>
+          <button class="btn" type="button" data-testid="reveal-button">揭露身分</button>
+          <button class="btn" type="button" data-testid="export-button">匯出 JSON</button>
+          <button class="btn btn--danger" type="button" data-testid="reset-button">重置</button>
+        </div>
+
+        <div class="control-group" data-testid="filters" hidden>
+          <span class="control-group__label">篩選</span>
+          <select data-testid="filter-provider" aria-label="依提供商篩選" disabled>
+            <option value="all">全部</option>
+          </select>
+          <select data-testid="filter-stack" aria-label="依技術棧篩選" disabled>
+            <option value="all">全部</option>
+          </select>
+          <select data-testid="filter-workmode" aria-label="依工作模式篩選" disabled>
+            <option value="all">全部</option>
+          </select>
+        </div>
+
+        <div class="blind-banner" data-testid="blind-banner">
+          <span class="badge">盲測進行中</span>
+          <span>提供商、模型、技術棧與設計方向皆已隱藏，請先依畫面本身評分，完成後再揭露身分。</span>
+        </div>
+
+        <div class="confirm" data-testid="reveal-confirm" hidden>
+          <span class="confirm__text">揭露後將顯示提供商／模型／技術棧／設計方向，且無法回到盲測狀態（除非重置）。確定要揭露嗎？</span>
+          <button class="btn" type="button" data-testid="reveal-cancel">取消</button>
+          <button class="btn btn--primary" type="button" data-testid="reveal-confirm-yes">確定揭露</button>
+        </div>
+
+        <div class="confirm" data-testid="reset-confirm" hidden>
+          <span class="confirm__text">重置會清除所有評分、筆記、篩選與揭露狀態，此動作無法復原。確定要重置嗎？</span>
+          <button class="btn" type="button" data-testid="reset-cancel">取消</button>
+          <button class="btn btn--danger" type="button" data-testid="reset-confirm-yes">確定重置</button>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div class="grid" data-testid="proposal-grid" id="grid"></div>
+    </main>
+
+    <p class="footnote">
+      縮圖來源：<code>screenshots/&lt;id&gt;-&lt;device&gt;-&lt;theme&gt;.png</code>；開啟或比較時才會載入實際
+      <code>iframe</code>，並以 <code>SET_VIEW</code> / <code>SET_THEME</code> / <code>SET_DATASET</code> 同步兩側狀態。
+    </p>
+
+    <div class="viewer" data-testid="viewer" data-device="desktop" hidden>
+      <div class="viewer__bar">
+        <span class="viewer__title" data-testid="viewer-title">方案</span>
+        <span class="viewer__meta" data-testid="viewer-meta"></span>
+        <button class="btn" type="button" data-testid="viewer-close" style="margin-left: auto">關閉</button>
+      </div>
+      <div class="viewer__frames" data-testid="viewer-frames"></div>
+    </div>
+
+    <script>
+      (function () {
+        'use strict';
+
+        var STORAGE_KEY = 'akamoney-compare-center:v1';
+        var SHUFFLE_SEED = 20260824;
+
+        var WEIGHTS = {
+          visual: 35,
+          taskFlow: 35,
+          dataComprehension: 20,
+          responsive: 7,
+          feasibility: 3
+        };
+
+        var SCORE_FIELDS = [
+          { key: 'visual', testid: 'score-visual', label: '視覺 35' },
+          { key: 'taskFlow', testid: 'score-taskflow', label: '任務流程 35' },
+          { key: 'dataComprehension', testid: 'score-data', label: '資料理解 20' },
+          { key: 'responsive', testid: 'score-responsive', label: '響應式 7' },
+          { key: 'feasibility', testid: 'score-feasibility', label: '可行性 3' }
+        ];
+
+        var VIEWS = ['dashboard', 'analytics', 'stats', 'login', 'create', 'notfound'];
+        var THEMES = ['light', 'dark'];
+        var DEVICES = ['desktop', 'mobile'];
+        var DATASETS = [
+          'default',
+          'large250',
+          'empty',
+          'noResults',
+          'edgeCases',
+          'zeroAnalytics',
+          'apiError'
+        ];
+
+        var PROPOSALS = [
+          {
+            id: '01-linear'
+          },
+          {
+            id: '02-editorial'
+          },
+          {
+            id: '03-swiss'
+          },
+          {
+            id: '04-bento'
+          },
+          {
+            id: '05-vercel'
+          },
+          {
+            id: '06-brutalist'
+          },
+          {
+            id: '07-material'
+          },
+          {
+            id: '08-glass'
+          },
+          {
+            id: '09-terminal'
+          },
+          {
+            id: '10-stripe'
+          },
+          {
+            id: '11-bootstrap'
+          },
+          {
+            id: '12-playful'
+          },
+          {
+            id: 'm1-mone-faithful'
+          },
+          {
+            id: 'm2-mone-dense'
+          }
+        ];
+
+        var WORK_MODE_LABELS = {
+          scan: 'scan／掃描',
+          narrate: 'narrate／敘事',
+          edit: 'edit／編輯',
+          monitor: 'monitor／監控',
+          analyze: 'analyze／分析'
+        };
+
+        var BLIND_LETTERS = 'ABCDEFGHIJKLMN'.split('');
+
+        function deterministicOrder(list, seed) {
+          var items = list.slice();
+          var state = seed >>> 0;
+          for (var i = items.length - 1; i > 0; i -= 1) {
+            state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+            var j = state % (i + 1);
+            var swap = items[i];
+            items[i] = items[j];
+            items[j] = swap;
+          }
+          return items;
+        }
+
+        var ORDERED = deterministicOrder(PROPOSALS, SHUFFLE_SEED).map(function (proposal, index) {
+          return Object.assign({}, proposal, { blindLabel: '方案 ' + BLIND_LETTERS[index] });
+        });
+
+        function byId(id) {
+          for (var i = 0; i < ORDERED.length; i += 1) {
+            if (ORDERED[i].id === id) return ORDERED[i];
+          }
+          return null;
+        }
+
+        function defaultState() {
+          return {
+            revealed: false,
+            view: 'dashboard',
+            theme: 'light',
+            device: 'desktop',
+            dataset: 'default',
+            filters: { provider: 'all', stack: 'all', workMode: 'all' },
+            compare: [],
+            scores: {},
+            notes: {}
+          };
+        }
+
+        var themePersisted = false;
+
+        function detectDocumentTheme() {
+          var requested = new URLSearchParams(window.location.search).get('scoutTheme');
+          if (requested && THEMES.indexOf(requested) !== -1) return requested;
+          var current = document.documentElement.getAttribute('data-theme');
+          if (THEMES.indexOf(current) !== -1) return current;
+          return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+
+        function loadState() {
+          var state = defaultState();
+          try {
+            var raw = window.localStorage.getItem(STORAGE_KEY);
+            if (!raw) return state;
+            var parsed = JSON.parse(raw);
+            if (!parsed || typeof parsed !== 'object') return state;
+            state.revealed = parsed.revealed === true;
+            if (VIEWS.indexOf(parsed.view) !== -1) state.view = parsed.view;
+            if (THEMES.indexOf(parsed.theme) !== -1) {
+              state.theme = parsed.theme;
+              themePersisted = true;
+            }
+            if (DEVICES.indexOf(parsed.device) !== -1) state.device = parsed.device;
+            if (DATASETS.indexOf(parsed.dataset) !== -1) state.dataset = parsed.dataset;
+            if (parsed.filters && typeof parsed.filters === 'object') {
+              state.filters.provider = parsed.filters.provider || 'all';
+              state.filters.stack = parsed.filters.stack || 'all';
+              state.filters.workMode = parsed.filters.workMode || 'all';
+            }
+            if (parsed.scores && typeof parsed.scores === 'object') state.scores = parsed.scores;
+            if (parsed.notes && typeof parsed.notes === 'object') state.notes = parsed.notes;
+          } catch (error) {
+            return defaultState();
+          }
+          return state;
+        }
+
+        function saveState() {
+          try {
+            window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+          } catch (error) {
+            /* localStorage 不可用時（例如 file://）維持記憶體狀態即可 */
+          }
+        }
+
+        var state = loadState();
+        var openFrames = [];
+        var manifestsSettled = false;
+        var manifestLoadPromise = null;
+
+        (function initTheme() {
+          var requested = new URLSearchParams(window.location.search).get('scoutTheme');
+          if ((requested && THEMES.indexOf(requested) !== -1) || !themePersisted) {
+            state.theme = detectDocumentTheme();
+          }
+          document.documentElement.setAttribute('data-theme', state.theme);
+        })();
+
+        function scoresFor(id) {
+          return state.scores[id] || {};
+        }
+
+        function scoreSummary(id) {
+          var scores = scoresFor(id);
+          var points = 0;
+          var scoredWeight = 0;
+          var filled = 0;
+          for (var i = 0; i < SCORE_FIELDS.length; i += 1) {
+            var key = SCORE_FIELDS[i].key;
+            var value = Number(scores[key]);
+            if (!value) continue;
+            points += (value / 5) * WEIGHTS[key];
+            scoredWeight += WEIGHTS[key];
+            filled += 1;
+          }
+          return {
+            points: points,
+            scoredWeight: scoredWeight,
+            filled: filled,
+            complete: filled === SCORE_FIELDS.length
+          };
+        }
+
+        function isFullyScored(id) {
+          return scoreSummary(id).complete;
+        }
+
+        function thumbUrl(id) {
+          return 'screenshots/' + id + '-' + state.device + '-' + state.theme + '.png';
+        }
+
+        function proposalUrl(id) {
+          return 'proposals/' + id + '.html';
+        }
+
+        function manifestUrl(id) {
+          return 'proposals/' + id + '.manifest.json';
+        }
+
+        var grid = document.getElementById('grid');
+        var viewer = document.querySelector('[data-testid="viewer"]');
+        var viewerFrames = document.querySelector('[data-testid="viewer-frames"]');
+        var viewerTitle = document.querySelector('[data-testid="viewer-title"]');
+        var viewerMeta = document.querySelector('[data-testid="viewer-meta"]');
+        var compareButton = document.querySelector('[data-testid="compare-button"]');
+        var revealButton = document.querySelector('[data-testid="reveal-button"]');
+        var revealConfirm = document.querySelector('[data-testid="reveal-confirm"]');
+        var resetConfirm = document.querySelector('[data-testid="reset-confirm"]');
+        var filtersBox = document.querySelector('[data-testid="filters"]');
+        var exportButton = document.querySelector('[data-testid="export-button"]');
+        var blindBanner = document.querySelector('[data-testid="blind-banner"]');
+        var datasetSelect = document.querySelector('[data-testid="dataset-select"]');
+        var liveControlsNote = document.querySelector('[data-testid="live-controls-note"]');
+        var progressBadge = document.querySelector('[data-testid="progress"]');
+        var filterSelects = {
+          provider: document.querySelector('[data-testid="filter-provider"]'),
+          stack: document.querySelector('[data-testid="filter-stack"]'),
+          workMode: document.querySelector('[data-testid="filter-workmode"]')
+        };
+
+        function createElement(tag, className, text) {
+          var node = document.createElement(tag);
+          if (className) node.className = className;
+          if (text !== undefined) node.textContent = text;
+          return node;
+        }
+
+        function buildCard(proposal) {
+          var card = createElement('article', 'card');
+          card.setAttribute('data-testid', 'proposal-card');
+          card.setAttribute('data-proposal-id', proposal.id);
+
+          var thumbWrap = createElement('div', 'card__thumb-wrap');
+          thumbWrap.setAttribute('data-device', state.device);
+
+          var thumb = document.createElement('img');
+          thumb.className = 'card__thumb';
+          thumb.setAttribute('data-testid', 'thumb');
+          thumb.setAttribute('alt', proposal.blindLabel + ' 固定儀表板預設資料螢幕截圖');
+          thumb.setAttribute('decoding', 'async');
+
+          var placeholder = createElement('div', 'card__placeholder');
+          placeholder.setAttribute('data-testid', 'thumb-placeholder');
+          placeholder.hidden = true;
+          placeholder.appendChild(createElement('span', 'card__placeholder-mark', '[ ]'));
+          placeholder.appendChild(createElement('span', null, '尚無此組合的截圖'));
+          var placeholderHint = createElement('span', null, '');
+          placeholderHint.setAttribute('data-testid', 'thumb-placeholder-hint');
+          placeholder.appendChild(placeholderHint);
+
+          thumb.addEventListener('error', function () {
+            thumb.hidden = true;
+            placeholder.hidden = false;
+            placeholderHint.textContent = state.device + ' · ' + state.theme;
+          });
+          thumb.addEventListener('load', function () {
+            thumb.hidden = false;
+            placeholder.hidden = true;
+          });
+
+          thumbWrap.appendChild(thumb);
+          thumbWrap.appendChild(placeholder);
+          var thumbCaption = createElement(
+            'span',
+            'card__thumb-caption',
+            '固定縮圖：儀表板 · default'
+          );
+          thumbCaption.setAttribute('data-testid', 'thumb-caption');
+          thumbWrap.appendChild(thumbCaption);
+          card.appendChild(thumbWrap);
+
+          var body = createElement('div', 'card__body');
+
+          var heading = createElement('div', 'card__heading');
+          var title = createElement('h2', 'card__title', proposal.blindLabel);
+          title.setAttribute('data-testid', 'card-title');
+          heading.appendChild(title);
+          var statusBadge = createElement('span', 'badge', '未評分');
+          statusBadge.setAttribute('data-testid', 'card-status');
+          heading.appendChild(statusBadge);
+          body.appendChild(heading);
+
+          var metaSlot = createElement('div', null);
+          metaSlot.setAttribute('data-meta-slot', proposal.id);
+          body.appendChild(metaSlot);
+
+          var actions = createElement('div', 'card__actions');
+          var openButton = createElement('button', 'btn', '開啟預覽');
+          openButton.type = 'button';
+          openButton.setAttribute('data-testid', 'open-button');
+          openButton.addEventListener('click', function () {
+            openViewer([proposal.id]);
+          });
+          actions.appendChild(openButton);
+
+          var compareLabel = createElement('label', 'checkbox');
+          var compareBox = document.createElement('input');
+          compareBox.type = 'checkbox';
+          compareBox.setAttribute('data-testid', 'compare-checkbox');
+          compareBox.addEventListener('change', function () {
+            toggleCompare(proposal.id, compareBox.checked);
+          });
+          compareLabel.appendChild(compareBox);
+          compareLabel.appendChild(document.createTextNode('選入比較'));
+          actions.appendChild(compareLabel);
+          body.appendChild(actions);
+
+          var scores = createElement('div', 'scores');
+          SCORE_FIELDS.forEach(function (field) {
+            var wrapper = createElement('div', 'score-field');
+            var label = createElement('label', 'score-field__label', field.label);
+            var select = document.createElement('select');
+            select.setAttribute('data-testid', field.testid);
+            select.setAttribute('aria-label', proposal.blindLabel + ' ' + field.label);
+            var blank = document.createElement('option');
+            blank.value = '';
+            blank.textContent = '—';
+            select.appendChild(blank);
+            for (var value = 1; value <= 5; value += 1) {
+              var option = document.createElement('option');
+              option.value = String(value);
+              option.textContent = String(value);
+              select.appendChild(option);
+            }
+            select.addEventListener('change', function () {
+              if (!state.scores[proposal.id]) state.scores[proposal.id] = {};
+              if (select.value === '') {
+                delete state.scores[proposal.id][field.key];
+              } else {
+                state.scores[proposal.id][field.key] = Number(select.value);
+              }
+              saveState();
+              renderCardScore(proposal.id);
+              renderProgress();
+            });
+            wrapper.appendChild(label);
+            wrapper.appendChild(select);
+            scores.appendChild(wrapper);
+          });
+          body.appendChild(scores);
+
+          var total = createElement('div', 'total');
+          var totalHint = createElement('span', 'total__hint', '未完成 · 已評權重 0 / 100');
+          totalHint.setAttribute('data-testid', 'total-hint');
+          total.appendChild(totalHint);
+          var totalValue = createElement('span', 'total__value', '—');
+          totalValue.setAttribute('data-testid', 'weighted-total');
+          totalValue.setAttribute('data-complete', 'false');
+          total.appendChild(totalValue);
+          body.appendChild(total);
+
+          var notes = document.createElement('textarea');
+          notes.setAttribute('data-testid', 'notes');
+          notes.setAttribute('placeholder', '這份方案的觀察與疑慮…');
+          notes.setAttribute('aria-label', proposal.blindLabel + ' 筆記');
+          notes.addEventListener('input', function () {
+            state.notes[proposal.id] = notes.value;
+            saveState();
+          });
+          body.appendChild(notes);
+
+          card.appendChild(body);
+          return card;
+        }
+
+        function cardNode(id) {
+          return grid.querySelector('[data-proposal-id="' + id + '"]');
+        }
+
+        function renderCardScore(id) {
+          var card = cardNode(id);
+          if (!card) return;
+          var summary = scoreSummary(id);
+          var valueNode = card.querySelector('[data-testid="weighted-total"]');
+          var hintNode = card.querySelector('[data-testid="total-hint"]');
+          var status = card.querySelector('[data-testid="card-status"]');
+
+          valueNode.setAttribute('data-complete', summary.complete ? 'true' : 'false');
+          valueNode.textContent = summary.filled === 0 ? '—' : summary.points.toFixed(1);
+
+          if (summary.complete) {
+            hintNode.textContent = '完成 · 加權總分（滿分 100）';
+            status.textContent = '已完成';
+          } else if (summary.filled === 0) {
+            hintNode.textContent = '未完成 · 已評權重 0 / 100';
+            status.textContent = '未評分';
+          } else {
+            hintNode.textContent =
+              '未完成 · 累計權重分，已評權重 ' + summary.scoredWeight + ' / 100';
+            status.textContent = '評分中';
+          }
+        }
+
+        function renderProgress() {
+          var done = 0;
+          ORDERED.forEach(function (proposal) {
+            if (isFullyScored(proposal.id)) done += 1;
+          });
+          progressBadge.textContent = '已評分 ' + done + ' / ' + ORDERED.length;
+        }
+
+        function renderThumbs() {
+          ORDERED.forEach(function (proposal) {
+            var card = cardNode(proposal.id);
+            if (!card) return;
+            var thumb = card.querySelector('[data-testid="thumb"]');
+            var placeholder = card.querySelector('[data-testid="thumb-placeholder"]');
+            card.querySelector('.card__thumb-wrap').setAttribute('data-device', state.device);
+            thumb.hidden = false;
+            placeholder.hidden = true;
+            thumb.setAttribute('src', thumbUrl(proposal.id));
+          });
+        }
+
+        function capabilityCounts(capabilities) {
+          var counts = { A: 0, B: 0, C: 0 };
+          capabilities.forEach(function (capability) {
+            if (Object.prototype.hasOwnProperty.call(counts, capability.class)) {
+              counts[capability.class] += 1;
+            }
+          });
+          return counts;
+        }
+
+        function validManifest(proposal, manifest) {
+          if (!manifest || typeof manifest !== 'object' || manifest.id !== proposal.id) return false;
+          if (!Array.isArray(manifest.capabilities)) return false;
+          return manifest.capabilities.every(function (capability) {
+            return (
+              capability &&
+              typeof capability.feature === 'string' &&
+              ['A', 'B', 'C'].indexOf(capability.class) !== -1 &&
+              typeof capability.note === 'string'
+            );
+          });
+        }
+
+        function loadAllManifests() {
+          if (manifestLoadPromise) return manifestLoadPromise;
+          if (!window.fetch) {
+            ORDERED.forEach(function (proposal) {
+              proposal.manifestError = '此瀏覽器無法載入 manifest；請改用官方 HTTP 啟動方式。';
+            });
+            manifestsSettled = true;
+            manifestLoadPromise = Promise.resolve();
+            return manifestLoadPromise;
+          }
+
+          manifestLoadPromise = Promise.all(
+            ORDERED.map(function (proposal) {
+              return window
+                .fetch(manifestUrl(proposal.id), { cache: 'no-store' })
+                .then(function (response) {
+                  if (!response.ok) {
+                    throw new Error('HTTP ' + response.status);
+                  }
+                  return response.json();
+                })
+                .then(function (manifest) {
+                  if (!validManifest(proposal, manifest)) {
+                    throw new Error('manifest 格式或 id 不符');
+                  }
+                  proposal.manifest = manifest;
+                  proposal.manifestError = '';
+                })
+                .catch(function (error) {
+                  proposal.manifest = null;
+                  proposal.manifestError =
+                    '無法載入 ' + proposal.id + '.manifest.json（' + error.message + '）';
+                });
+            })
+          ).then(function () {
+            manifestsSettled = true;
+          });
+          return manifestLoadPromise;
+        }
+
+        function metaNode(proposal) {
+          var meta = createElement('div', 'card__meta');
+          meta.setAttribute('data-testid', 'card-meta');
+          if (!manifestsSettled) {
+            meta.setAttribute('data-manifest-status', 'loading');
+            meta.appendChild(createElement('span', null, '正在載入 manifest…'));
+            return meta;
+          }
+          if (!proposal.manifest) {
+            meta.setAttribute('data-manifest-status', 'error');
+            var error = createElement(
+              'span',
+              'manifest-error',
+              proposal.manifestError || 'manifest 無法使用'
+            );
+            error.setAttribute('data-testid', 'manifest-error');
+            meta.appendChild(error);
+            return meta;
+          }
+
+          var manifest = proposal.manifest;
+          meta.setAttribute('data-manifest-status', 'loaded');
+          meta.appendChild(createElement('span', null, manifest.provider + ' · ' + manifest.direction));
+          var model = createElement('span', null);
+          var modelCode = createElement('code', null, manifest.model);
+          model.appendChild(modelCode);
+          model.appendChild(document.createTextNode(' · ' + manifest.stack));
+          meta.appendChild(model);
+          meta.appendChild(
+            createElement(
+              'span',
+              null,
+              'DNA：' + manifest.dna.navigation + ' / ' + manifest.dna.linkRepresentation + ' / ' +
+                (WORK_MODE_LABELS[manifest.dna.workMode] || manifest.dna.workMode)
+            )
+          );
+
+          var counts = capabilityCounts(manifest.capabilities);
+          var details = createElement('details', 'capabilities');
+          details.open = true;
+          details.setAttribute('data-testid', 'capabilities');
+          var summary = createElement(
+            'summary',
+            null,
+            '能力分級：A ' + counts.A + ' · B ' + counts.B + ' · C ' + counts.C
+          );
+          summary.setAttribute('data-testid', 'capability-summary');
+          details.appendChild(summary);
+          var feasibility = createElement(
+            'p',
+            'capabilities__evidence',
+            '可行性證據：A ' + counts.A + ' 項可沿用既有資料；B ' + counts.B + ' 項由前端完成。'
+          );
+          feasibility.setAttribute('data-testid', 'feasibility-evidence');
+          details.appendChild(feasibility);
+          var migration = createElement(
+            'p',
+            'capabilities__evidence',
+            counts.C === 0
+              ? '遷移證據：C 0 項，manifest 未列出必要的後端擴充。'
+              : '遷移證據：C ' + counts.C + ' 項需要後端支援；逐項需求如下。'
+          );
+          migration.setAttribute('data-testid', 'migration-evidence');
+          details.appendChild(migration);
+
+          var list = createElement('ul', 'capabilities__list');
+          list.setAttribute('data-testid', 'capability-list');
+          manifest.capabilities.forEach(function (capability) {
+            var item = createElement('li', null);
+            item.setAttribute('data-testid', 'capability-item');
+            item.setAttribute('data-capability-class', capability.class);
+            item.setAttribute('data-capability-feature', capability.feature);
+            item.setAttribute('data-capability-note', capability.note);
+            var classBadge = createElement('span', 'capability-class', capability.class);
+            item.appendChild(classBadge);
+            item.appendChild(
+              document.createTextNode(capability.feature + ' — ' + capability.note)
+            );
+            list.appendChild(item);
+          });
+          details.appendChild(list);
+          meta.appendChild(details);
+          return meta;
+        }
+
+        function renderReveal() {
+          document.documentElement.setAttribute('data-revealed', state.revealed ? 'true' : 'false');
+          ORDERED.forEach(function (proposal) {
+            var card = cardNode(proposal.id);
+            if (!card) return;
+            var slot = card.querySelector('[data-meta-slot="' + proposal.id + '"]');
+            slot.textContent = '';
+            if (state.revealed) slot.appendChild(metaNode(proposal));
+          });
+
+          filtersBox.hidden = !state.revealed;
+          blindBanner.hidden = state.revealed;
+          revealButton.hidden = state.revealed;
+          exportButton.textContent = state.revealed ? '匯出 JSON（含身分）' : '匯出 JSON（盲測）';
+          exportButton.disabled = state.revealed && !manifestsSettled;
+          exportButton.setAttribute(
+            'title',
+            state.revealed
+              ? '匯出評分、筆記與完整中繼資料'
+              : '盲測中：只匯出方案代號、評分與筆記，不含任何身分資訊'
+          );
+
+          Object.keys(filterSelects).forEach(function (key) {
+            filterSelects[key].disabled = !state.revealed || !manifestsSettled;
+          });
+
+          if (state.revealed && manifestsSettled) {
+            fillFilterOptions();
+          } else {
+            Object.keys(filterSelects).forEach(function (key) {
+              filterSelects[key].textContent = '';
+              var option = document.createElement('option');
+              option.value = 'all';
+              option.textContent = '全部';
+              filterSelects[key].appendChild(option);
+              filterSelects[key].value = 'all';
+            });
+          }
+          applyFilters();
+          renderViewerMeta();
+        }
+
+        function fillFilterOptions() {
+          var sets = {
+            provider: [],
+            stack: [],
+            workMode: []
+          };
+          ORDERED.forEach(function (proposal) {
+            var manifest = proposal.manifest;
+            if (!manifest) return;
+            if (sets.provider.indexOf(manifest.provider) === -1) sets.provider.push(manifest.provider);
+            if (sets.stack.indexOf(manifest.stack) === -1) sets.stack.push(manifest.stack);
+            if (sets.workMode.indexOf(manifest.dna.workMode) === -1) {
+              sets.workMode.push(manifest.dna.workMode);
+            }
+          });
+
+          Object.keys(filterSelects).forEach(function (key) {
+            var select = filterSelects[key];
+            select.textContent = '';
+            var allOption = document.createElement('option');
+            allOption.value = 'all';
+            allOption.textContent =
+              key === 'provider' ? '全部提供商' : key === 'stack' ? '全部技術棧' : '全部工作模式';
+            select.appendChild(allOption);
+            sets[key].forEach(function (value) {
+              var option = document.createElement('option');
+              option.value = value;
+              option.textContent = key === 'workMode' ? WORK_MODE_LABELS[value] || value : value;
+              select.appendChild(option);
+            });
+            select.value = state.filters[key] || 'all';
+            if (select.value === '') select.value = 'all';
+          });
+        }
+
+        function applyFilters() {
+          ORDERED.forEach(function (proposal) {
+            var card = cardNode(proposal.id);
+            if (!card) return;
+            var visible = true;
+            if (state.revealed) {
+              var manifest = proposal.manifest;
+              if (!manifest) {
+                card.hidden = false;
+                return;
+              }
+              if (state.filters.provider !== 'all' && manifest.provider !== state.filters.provider) {
+                visible = false;
+              }
+              if (state.filters.stack !== 'all' && manifest.stack !== state.filters.stack) {
+                visible = false;
+              }
+              if (
+                state.filters.workMode !== 'all' &&
+                manifest.dna.workMode !== state.filters.workMode
+              ) {
+                visible = false;
+              }
+            }
+            card.hidden = !visible;
+          });
+        }
+
+        function renderCompare() {
+          ORDERED.forEach(function (proposal) {
+            var card = cardNode(proposal.id);
+            if (!card) return;
+            var selected = state.compare.indexOf(proposal.id) !== -1;
+            var box = card.querySelector('[data-testid="compare-checkbox"]');
+            box.checked = selected;
+            box.disabled = !selected && state.compare.length >= 2;
+            card.setAttribute('data-selected', selected ? 'true' : 'false');
+          });
+          compareButton.disabled = state.compare.length !== 2;
+          compareButton.textContent = '並排比較（' + state.compare.length + '/2）';
+        }
+
+        function toggleCompare(id, checked) {
+          var index = state.compare.indexOf(id);
+          if (checked && index === -1) {
+            if (state.compare.length >= 2) state.compare.shift();
+            state.compare.push(id);
+          } else if (!checked && index !== -1) {
+            state.compare.splice(index, 1);
+          }
+          renderCompare();
+        }
+
+        function postToFrame(iframe, type, value) {
+          if (!iframe || !iframe.contentWindow) return;
+          iframe.contentWindow.postMessage(
+            { source: 'akamoney-compare', type: type, value: value },
+            '*'
+          );
+        }
+
+        function syncFrame(entry) {
+          postToFrame(entry.iframe, 'SET_VIEW', state.view);
+          postToFrame(entry.iframe, 'SET_THEME', state.theme);
+          postToFrame(entry.iframe, 'SET_DATASET', state.dataset);
+        }
+
+        function broadcast(type, value) {
+          openFrames.forEach(function (entry) {
+            postToFrame(entry.iframe, type, value);
+          });
+        }
+
+        function renderViewerMeta() {
+          if (viewer.hidden || openFrames.length === 0) return;
+          var labels = openFrames.map(function (entry) {
+            var proposal = byId(entry.id);
+            return proposal ? proposal.blindLabel : entry.id;
+          });
+          viewerTitle.textContent = labels.join(' vs ');
+          if (state.revealed) {
+            viewerMeta.textContent = openFrames
+              .map(function (entry) {
+                var proposal = byId(entry.id);
+                var manifest = proposal && proposal.manifest;
+                return manifest
+                  ? manifest.provider + ' · ' + manifest.model + ' · ' + manifest.stack
+                  : 'manifest 無法使用';
+              })
+              .join('　｜　');
+          } else {
+            viewerMeta.textContent = '盲測中：身分隱藏';
+          }
+          openFrames.forEach(function (entry) {
+            var proposal = byId(entry.id);
+            var manifest = proposal && proposal.manifest;
+            entry.headLabel.textContent = state.revealed
+              ? proposal.blindLabel + '｜' +
+                (manifest ? manifest.provider + ' · ' + manifest.direction : 'manifest 無法使用')
+              : proposal.blindLabel;
+          });
+        }
+
+        function renderLiveControlAvailability() {
+          var hasLiveViewer = !viewer.hidden && openFrames.length > 0;
+          document.querySelectorAll('[data-view]').forEach(function (button) {
+            button.disabled = !hasLiveViewer;
+          });
+          datasetSelect.disabled = !hasLiveViewer;
+          liveControlsNote.textContent = hasLiveViewer
+            ? '僅套用於已開啟的即時預覽'
+            : '僅套用於即時預覽；目前未開啟';
+        }
+
+        function closeViewer() {
+          openFrames = [];
+          viewerFrames.textContent = '';
+          viewer.hidden = true;
+          renderLiveControlAvailability();
+        }
+
+        function openViewer(ids) {
+          closeViewer();
+          viewer.hidden = false;
+          viewer.setAttribute('data-device', state.device);
+
+          ids.forEach(function (id) {
+            var proposal = byId(id);
+            if (!proposal) return;
+
+            var shell = createElement('div', 'frame-shell');
+            shell.setAttribute('data-testid', 'frame-shell');
+            shell.setAttribute('data-proposal-id', id);
+
+            var head = createElement('div', 'frame-shell__head');
+            var headLabel = createElement('span', null, proposal.blindLabel);
+            headLabel.setAttribute('data-testid', 'frame-label');
+            head.appendChild(headLabel);
+            var status = createElement('span', 'badge', '載入中');
+            status.setAttribute('data-testid', 'frame-status');
+            head.appendChild(status);
+            shell.appendChild(head);
+
+            var stage = createElement('div', 'frame-shell__stage');
+            var iframe = document.createElement('iframe');
+            iframe.setAttribute('data-testid', 'viewer-frame');
+            iframe.setAttribute('data-proposal-id', id);
+            iframe.setAttribute('title', proposal.blindLabel + ' 即時預覽');
+            iframe.setAttribute('src', proposalUrl(id));
+            stage.appendChild(iframe);
+            shell.appendChild(stage);
+            viewerFrames.appendChild(shell);
+
+            var entry = { id: id, iframe: iframe, status: status, headLabel: headLabel };
+            openFrames.push(entry);
+
+            iframe.addEventListener('load', function () {
+              status.textContent = '已載入';
+              syncFrame(entry);
+            });
+
+            if (window.fetch) {
+              window
+                .fetch(proposalUrl(id), { method: 'HEAD' })
+                .then(function (response) {
+                  if (response.ok) return;
+                  iframe.hidden = true;
+                  status.textContent = '尚未提交';
+                  var missing = createElement('div', 'frame-missing');
+                  missing.setAttribute('data-testid', 'frame-missing');
+                  missing.appendChild(createElement('span', 'frame-missing__mark', '[ ]'));
+                  missing.appendChild(
+                    createElement('span', null, proposal.blindLabel + ' 尚未提交可預覽的 HTML')
+                  );
+                  missing.appendChild(createElement('span', null, '請先產出提案檔案後再回到比較中心。'));
+                  stage.appendChild(missing);
+                })
+                .catch(function () {
+                  /* 無法預檢時（例如 file://）維持 iframe 原樣 */
+                });
+            }
+          });
+
+          renderViewerMeta();
+          renderLiveControlAvailability();
+        }
+
+        window.addEventListener('message', function (event) {
+          var data = event.data;
+          if (!data || typeof data !== 'object') return;
+          if (data.source !== 'akamoney-proposal') return;
+          for (var i = 0; i < openFrames.length; i += 1) {
+            var entry = openFrames[i];
+            if (entry.id !== data.proposalId) continue;
+            if (data.type === 'READY') {
+              entry.status.textContent = '就緒';
+              syncFrame(entry);
+            } else if (data.type === 'STATE_CHANGED' && data.state) {
+              entry.status.textContent =
+                data.state.view + ' · ' + data.state.theme + ' · ' + data.state.dataset;
+            }
+          }
+        });
+
+        function renderToolbar() {
+          document.querySelectorAll('[data-view]').forEach(function (button) {
+            button.setAttribute('aria-pressed', button.dataset.view === state.view ? 'true' : 'false');
+          });
+          document.querySelectorAll('[data-theme-value]').forEach(function (button) {
+            button.setAttribute(
+              'aria-pressed',
+              button.dataset.themeValue === state.theme ? 'true' : 'false'
+            );
+          });
+          document.querySelectorAll('[data-device-value]').forEach(function (button) {
+            button.setAttribute(
+              'aria-pressed',
+              button.dataset.deviceValue === state.device ? 'true' : 'false'
+            );
+          });
+          datasetSelect.value = state.dataset;
+          document.documentElement.setAttribute('data-theme', state.theme);
+          viewer.setAttribute('data-device', state.device);
+        }
+
+        document.querySelectorAll('[data-view]').forEach(function (button) {
+          button.addEventListener('click', function () {
+            state.view = button.dataset.view;
+            saveState();
+            renderToolbar();
+            broadcast('SET_VIEW', state.view);
+          });
+        });
+
+        document.querySelectorAll('[data-theme-value]').forEach(function (button) {
+          button.addEventListener('click', function () {
+            state.theme = button.dataset.themeValue;
+            saveState();
+            renderToolbar();
+            renderThumbs();
+            broadcast('SET_THEME', state.theme);
+          });
+        });
+
+        document.querySelectorAll('[data-device-value]').forEach(function (button) {
+          button.addEventListener('click', function () {
+            state.device = button.dataset.deviceValue;
+            saveState();
+            renderToolbar();
+            renderThumbs();
+          });
+        });
+
+        datasetSelect.addEventListener('change', function () {
+          state.dataset = datasetSelect.value;
+          saveState();
+          broadcast('SET_DATASET', state.dataset);
+        });
+
+        compareButton.addEventListener('click', function () {
+          if (state.compare.length !== 2) return;
+          openViewer(state.compare.slice());
+        });
+
+        document.querySelector('[data-testid="viewer-close"]').addEventListener('click', closeViewer);
+
+        revealButton.addEventListener('click', function () {
+          resetConfirm.hidden = true;
+          revealConfirm.hidden = false;
+        });
+
+        document.querySelector('[data-testid="reveal-cancel"]').addEventListener('click', function () {
+          revealConfirm.hidden = true;
+        });
+
+        document
+          .querySelector('[data-testid="reveal-confirm-yes"]')
+          .addEventListener('click', function () {
+            state.revealed = true;
+            saveState();
+            revealConfirm.hidden = true;
+            renderReveal();
+            loadAllManifests().then(function () {
+              renderReveal();
+            });
+          });
+
+        document.querySelector('[data-testid="reset-button"]').addEventListener('click', function () {
+          revealConfirm.hidden = true;
+          resetConfirm.hidden = false;
+        });
+
+        document.querySelector('[data-testid="reset-cancel"]').addEventListener('click', function () {
+          resetConfirm.hidden = true;
+        });
+
+        document
+          .querySelector('[data-testid="reset-confirm-yes"]')
+          .addEventListener('click', function () {
+            state = defaultState();
+            state.theme = detectDocumentTheme();
+            themePersisted = false;
+            try {
+              window.localStorage.removeItem(STORAGE_KEY);
+            } catch (error) {
+              /* 忽略 */
+            }
+            resetConfirm.hidden = true;
+            closeViewer();
+            hydrateCards();
+            renderToolbar();
+            renderThumbs();
+            renderCompare();
+            renderReveal();
+            renderProgress();
+          });
+
+        Object.keys(filterSelects).forEach(function (key) {
+          filterSelects[key].addEventListener('change', function () {
+            state.filters[key] = filterSelects[key].value;
+            saveState();
+            applyFilters();
+          });
+        });
+
+        exportButton.addEventListener('click', function () {
+          var payload = {
+            tool: 'akamoney-comparison-center',
+            version: 1,
+            exportedAt: new Date().toISOString(),
+            revealed: state.revealed,
+            weights: WEIGHTS,
+            preview: { view: state.view, theme: state.theme, device: state.device, dataset: state.dataset },
+            entries: ORDERED.map(function (proposal) {
+              var summary = scoreSummary(proposal.id);
+              var entry = {
+                blindLabel: proposal.blindLabel,
+                scores: scoresFor(proposal.id),
+                scoredWeight: summary.scoredWeight,
+                accumulatedPoints: Number(summary.points.toFixed(1)),
+                weightedTotal: summary.complete ? Number(summary.points.toFixed(1)) : null,
+                complete: summary.complete,
+                notes: state.notes[proposal.id] || ''
+              };
+              if (!state.revealed) return entry;
+              var manifest = proposal.manifest;
+              return {
+                id: proposal.id,
+                blindLabel: entry.blindLabel,
+                manifestStatus: manifest ? 'loaded' : 'error',
+                provider: manifest ? manifest.provider : null,
+                model: manifest ? manifest.model : null,
+                stack: manifest ? manifest.stack : null,
+                direction: manifest ? manifest.direction : null,
+                dna: manifest ? manifest.dna : null,
+                capabilities: manifest ? manifest.capabilities : null,
+                manifestError: manifest ? null : proposal.manifestError,
+                scores: entry.scores,
+                scoredWeight: entry.scoredWeight,
+                accumulatedPoints: entry.accumulatedPoints,
+                weightedTotal: entry.weightedTotal,
+                complete: entry.complete,
+                notes: entry.notes
+              };
+            })
+          };
+
+          var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+          var url = URL.createObjectURL(blob);
+          var anchor = document.createElement('a');
+          anchor.href = url;
+          anchor.download =
+            'akamoney-review-' +
+            (state.revealed ? 'revealed-' : 'blind-') +
+            new Date().toISOString().replace(/[:.]/g, '-') +
+            '.json';
+          document.body.appendChild(anchor);
+          anchor.click();
+          document.body.removeChild(anchor);
+          window.setTimeout(function () {
+            URL.revokeObjectURL(url);
+          }, 2000);
+        });
+
+        function hydrateCards() {
+          ORDERED.forEach(function (proposal) {
+            var card = cardNode(proposal.id);
+            if (!card) return;
+            SCORE_FIELDS.forEach(function (field) {
+              var select = card.querySelector('[data-testid="' + field.testid + '"]');
+              var value = scoresFor(proposal.id)[field.key];
+              select.value = value ? String(value) : '';
+            });
+            card.querySelector('[data-testid="notes"]').value = state.notes[proposal.id] || '';
+            renderCardScore(proposal.id);
+          });
+        }
+
+        var topbar = document.querySelector('.topbar');
+
+        function syncTopbarHeight() {
+          document.documentElement.style.setProperty(
+            '--topbar-h',
+            Math.ceil(topbar.getBoundingClientRect().height) + 'px'
+          );
+        }
+
+        if (window.ResizeObserver) {
+          new window.ResizeObserver(syncTopbarHeight).observe(topbar);
+        }
+        window.addEventListener('resize', syncTopbarHeight);
+
+        ORDERED.forEach(function (proposal) {
+          grid.appendChild(buildCard(proposal));
+        });
+
+        hydrateCards();
+        renderToolbar();
+        renderThumbs();
+        renderCompare();
+        renderReveal();
+        renderProgress();
+        renderLiveControlAvailability();
+        syncTopbarHeight();
+        if (state.revealed) {
+          loadAllManifests().then(function () {
+            renderReveal();
+          });
+        }
+      })();
+    </script>
+  </body>
+</html>

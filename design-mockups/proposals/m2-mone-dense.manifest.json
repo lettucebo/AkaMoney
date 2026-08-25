@@ -1,0 +1,140 @@
+{
+  "id": "m2-mone-dense",
+  "title": "Monē 高密度資料工具變體",
+  "provider": "OpenAI",
+  "model": "gpt-5.5",
+  "direction": "Monē 高密度資料工具變體",
+  "stack": "Tailwind v4",
+  "dna": {
+    "navigation": "collapsible-sidebar",
+    "linkRepresentation": "dense-table",
+    "createFlow": "inline-quick-create",
+    "analyticsModel": "comparative",
+    "mobileStrategy": "progressive-drilldown",
+    "workMode": "scan"
+  },
+  "tokens": {
+    "colors": {
+      "light": {
+        "bg": "#faf8f5",
+        "surface": "#ffffff",
+        "surfaceAlt": "#f0eeeb",
+        "textPrimary": "#3d3a36",
+        "textSecondary": "#9a9590",
+        "border": "#e8e6e3",
+        "accent": "#81b29a",
+        "success": "#81b29a",
+        "warning": "#f2cc8f",
+        "danger": "#e07a5f",
+        "chartSeries": [
+          "#e07a5f",
+          "#81b29a",
+          "#f2cc8f",
+          "#3d405b",
+          "#6d597a",
+          "#b56576",
+          "#355070",
+          "#eaac8b",
+          "#9a9590"
+        ]
+      },
+      "dark": {
+        "bg": "#0a0a0b",
+        "surface": "#141416",
+        "surfaceAlt": "#1a1a1c",
+        "textPrimary": "#e8e6e3",
+        "textSecondary": "#666666",
+        "border": "#2a2a2c",
+        "accent": "#4ade80",
+        "success": "#4ade80",
+        "warning": "#ffe66d",
+        "danger": "#ff6b6b",
+        "chartSeries": [
+          "#e07a5f",
+          "#81b29a",
+          "#f2cc8f",
+          "#3d405b",
+          "#6d597a",
+          "#b56576",
+          "#355070",
+          "#eaac8b",
+          "#9a9590"
+        ]
+      }
+    },
+    "typography": {
+      "displayFamily": "\"Libre Baskerville\", \"Noto Serif TC\", serif",
+      "bodyFamily": "\"Noto Sans TC\", system-ui, \"Microsoft JhengHei\", \"PingFang TC\", sans-serif",
+      "monoFamily": "\"JetBrains Mono\", \"Noto Sans TC\", monospace",
+      "cjkSerif": "Noto Serif TC",
+      "cjkSans": "Noto Sans TC",
+      "baseSize": "14px",
+      "scale": [
+        "12px",
+        "14px",
+        "15px",
+        "16px",
+        "20px",
+        "40px"
+      ]
+    },
+    "radii": {
+      "sm": "3px",
+      "md": "5px",
+      "lg": "8px",
+      "xl": "12px",
+      "full": "9999px"
+    },
+    "spacing": {
+      "unit": "8px",
+      "xs": "4px",
+      "sm": "8px",
+      "md": "12px",
+      "lg": "16px",
+      "xl": "20px",
+      "2xl": "24px"
+    }
+  },
+  "capabilities": [
+    {
+      "feature": "點擊趨勢（按日期）",
+      "class": "A",
+      "note": "使用 AnalyticsResponse.clicks_by_date 與 OverallStatsResponse.click_trend，以 Chart.js 真實資料繪製。"
+    },
+    {
+      "feature": "國家分佈",
+      "class": "A",
+      "note": "使用 clicks_by_country 與 country_distribution 呈現分析與總覽分佈圖。"
+    },
+    {
+      "feature": "裝置分佈",
+      "class": "A",
+      "note": "使用 clicks_by_device 與 device_distribution 呈現裝置比較。"
+    },
+    {
+      "feature": "瀏覽器分佈",
+      "class": "A",
+      "note": "使用 clicks_by_browser 於單一短網址成效分析中呈現。"
+    },
+    {
+      "feature": "總覽 KPI 與 Top Links",
+      "class": "A",
+      "note": "使用 OverallStatsResponse 的總點擊、作用中、全部連結與 top_links。"
+    },
+    {
+      "feature": "依到期時間標示連結狀態",
+      "class": "B",
+      "note": "前端以 expires_at 與 is_active 推導作用中／已封存／已過期。"
+    },
+    {
+      "feature": "短代碼／原始網址／標題關鍵字高亮",
+      "class": "B",
+      "note": "搜尋命中時以前端字串處理標記片段，純前端計算。"
+    },
+    {
+      "feature": "全域搜尋與跨頁點擊數排序",
+      "class": "C",
+      "note": "示範對 large250 全資料集搜尋／排序後再分頁；正式環境需列表 API 新增 q 與 sort 參數，現況僅支援 page／limit"
+    }
+  ]
+}

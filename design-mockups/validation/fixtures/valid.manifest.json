@@ -1,0 +1,79 @@
+{
+  "id": "valid",
+  "title": "有效驗證提案",
+  "provider": "Microsoft",
+  "model": "validation-fixture",
+  "direction": "驗證環境基準",
+  "stack": "手寫 CSS",
+  "dna": {
+    "navigation": "top-bar",
+    "linkRepresentation": "dense-table",
+    "createFlow": "center-modal",
+    "analyticsModel": "live-monitor",
+    "mobileStrategy": "card-reflow",
+    "workMode": "scan"
+  },
+  "tokens": {
+    "colors": {
+      "light": {
+        "bg": "#ffffff",
+        "surface": "#f8fafc",
+        "surfaceAlt": "#eef2f7",
+        "textPrimary": "#172033",
+        "textSecondary": "#596579",
+        "border": "#cbd5e1",
+        "accent": "#2563eb",
+        "success": "#15803d",
+        "warning": "#b45309",
+        "danger": "#b91c1c",
+        "chartSeries": ["#2563eb", "#15803d", "#b45309"]
+      },
+      "dark": {
+        "bg": "#101522",
+        "surface": "#182033",
+        "surfaceAlt": "#222d44",
+        "textPrimary": "#f8fafc",
+        "textSecondary": "#b7c2d4",
+        "border": "#3b4861",
+        "accent": "#60a5fa",
+        "success": "#4ade80",
+        "warning": "#fbbf24",
+        "danger": "#f87171",
+        "chartSeries": ["#60a5fa", "#4ade80", "#fbbf24"]
+      }
+    },
+    "typography": {
+      "displayFamily": "\"Inter\", \"Noto Sans TC\", sans-serif",
+      "bodyFamily": "\"Inter\", \"Noto Sans TC\", sans-serif",
+      "monoFamily": "\"JetBrains Mono\", \"Noto Sans TC\", monospace",
+      "cjkSerif": "Noto Serif TC",
+      "cjkSans": "Noto Sans TC",
+      "baseSize": "14px",
+      "scale": ["12px", "14px", "16px", "20px"]
+    },
+    "radii": {
+      "sm": "3px",
+      "md": "5px",
+      "lg": "8px",
+      "xl": "12px",
+      "full": "9999px"
+    },
+    "spacing": {
+      "unit": "4px",
+      "xs": "4px",
+      "sm": "8px",
+      "md": "12px",
+      "lg": "16px",
+      "xl": "24px",
+      "2xl": "32px"
+    }
+  },
+  "capabilities": [
+    {"feature": "每日點擊趨勢圖", "class": "A", "note": "使用 clicks_by_date"},
+    {"feature": "國家分佈", "class": "A", "note": "使用 clicks_by_country"},
+    {"feature": "裝置分佈", "class": "A", "note": "使用 clicks_by_device"},
+    {"feature": "總覽 KPI", "class": "A", "note": "使用 OverallStatsResponse"},
+    {"feature": "當前頁搜尋", "class": "B", "note": "前端對已載入資料篩選"},
+    {"feature": "當前頁點擊數排序", "class": "B", "note": "前端對已載入資料排序"}
+  ]
+}

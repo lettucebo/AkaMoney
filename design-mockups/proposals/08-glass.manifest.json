@@ -1,0 +1,122 @@
+{
+  "id": "08-glass",
+  "title": "Glassmorphism 玻璃擬態",
+  "provider": "Google",
+  "model": "gemini-3.1-pro-preview",
+  "direction": "Glassmorphism 玻璃擬態",
+  "stack": "Tailwind v4",
+  "dna": {
+    "navigation": "floating-sidebar",
+    "linkRepresentation": "split-pane",
+    "createFlow": "center-modal",
+    "analyticsModel": "live-monitor",
+    "mobileStrategy": "bottom-sheet",
+    "workMode": "analyze"
+  },
+  "tokens": {
+    "colors": {
+      "light": {
+        "bg": "#ffffff",
+        "surface": "#fafafa",
+        "surfaceAlt": "#f4f4f5",
+        "textPrimary": "#18181b",
+        "textSecondary": "#71717a",
+        "border": "#e4e4e7",
+        "accent": "#5e6ad2",
+        "success": "#16a34a",
+        "warning": "#d97706",
+        "danger": "#dc2626",
+        "chartSeries": [
+          "#5e6ad2",
+          "#16a34a",
+          "#d97706",
+          "#dc2626",
+          "#0891b2"
+        ]
+      },
+      "dark": {
+        "bg": "#0d0e10",
+        "surface": "#131417",
+        "surfaceAlt": "#1a1b1f",
+        "textPrimary": "#ededf0",
+        "textSecondary": "#8a8f98",
+        "border": "#23252a",
+        "accent": "#7b85e8",
+        "success": "#4ade80",
+        "warning": "#fbbf24",
+        "danger": "#f87171",
+        "chartSeries": [
+          "#7b85e8",
+          "#4ade80",
+          "#fbbf24",
+          "#f87171",
+          "#22d3ee"
+        ]
+      }
+    },
+    "typography": {
+      "displayFamily": "\"Inter\", \"Noto Sans TC\", sans-serif",
+      "bodyFamily": "\"Inter\", \"Noto Sans TC\", sans-serif",
+      "monoFamily": "\"JetBrains Mono\", \"Noto Sans TC\", monospace",
+      "cjkSerif": "Noto Serif TC",
+      "cjkSans": "Noto Sans TC",
+      "baseSize": "14px",
+      "scale": [
+        "11px",
+        "12px",
+        "14px",
+        "16px",
+        "20px",
+        "28px"
+      ]
+    },
+    "radii": {
+      "sm": "3px",
+      "md": "5px",
+      "lg": "8px",
+      "xl": "12px",
+      "full": "9999px"
+    },
+    "spacing": {
+      "unit": "4px",
+      "xs": "4px",
+      "sm": "8px",
+      "md": "12px",
+      "lg": "16px",
+      "xl": "24px",
+      "2xl": "32px"
+    }
+  },
+  "capabilities": [
+    {
+      "feature": "每日點擊趨勢圖",
+      "class": "A",
+      "note": "使用 clicks_by_date"
+    },
+    {
+      "feature": "國家分佈",
+      "class": "A",
+      "note": "使用 clicks_by_country"
+    },
+    {
+      "feature": "裝置分佈",
+      "class": "A",
+      "note": "使用 clicks_by_device"
+    },
+    {
+      "feature": "瀏覽器分佈",
+      "class": "A",
+      "note": "使用 clicks_by_browser"
+    },
+    {
+      "feature": "依到期時間標示連結狀態",
+      "class": "B",
+      "note": "前端以 expires_at 與 is_active 推導作用中／已過期／已封存"
+    },
+    {
+      "feature": "全域搜尋與跨頁點擊數排序",
+      "class": "C",
+      "note": "示範對 large250 全資料集搜尋／排序後再分頁；正式環境需列表 API 新增 q 與 sort 參數，現況僅支援 page／limit"
+    }
+  ]
+}

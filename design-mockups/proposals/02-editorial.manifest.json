@@ -1,0 +1,137 @@
+{
+  "id": "02-editorial",
+  "title": "編年誌 — Editorial 雜誌感短網址誌",
+  "provider": "Anthropic",
+  "model": "claude-opus-4.8",
+  "direction": "Editorial 雜誌感",
+  "stack": "手寫 CSS",
+  "dna": {
+    "navigation": "chromeless",
+    "linkRepresentation": "timeline",
+    "createFlow": "full-page-wizard",
+    "analyticsModel": "narrative-report",
+    "mobileStrategy": "card-reflow",
+    "workMode": "narrate"
+  },
+  "tokens": {
+    "colors": {
+      "light": {
+        "bg": "#f6f1e5",
+        "surface": "#fdfaf1",
+        "surfaceAlt": "#ece2cd",
+        "textPrimary": "#1b1712",
+        "textSecondary": "#6d6252",
+        "border": "#d9cdb4",
+        "accent": "#9a2b23",
+        "success": "#4c6a3d",
+        "warning": "#b3762a",
+        "danger": "#a3282a",
+        "chartSeries": [
+          "#9a2b23",
+          "#3f5a6b",
+          "#b3762a",
+          "#4c6a3d",
+          "#7a5c8a"
+        ]
+      },
+      "dark": {
+        "bg": "#14110c",
+        "surface": "#1e1912",
+        "surfaceAlt": "#2a2318",
+        "textPrimary": "#f1e7d5",
+        "textSecondary": "#a99e88",
+        "border": "#39311f",
+        "accent": "#d98a5f",
+        "success": "#86b06f",
+        "warning": "#e0a44e",
+        "danger": "#e46a63",
+        "chartSeries": [
+          "#d98a5f",
+          "#7fa8bf",
+          "#e0a44e",
+          "#86b06f",
+          "#b491c9"
+        ]
+      }
+    },
+    "typography": {
+      "displayFamily": "\"Playfair Display\", \"Noto Serif TC\", serif",
+      "bodyFamily": "\"Libre Baskerville\", \"Noto Serif TC\", serif",
+      "monoFamily": "\"JetBrains Mono\", \"Noto Sans TC\", monospace",
+      "cjkSerif": "Noto Serif TC",
+      "cjkSans": "Noto Sans TC",
+      "baseSize": "16px",
+      "scale": [
+        "12px",
+        "14px",
+        "16px",
+        "20px",
+        "28px",
+        "44px"
+      ]
+    },
+    "radii": {
+      "sm": "0px",
+      "md": "2px",
+      "lg": "4px",
+      "xl": "8px",
+      "full": "9999px"
+    },
+    "spacing": {
+      "unit": "4px",
+      "xs": "4px",
+      "sm": "8px",
+      "md": "16px",
+      "lg": "24px",
+      "xl": "40px",
+      "2xl": "64px"
+    }
+  },
+  "capabilities": [
+    {
+      "feature": "每日點擊趨勢折線圖",
+      "class": "A",
+      "note": "取自 AnalyticsResponse.clicks_by_date / dailySeries"
+    },
+    {
+      "feature": "國家分佈圖",
+      "class": "A",
+      "note": "取自 clicks_by_country / countryDistribution"
+    },
+    {
+      "feature": "裝置分佈圖",
+      "class": "A",
+      "note": "取自 clicks_by_device / deviceDistribution"
+    },
+    {
+      "feature": "瀏覽器分佈圖",
+      "class": "A",
+      "note": "取自 clicks_by_browser / browserDistribution"
+    },
+    {
+      "feature": "總覽 KPI 與 Top Links 榜單",
+      "class": "A",
+      "note": "取自 OverallStatsResponse.top_links 等欄位"
+    },
+    {
+      "feature": "依到期時間與封存旗標推導狀態",
+      "class": "B",
+      "note": "前端以 expires_at 與 is_active 推導作用中／已過期／已封存，純前端計算"
+    },
+    {
+      "feature": "短代碼／標題關鍵字高亮",
+      "class": "B",
+      "note": "搜尋命中時以前端字串處理標記片段，不需後端變更"
+    },
+    {
+      "feature": "全域跨頁搜尋與排序",
+      "class": "C",
+      "note": "示範對 large250 全資料集搜尋／排序後再分頁；正式環境需列表 API 新增 q 與 sort 參數，現況僅支援 page／limit"
+    },
+    {
+      "feature": "來源（referrer）分佈敘事",
+      "class": "C",
+      "note": "AnalyticsResponse 無聚合欄位，需後端就 recent_clicks[].referer 聚合"
+    }
+  ]
+}

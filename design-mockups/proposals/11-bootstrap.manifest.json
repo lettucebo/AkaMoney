@@ -1,0 +1,122 @@
+{
+  "id": "11-bootstrap",
+  "title": "Bootstrap 深度客製（低風險對照組）",
+  "provider": "Microsoft",
+  "model": "mai-code-1.1-flash",
+  "direction": "Bootstrap 深度客製（低風險對照組）",
+  "stack": "Bootstrap 5.3",
+  "dna": {
+    "navigation": "top-bar",
+    "linkRepresentation": "dense-table",
+    "createFlow": "center-modal",
+    "analyticsModel": "live-monitor",
+    "mobileStrategy": "card-reflow",
+    "workMode": "scan"
+  },
+  "tokens": {
+    "colors": {
+      "light": {
+        "bg": "#f6f7fb",
+        "surface": "#ffffff",
+        "surfaceAlt": "#eef3ff",
+        "textPrimary": "#1c2333",
+        "textSecondary": "#5f6b85",
+        "border": "#dfe7f4",
+        "accent": "#3f7af6",
+        "success": "#12b76a",
+        "warning": "#f59e0b",
+        "danger": "#ef4444",
+        "chartSeries": [
+          "#3f7af6",
+          "#12b76a",
+          "#f59e0b",
+          "#ef4444",
+          "#8b5cf6"
+        ]
+      },
+      "dark": {
+        "bg": "#0d1320",
+        "surface": "#121b2d",
+        "surfaceAlt": "#1a2642",
+        "textPrimary": "#edf2ff",
+        "textSecondary": "#a0abc0",
+        "border": "#2a3b59",
+        "accent": "#8ab4ff",
+        "success": "#4ade80",
+        "warning": "#fbbf24",
+        "danger": "#f87171",
+        "chartSeries": [
+          "#8ab4ff",
+          "#4ade80",
+          "#fbbf24",
+          "#f87171",
+          "#a78bfa"
+        ]
+      }
+    },
+    "typography": {
+      "displayFamily": "\"Libre Baskerville\", \"Noto Serif TC\", serif",
+      "bodyFamily": "\"Inter\", \"Noto Sans TC\", system-ui, sans-serif",
+      "monoFamily": "\"JetBrains Mono\", \"Noto Sans TC\", monospace",
+      "cjkSerif": "Noto Serif TC",
+      "cjkSans": "Noto Sans TC",
+      "baseSize": "14px",
+      "scale": [
+        "11px",
+        "12px",
+        "14px",
+        "16px",
+        "20px",
+        "28px"
+      ]
+    },
+    "radii": {
+      "sm": "8px",
+      "md": "12px",
+      "lg": "16px",
+      "xl": "20px",
+      "full": "9999px"
+    },
+    "spacing": {
+      "unit": "4px",
+      "xs": "4px",
+      "sm": "8px",
+      "md": "12px",
+      "lg": "16px",
+      "xl": "24px",
+      "2xl": "32px"
+    }
+  },
+  "capabilities": [
+    {
+      "feature": "點擊趨勢（按日期）",
+      "class": "A",
+      "note": "使用 scenario.analytics.dailySeries 直接繪製折線圖，後端已提供資料"
+    },
+    {
+      "feature": "國家 / 裝置 / 瀏覽器分佈",
+      "class": "A",
+      "note": "使用 scenario.analytics 對應分佈欄位，前端 Chart.js 繪製"
+    },
+    {
+      "feature": "總覽 KPI、Top Links 與期間趨勢",
+      "class": "A",
+      "note": "使用 overallStats 統計與 top_links，前端直接呈現"
+    },
+    {
+      "feature": "複製短網址與封存確認流程",
+      "class": "B",
+      "note": "剪貼簿 API 與前端確認層均由前端完成，保留 undo 復原"
+    },
+    {
+      "feature": "建立短網址任務流程",
+      "class": "B",
+      "note": "前端記憶體建立新短網址，並立即回到儀表板最前列"
+    },
+    {
+      "feature": "全域搜尋與跨頁點擊數排序",
+      "class": "C",
+      "note": "示範對 large250 全資料集搜尋／排序後再分頁；正式環境需列表 API 新增 q 與 sort 參數，現況僅支援 page／limit"
+    }
+  ]
+}

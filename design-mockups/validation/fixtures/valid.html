@@ -1,0 +1,661 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>有效驗證提案</title>
+  <style>
+    :root { font-family: Inter, "Noto Sans TC", system-ui, "Microsoft JhengHei", sans-serif; }
+    * { box-sizing: border-box; }
+    body {
+      --bg: #ffffff; --surface: #f8fafc; --surface-alt: #eef2f7; --text: #172033;
+      --muted: #596579; --border: #cbd5e1; --accent: #2563eb; --danger: #b91c1c;
+      --tooltip-bg: #172033; --tooltip-text: #ffffff;
+      margin: 0; min-width: 0; min-height: 100vh; color: var(--text); background: var(--bg);
+      transition: background-color .15s ease, color .15s ease;
+    }
+    body[data-theme="dark"] {
+      --bg: #101522; --surface: #182033; --surface-alt: #222d44; --text: #f8fafc;
+      --muted: #b7c2d4; --border: #3b4861; --accent: #60a5fa; --danger: #f87171;
+      --tooltip-bg: #f8fafc; --tooltip-text: #101522;
+    }
+    button, input, textarea { color: inherit; font: inherit; }
+    button {
+      border: 1px solid var(--border); border-radius: 6px; padding: .55rem .75rem;
+      background: var(--surface); cursor: pointer;
+    }
+    button:hover { border-color: var(--accent); }
+    input, textarea {
+      width: 100%; min-width: 0; border: 1px solid var(--border); border-radius: 6px;
+      padding: .65rem; background: var(--bg);
+    }
+    nav {
+      position: sticky; top: 0; z-index: 2; display: flex; gap: .4rem; padding: .75rem;
+      overflow-x: auto; border-bottom: 1px solid var(--border); background: var(--surface);
+    }
+    main { width: min(1180px, 100%); margin: 0 auto; padding: 1rem; }
+    [data-view] { min-width: 0; }
+    [data-view][hidden] { display: none !important; }
+    .toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: .6rem; margin-bottom: 1rem; }
+    .list { display: grid; gap: .6rem; }
+    .pagination { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin: .75rem 0; }
+    [data-link-row] {
+      display: grid; grid-template-columns: minmax(9rem, 1fr) minmax(12rem, 2fr) auto auto auto;
+      align-items: center; gap: .7rem; min-width: 0; padding: .75rem;
+      border: 1px solid var(--border); border-radius: 8px; background: var(--surface);
+      transition: transform .15s ease, opacity .15s ease;
+    }
+    [data-link-row] > * { min-width: 0; }
+    .url { overflow: hidden; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; }
+    .short-code { font-family: "JetBrains Mono", "Noto Sans TC", monospace; }
+    .state, .feedback {
+      margin: .75rem 0; padding: .8rem; border: 1px solid var(--border);
+      border-radius: 8px; background: var(--surface-alt);
+    }
+    .charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+    [data-chart] {
+      min-width: 0; min-height: 190px; padding: .75rem; border: 1px solid var(--border);
+      border-radius: 8px; background: var(--surface);
+    }
+    [data-chart] canvas, [data-chart] svg { width: 100%; max-width: 100%; height: 165px; }
+    form { display: grid; gap: .8rem; max-width: 720px; }
+    label { display: grid; gap: .3rem; }
+    dialog {
+      width: min(30rem, calc(100vw - 2rem)); color: var(--text);
+      border: 1px solid var(--border); border-radius: 10px; background: var(--surface);
+    }
+    dialog::backdrop { background: rgba(10, 15, 25, .55); }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: .5rem; }
+    [data-action="archive-undo"]:not([data-id]) { position: fixed; right: 1rem; bottom: 1rem; z-index: 3; }
+    @media (max-width: 600px) {
+      main { padding: .75rem; }
+      .toolbar { grid-template-columns: 1fr 1fr; }
+      .toolbar [data-action="search"] { grid-column: 1 / -1; }
+      [data-link-row] { grid-template-columns: minmax(0, 1fr) auto auto; }
+      [data-link-row] .url { grid-column: 1 / -1; grid-row: 2; }
+      .charts { grid-template-columns: 1fr; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important; animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important; scroll-behavior: auto !important;
+      }
+    }
+  </style>
+  <script>
+    window.onChartFailure = function () {
+      window.__chartCdnFailed = true;
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"
+          onerror="window.onChartFailure()"></script>
+</head>
+<body data-proposal-id="valid" data-theme="light" data-active-view="dashboard" data-dataset="default">
+  <nav aria-label="主要導覽">
+    <button type="button" data-action="theme-toggle">切換布景</button>
+    <button type="button" data-action="view-switch" data-view-target="dashboard">儀表板</button>
+    <button type="button" data-action="view-switch" data-view-target="analytics">成效分析</button>
+    <button type="button" data-action="view-switch" data-view-target="stats">總覽統計</button>
+    <button type="button" data-action="view-switch" data-view-target="login">登入</button>
+    <button type="button" data-action="view-switch" data-view-target="create">建立短網址</button>
+    <button type="button" data-action="view-switch" data-view-target="notfound">找不到頁面</button>
+  </nav>
+  <main>
+    <section data-view="dashboard">
+      <h1>短網址儀表板</h1>
+      <div class="toolbar">
+        <input data-action="search" aria-label="搜尋" placeholder="搜尋短代碼、原始網址或標題">
+        <button type="button" data-action="sort-clicks">點擊數：高至低</button>
+        <button type="button" data-action="view-switch" data-view-target="create">建立</button>
+      </div>
+      <div id="dashboard-state"></div>
+      <div id="url-list" class="list">
+        <article data-link-row data-url-id="initial">
+          <strong class="short-code">aka.money/initial</strong><span class="url">https://example.com</span>
+          <span>1 點擊數</span>
+          <button type="button" data-action="copy" data-copy-state="idle">複製</button>
+          <button type="button" data-action="archive">封存</button>
+        </article>
+      </div>
+      <div id="dataset-browse" class="pagination"></div>
+      <div data-chart="dashboard-sparkline" data-chart-state="fallback"><svg aria-label="點擊趨勢"></svg></div>
+    </section>
+    <section data-view="analytics" hidden>
+      <h1>成效分析</h1>
+      <div class="charts">
+        <div data-chart="clicks-trend" data-chart-state="fallback"><svg aria-label="每日趨勢"></svg></div>
+        <div data-chart="country-distribution" data-chart-state="fallback"><svg aria-label="國家分佈"></svg></div>
+        <div data-chart="device-distribution" data-chart-state="fallback"><svg aria-label="裝置分佈"></svg></div>
+      </div>
+    </section>
+    <section data-view="stats" hidden>
+      <h1>總覽統計</h1>
+      <div id="stats-kpis"></div>
+      <div class="charts">
+        <div data-chart="stats-trend" data-chart-state="fallback"><svg aria-label="總覽趨勢"></svg></div>
+        <div data-chart="stats-country" data-chart-state="fallback"><svg aria-label="總覽國家分佈"></svg></div>
+      </div>
+    </section>
+    <section data-view="login" hidden>
+      <h1>登入</h1>
+      <p>使用公司帳號繼續管理短網址。</p>
+      <button type="button">使用 Microsoft 帳號登入</button>
+    </section>
+    <section data-view="create" hidden>
+      <h1>建立短網址</h1>
+      <form id="create-form">
+        <label>原始網址（必填）<input type="url" name="original_url" required></label>
+        <label>短代碼（必填）<input name="short_code" required minlength="3" maxlength="20" pattern="[a-zA-Z0-9_\-]+"></label>
+        <label>標題（選填）<input name="title"></label>
+        <label>描述（選填）<textarea name="description"></textarea></label>
+        <label>預覽圖（選填）<input type="url" name="image_url"></label>
+        <label>到期時間（選填）<input type="datetime-local" name="expires_at"></label>
+        <button type="submit" data-action="create-submit">建立</button>
+      </form>
+      <p id="create-success" class="feedback" hidden>短網址建立成功</p>
+    </section>
+    <section data-view="notfound" hidden>
+      <h1>找不到頁面</h1>
+      <p>這個短代碼或頁面不存在。</p>
+      <button type="button" data-action="view-switch" data-view-target="dashboard">回到儀表板</button>
+    </section>
+  </main>
+  <dialog id="archive-dialog" aria-labelledby="archive-title">
+    <h2 id="archive-title">確認封存短網址？</h2>
+    <p>封存後仍可立即還原。</p>
+    <div class="dialog-actions">
+      <button type="button" id="archive-cancel">取消</button>
+      <button type="button" data-action="archive-confirm">確認封存</button>
+    </div>
+  </dialog>
+  <button type="button" data-action="archive-undo" hidden>還原剛才封存的短網址</button>
+  <script src="../../shared/scenarios.js"></script>
+  <script>
+    (function () {
+      var root = document.querySelector('[data-proposal-id]');
+      var variant = new URLSearchParams(window.location.search).get('variant') || 'default';
+      var views = ['dashboard', 'analytics', 'stats', 'login', 'create', 'notfound'];
+      var themes = ['light', 'dark'];
+      var datasets = ['default', 'large250', 'empty', 'noResults', 'edgeCases', 'zeroAnalytics', 'apiError'];
+      var state = { view: 'dashboard', theme: 'light', dataset: 'default' };
+      var scenario = window.AKAMONEY_SCENARIOS.getScenario('default');
+      var urls = scenario.urls.slice();
+      var sortDirection = 'desc';
+      var listFilter = variant === 'default' ? 'all' : 'active';
+      var query = '';
+      var archiveTarget = null;
+      var archiveTrigger = null;
+      var lastArchived = null;
+      var latestCreatedId = null;
+      var pageIndex = 0;
+      var pageSize = 25;
+      var charts = [];
+      var omitsDashboardChart = variant === 'no-dashboard-chart';
+      var usesObjectAndSubsetCharts = variant === 'object-subset-charts';
+      var usesInventedChartValues = variant === 'invented-chart-values';
+      var usesUnlabeledPagination = variant === 'unlabeled-pagination';
+
+      if (omitsDashboardChart) {
+        var dashboardChart = document.querySelector('[data-chart="dashboard-sparkline"]');
+        if (dashboardChart) dashboardChart.remove();
+      }
+
+      function escapeHtml(value) {
+        return String(value == null ? '' : value).replace(/[&<>"']/g, function (character) {
+          return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character];
+        });
+      }
+
+      function emit(type) {
+        if (window.parent === window) return;
+        window.parent.postMessage({
+          source: 'akamoney-proposal', proposalId: 'valid', type: type,
+          state: { view: state.view, theme: state.theme, dataset: state.dataset }
+        }, '*');
+      }
+
+      function applyView(view, shouldEmit) {
+        state.view = view;
+        root.dataset.activeView = view;
+        document.querySelectorAll('[data-view]').forEach(function (element) {
+          element.hidden = element.dataset.view !== view;
+          if (element.hidden) element.setAttribute('inert', '');
+          else element.removeAttribute('inert');
+        });
+        if (shouldEmit !== false) emit('STATE_CHANGED');
+      }
+
+      function chartColors() {
+        return state.theme === 'dark'
+          ? ['#60a5fa', '#4ade80', '#fbbf24', '#f87171']
+          : ['#2563eb', '#15803d', '#b45309', '#b91c1c'];
+      }
+
+      function chartTheme() {
+        var style = getComputedStyle(root);
+        return {
+          series: chartColors(),
+          text: style.getPropertyValue('--text').trim(),
+          muted: style.getPropertyValue('--muted').trim(),
+          grid: style.getPropertyValue('--border').trim(),
+          tooltipBackground: style.getPropertyValue('--tooltip-bg').trim(),
+          tooltipText: style.getPropertyValue('--tooltip-text').trim()
+        };
+      }
+
+      function fallbackChart(container, values) {
+        var safeValues = values.length ? values : [0];
+        var maximum = Math.max.apply(Math, safeValues.concat([1]));
+        var points = safeValues.map(function (value, index) {
+          var x = safeValues.length === 1 ? 150 : (index / (safeValues.length - 1)) * 300;
+          var y = 145 - (value / maximum) * 120;
+          return x.toFixed(1) + ',' + y.toFixed(1);
+        }).join(' ');
+        container.innerHTML =
+          '<svg viewBox="0 0 300 160" role="img" aria-label="圖表降級">' +
+          '<line x1="0" y1="145" x2="300" y2="145" stroke="currentColor" opacity=".35"/>' +
+          '<polyline fill="none" stroke="' + chartColors()[0] + '" stroke-width="4" points="' + points + '"/>' +
+          '</svg>';
+        if (container.dataset.chart === 'clicks-trend') {
+          container.insertAdjacentHTML(
+            'beforeend',
+            '<svg class="chart-legend" aria-hidden="true" viewBox="0 0 60 12" style="height:12px">' +
+            '<rect width="10" height="10" fill="' + chartColors()[0] + '"/></svg>',
+          );
+        }
+        container.dataset.chartState = 'fallback';
+      }
+
+      function buildChartSpec(chartId, labels, values) {
+        var nextLabels = labels.slice();
+        var nextValues = values.slice();
+        var parsing = undefined;
+        if (usesObjectAndSubsetCharts) {
+          if (chartId === 'dashboard-sparkline') {
+            nextLabels = labels.filter(function (_, index) { return index % 2 === 0; });
+            nextValues = values.filter(function (_, index) { return index % 2 === 0; })
+              .map(function (value, index) {
+                return { x: nextLabels[index], y: value };
+              });
+            parsing = { xAxisKey: 'x', yAxisKey: 'y' };
+          } else if (chartId === 'clicks-trend') {
+            nextValues = values.map(function (value, index) {
+              return { x: labels[index], y: value };
+            });
+            parsing = { xAxisKey: 'x', yAxisKey: 'y' };
+          } else if (chartId === 'country-distribution') {
+            nextLabels = labels.slice(0, Math.min(3, labels.length));
+            nextValues = values.slice(0, nextLabels.length);
+          } else if (chartId === 'stats-trend') {
+            nextValues = values.map(function (value, index) {
+              return { label: labels[index], v: value };
+            });
+            parsing = { xAxisKey: 'label', yAxisKey: 'v' };
+          } else if (chartId === 'stats-country') {
+            nextLabels = labels.slice(0, Math.min(2, labels.length));
+            nextValues = values.slice(0, nextLabels.length);
+          }
+        }
+        if (usesInventedChartValues && chartId === 'country-distribution' && nextValues.length) {
+          nextValues = nextValues.slice();
+          nextValues[0] = Number(nextValues[0]) + 111;
+        }
+        return {
+          labels: nextLabels,
+          values: nextValues,
+          parsing: parsing,
+          fallbackValues: nextValues.map(function (value) {
+            if (typeof value === 'number') return value;
+            if (value && typeof value === 'object') {
+              if (typeof value.y !== 'undefined') return Number(value.y);
+              if (typeof value.v !== 'undefined') return Number(value.v);
+            }
+            return Number(value);
+          }),
+        };
+      }
+
+      function renderChart(container, labels, values, type) {
+        if (!container) return;
+        if (!values.length || values.every(function (value) { return value === 0; })) {
+          container.innerHTML = '<p class="state">目前沒有圖表資料</p>';
+          container.dataset.chartState = 'empty';
+          return;
+        }
+        var chartId = container.dataset.chart;
+        var spec = buildChartSpec(chartId, labels, values);
+        if (window.__chartCdnFailed || typeof window.Chart === 'undefined') {
+          fallbackChart(container, spec.fallbackValues);
+          return;
+        }
+        container.innerHTML = '<canvas></canvas>';
+        var theme = chartTheme();
+        var chart = new window.Chart(container.querySelector('canvas'), {
+          type: type || 'line',
+          data: {
+            labels: spec.labels,
+            datasets: [{
+              label: '點擊數',
+              data: spec.values,
+              borderColor: theme.series[0],
+              backgroundColor: theme.series.map(function (color) { return color + '99'; }),
+              borderWidth: 2
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? false : undefined,
+            parsing: spec.parsing,
+            plugins: {
+              legend: { labels: { color: theme.text } },
+              tooltip: {
+                backgroundColor: theme.tooltipBackground,
+                titleColor: theme.tooltipText,
+                bodyColor: theme.tooltipText,
+                footerColor: theme.tooltipText,
+                borderColor: theme.grid,
+                borderWidth: 1
+              }
+            },
+            scales: type === 'doughnut' ? {} : {
+              x: { ticks: { color: theme.muted }, grid: { color: theme.grid } },
+              y: { ticks: { color: theme.muted }, grid: { color: theme.grid } }
+            }
+          }
+        });
+        charts.push(chart);
+        container.dataset.chartState = 'rendered';
+      }
+
+      function renderCharts() {
+        charts.forEach(function (chart) { chart.destroy(); });
+        charts = [];
+        var daily = scenario.analytics.dailySeries;
+        var countries = Object.entries(scenario.analytics.countryDistribution);
+        var devices = Object.entries(scenario.analytics.deviceDistribution);
+        var trend = Object.entries(scenario.overallStats.click_trend);
+        var statsCountries = Object.entries(scenario.overallStats.country_distribution);
+        renderChart(document.querySelector('[data-chart="dashboard-sparkline"]'), daily.map(function (point) { return point.date; }), daily.map(function (point) { return point.clicks; }), 'line');
+        renderChart(document.querySelector('[data-chart="clicks-trend"]'), daily.map(function (point) { return point.date; }), daily.map(function (point) { return point.clicks; }), 'line');
+        renderChart(document.querySelector('[data-chart="country-distribution"]'), countries.map(function (entry) { return entry[0]; }), countries.map(function (entry) { return entry[1]; }), 'doughnut');
+        renderChart(document.querySelector('[data-chart="device-distribution"]'), devices.map(function (entry) { return entry[0]; }), devices.map(function (entry) { return entry[1]; }), 'doughnut');
+        renderChart(document.querySelector('[data-chart="stats-trend"]'), trend.map(function (entry) { return entry[0]; }), trend.map(function (entry) { return entry[1]; }), 'line');
+        renderChart(document.querySelector('[data-chart="stats-country"]'), statsCountries.map(function (entry) { return entry[0]; }), statsCountries.map(function (entry) { return entry[1]; }), 'doughnut');
+      }
+
+      function applyTheme(theme, shouldEmit) {
+        state.theme = theme;
+        root.dataset.theme = theme;
+        renderCharts();
+        if (shouldEmit !== false) emit('STATE_CHANGED');
+      }
+
+      function filteredUrls() {
+        var normalized = query.trim().toLocaleLowerCase('zh-TW');
+        return urls.filter(function (url) {
+          if (!normalized) return true;
+          return [url.short_code, url.original_url, url.title].some(function (value) {
+            return String(value || '').toLocaleLowerCase('zh-TW').includes(normalized);
+          });
+        }).sort(function (left, right) {
+          if (left.id === latestCreatedId) return -1;
+          if (right.id === latestCreatedId) return 1;
+          return sortDirection === 'desc'
+            ? right.click_count - left.click_count
+            : left.click_count - right.click_count;
+        });
+      }
+
+      function renderDashboard() {
+        var stateContainer = document.getElementById('dashboard-state');
+        var list = document.getElementById('url-list');
+        var browse = document.getElementById('dataset-browse');
+        var matches = filteredUrls();
+        var rows = listFilter === 'all' ? matches : matches.filter(function (url) {
+          return listFilter === 'archived' ? !url.is_active : url.is_active;
+        });
+        var pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
+        pageIndex = Math.min(pageIndex, pageCount - 1);
+        var visibleRows = state.dataset === 'large250'
+          ? rows.slice(pageIndex * pageSize, (pageIndex + 1) * pageSize)
+          : rows;
+        stateContainer.innerHTML = '';
+        if (scenario.meta.error) {
+          stateContainer.innerHTML = '<div class="state" data-state="error">' + escapeHtml(scenario.meta.error) + ' <button type="button" id="retry">重試</button></div>';
+        } else if (urls.length === 0) {
+          stateContainer.innerHTML = '<div class="state" data-state="empty">目前沒有短網址，建立第一筆開始使用。</div>';
+        } else if (matches.length === 0) {
+          stateContainer.innerHTML = '<div class="state" data-state="no-results">找不到符合條件的短網址，請清除搜尋。</div>';
+        }
+        list.innerHTML = visibleRows.map(function (url) {
+          return '<article data-link-row data-url-id="' + escapeHtml(url.id) + '">' +
+            '<strong class="short-code">aka.money/' + escapeHtml(url.short_code) + '</strong>' +
+            '<span class="url" title="' + escapeHtml(url.original_url) + '">' + escapeHtml(url.original_url) + '</span>' +
+            '<span>' + url.click_count + ' 點擊數</span>' +
+            '<button type="button" data-action="copy" data-copy-state="idle" data-code="' + escapeHtml(url.short_code) + '">複製</button>' +
+            (url.is_active
+              ? '<button type="button" data-action="archive" data-id="' + escapeHtml(url.id) + '">封存</button>'
+              : (listFilter === 'archived'
+                ? '<button type="button" data-action="archive-undo" data-id="' + escapeHtml(url.id) + '">還原</button>'
+                : '<span>已封存</span>')) +
+            '</article>';
+        }).join('');
+        browse.innerHTML = state.dataset === 'large250'
+          ? '<span role="status">' +
+            (usesUnlabeledPagination
+              ? '第 ' + (pageIndex + 1) + ' / ' + pageCount + ' 頁'
+              : '共 ' + urls.length + ' 筆，第 ' + (pageIndex + 1) + ' / ' + pageCount + ' 頁') +
+            '</span>' +
+            '<button type="button" data-page="previous" aria-label="上一頁"' +
+            (pageIndex === 0 ? ' disabled' : '') + '>上一頁</button>' +
+            '<button type="button" data-page="next" aria-label="下一頁"' +
+            (pageIndex >= pageCount - 1 ? ' disabled' : '') + '>下一頁</button>'
+          : '';
+      }
+
+      function syncControls() {
+        var sortControl = document.querySelector('[data-action="sort-clicks"]');
+        if (sortControl) {
+          if (sortControl.tagName === 'SELECT') sortControl.value = sortDirection;
+          else sortControl.textContent = sortDirection === 'desc' ? '點擊數：高至低' : '點擊數：低至高';
+        }
+        var filterSelect = document.getElementById('list-filter');
+        if (filterSelect) filterSelect.value = listFilter;
+        var archivedToggle = document.getElementById('show-archived');
+        if (archivedToggle) archivedToggle.checked = listFilter === 'archived';
+        var floatingUndo = document.querySelector('[data-action="archive-undo"]:not([data-id])');
+        if (floatingUndo) floatingUndo.hidden = true;
+        document.getElementById('create-success').hidden = true;
+      }
+
+      function setupVariant() {
+        var success = document.getElementById('create-success');
+        if (variant === 'select') {
+          success.setAttribute('aria-live', 'polite');
+          var sortButton = document.querySelector('[data-action="sort-clicks"]');
+          var sortSelect = document.createElement('select');
+          sortSelect.setAttribute('data-action', 'sort-clicks');
+          sortSelect.setAttribute('aria-label', '點擊數排序');
+          sortSelect.innerHTML =
+            '<option value="desc">點擊數：高至低</option><option value="asc">點擊數：低至高</option>';
+          sortSelect.addEventListener('change', function (event) {
+            sortDirection = event.target.value;
+            renderDashboard();
+          });
+          sortButton.replaceWith(sortSelect);
+
+          var filterSelect = document.createElement('select');
+          filterSelect.id = 'list-filter';
+          filterSelect.setAttribute('aria-label', '顯示狀態');
+          filterSelect.innerHTML =
+            '<option value="active">作用中</option><option value="archived">已封存</option>';
+          filterSelect.addEventListener('change', function (event) {
+            listFilter = event.target.value;
+            renderDashboard();
+          });
+          document.querySelector('.toolbar').appendChild(filterSelect);
+
+          var form = document.getElementById('create-form');
+          var urlLabel = form.querySelector('input[name="original_url"]').closest('label');
+          var codeLabel = form.querySelector('input[name="short_code"]').closest('label');
+          urlLabel.querySelector('input').type = 'text';
+          form.insertBefore(codeLabel, urlLabel);
+        } else if (variant === 'checkbox') {
+          success.setAttribute('role', 'alert');
+          var toggleLabel = document.createElement('label');
+          toggleLabel.style.display = 'flex';
+          toggleLabel.style.alignItems = 'center';
+          toggleLabel.style.gap = '.35rem';
+          var toggle = document.createElement('input');
+          toggle.type = 'checkbox';
+          toggle.id = 'show-archived';
+          toggle.style.width = 'auto';
+          toggle.addEventListener('change', function (event) {
+            listFilter = event.target.checked ? 'archived' : 'active';
+            renderDashboard();
+          });
+          toggleLabel.appendChild(toggle);
+          toggleLabel.appendChild(document.createTextNode('顯示已封存項目'));
+          document.querySelector('.toolbar').appendChild(toggleLabel);
+        } else {
+          success.setAttribute('role', 'status');
+        }
+      }
+
+      function applyDataset(dataset, shouldEmit) {
+        state.dataset = dataset;
+        root.dataset.dataset = dataset;
+        scenario = window.AKAMONEY_SCENARIOS.getScenario(dataset);
+        urls = scenario.urls.slice();
+        latestCreatedId = null;
+        pageIndex = 0;
+        sortDirection = 'desc';
+        listFilter = variant === 'default' ? 'all' : 'active';
+        query = scenario.meta.searchQuery || '';
+        document.querySelector('[data-action="search"]').value = query;
+        syncControls();
+        renderDashboard();
+        document.getElementById('stats-kpis').textContent =
+          '總點擊 ' + scenario.overallStats.total_clicks +
+          '｜作用中 ' + scenario.overallStats.active_links +
+          '｜全部連結 ' + scenario.overallStats.total_links;
+        renderCharts();
+        if (shouldEmit !== false) emit('STATE_CHANGED');
+      }
+
+      document.addEventListener('click', function (event) {
+        var pageControl = event.target.closest('[data-page]');
+        if (pageControl) {
+          pageIndex += pageControl.dataset.page === 'next' ? 1 : -1;
+          renderDashboard();
+          return;
+        }
+        var actionElement = event.target.closest('[data-action]');
+        if (!actionElement) return;
+        var action = actionElement.dataset.action;
+        if (action === 'view-switch') {
+          applyView(actionElement.dataset.viewTarget);
+        } else if (action === 'theme-toggle') {
+          applyTheme(state.theme === 'light' ? 'dark' : 'light');
+        } else if (action === 'sort-clicks') {
+          if (actionElement.tagName === 'SELECT') return;
+          sortDirection = sortDirection === 'desc' ? 'asc' : 'desc';
+          pageIndex = 0;
+          actionElement.textContent = sortDirection === 'desc' ? '點擊數：高至低' : '點擊數：低至高';
+          renderDashboard();
+        } else if (action === 'copy') {
+          var text = 'https://aka.money/' + actionElement.dataset.code;
+          Promise.resolve(navigator.clipboard && navigator.clipboard.writeText
+            ? navigator.clipboard.writeText(text)
+            : Promise.reject(new Error('Clipboard unavailable')))
+            .catch(function () {
+              var helper = document.createElement('textarea');
+              helper.value = text;
+              document.body.appendChild(helper);
+              helper.select();
+              try { document.execCommand('copy'); } catch (_) {}
+              helper.remove();
+            }).finally(function () {
+              actionElement.dataset.copyState = 'copied';
+              actionElement.textContent = '已複製';
+              window.setTimeout(function () {
+                actionElement.dataset.copyState = 'idle';
+                actionElement.textContent = '複製';
+              }, 1500);
+            });
+        } else if (action === 'archive') {
+          archiveTarget = actionElement.dataset.id;
+          archiveTrigger = actionElement;
+          document.getElementById('archive-dialog').showModal();
+          document.querySelector('[data-action="archive-confirm"]').focus();
+        } else if (action === 'archive-confirm') {
+          var target = urls.find(function (url) { return url.id === archiveTarget; });
+          if (target) {
+            target.is_active = false;
+            lastArchived = target.id;
+          }
+          document.getElementById('archive-dialog').close();
+          if (variant === 'default') {
+            document.querySelector('[data-action="archive-undo"]:not([data-id])').hidden = false;
+          }
+          renderDashboard();
+        } else if (action === 'archive-undo') {
+          var restoreId = actionElement.dataset.id || lastArchived;
+          var archived = urls.find(function (url) { return url.id === restoreId; });
+          if (archived) archived.is_active = true;
+          if (!actionElement.dataset.id) actionElement.hidden = true;
+          renderDashboard();
+        }
+      });
+
+      document.querySelector('[data-action="search"]').addEventListener('input', function (event) {
+        query = event.target.value;
+        pageIndex = 0;
+        renderDashboard();
+      });
+
+      document.getElementById('archive-cancel').addEventListener('click', function () {
+        document.getElementById('archive-dialog').close();
+      });
+      document.getElementById('archive-dialog').addEventListener('close', function () {
+        if (archiveTrigger && archiveTrigger.isConnected) archiveTrigger.focus();
+      });
+
+      document.getElementById('create-form').addEventListener('submit', function (event) {
+        event.preventDefault();
+        var form = event.currentTarget;
+        if (!form.reportValidity()) return;
+        var data = new FormData(form);
+        var shortCode = String(data.get('short_code'));
+        latestCreatedId = 'created-' + Date.now();
+        urls.unshift({
+          id: latestCreatedId,
+          short_code: shortCode,
+          original_url: String(data.get('original_url')),
+          short_url: 'https://aka.money/' + shortCode,
+          title: String(data.get('title') || ''),
+          description: String(data.get('description') || ''),
+          created_at: Date.now(), updated_at: Date.now(), is_active: true, click_count: 0
+        });
+        document.getElementById('create-success').hidden = false;
+        renderDashboard();
+      });
+
+      window.addEventListener('message', function (event) {
+        var data = event.data;
+        if (!data || typeof data !== 'object' || data.source !== 'akamoney-compare') return;
+        if (data.type === 'SET_VIEW' && views.includes(data.value)) applyView(data.value);
+        else if (data.type === 'SET_THEME' && themes.includes(data.value)) applyTheme(data.value);
+        else if (data.type === 'SET_DATASET' && datasets.includes(data.value)) applyDataset(data.value);
+      });
+
+      setupVariant();
+      applyDataset('default', false);
+      applyTheme('light', false);
+      applyView('dashboard', false);
+      emit('READY');
+    })();
+  </script>
+</body>
+</html>

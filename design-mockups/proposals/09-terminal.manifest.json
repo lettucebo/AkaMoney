@@ -1,0 +1,127 @@
+{
+  "id": "09-terminal",
+  "title": "終端機優先的短網址工作台",
+  "provider": "xAI",
+  "model": "grok-4.6",
+  "direction": "Terminal / Developer-first",
+  "stack": "手寫 CSS",
+  "dna": {
+    "navigation": "command-palette-first",
+    "linkRepresentation": "terminal-log",
+    "createFlow": "command-palette",
+    "analyticsModel": "exploration-workbench",
+    "mobileStrategy": "horizontal-scroll-table",
+    "workMode": "analyze"
+  },
+  "tokens": {
+    "colors": {
+      "light": {
+        "bg": "#f3efe4",
+        "surface": "#fffdf6",
+        "surfaceAlt": "#e8e2d2",
+        "textPrimary": "#1c1914",
+        "textSecondary": "#5c574c",
+        "border": "#c8c0ae",
+        "accent": "#0b7a3b",
+        "success": "#157a3a",
+        "warning": "#a16207",
+        "danger": "#b42318",
+        "chartSeries": [
+          "#0b7a3b",
+          "#1d4e89",
+          "#a16207",
+          "#b42318",
+          "#0f766e"
+        ]
+      },
+      "dark": {
+        "bg": "#07110b",
+        "surface": "#0c1a11",
+        "surfaceAlt": "#122418",
+        "textPrimary": "#d7ffe6",
+        "textSecondary": "#7eaa8c",
+        "border": "#1e3a28",
+        "accent": "#3dff7a",
+        "success": "#4ade80",
+        "warning": "#fbbf24",
+        "danger": "#ff6b6b",
+        "chartSeries": [
+          "#3dff7a",
+          "#7dd3fc",
+          "#fbbf24",
+          "#ff6b6b",
+          "#5eead4"
+        ]
+      }
+    },
+    "typography": {
+      "displayFamily": "\"Noto Sans TC\", \"Microsoft JhengHei\", \"PingFang TC\", sans-serif",
+      "bodyFamily": "\"Noto Sans TC\", system-ui, \"Microsoft JhengHei\", \"PingFang TC\", sans-serif",
+      "monoFamily": "\"JetBrains Mono\", \"Noto Sans TC\", monospace",
+      "cjkSerif": "Noto Serif TC",
+      "cjkSans": "Noto Sans TC",
+      "baseSize": "14px",
+      "scale": [
+        "11px",
+        "12px",
+        "14px",
+        "16px",
+        "20px",
+        "28px"
+      ]
+    },
+    "radii": {
+      "sm": "0px",
+      "md": "0px",
+      "lg": "2px",
+      "xl": "2px",
+      "full": "9999px"
+    },
+    "spacing": {
+      "unit": "4px",
+      "xs": "4px",
+      "sm": "8px",
+      "md": "12px",
+      "lg": "16px",
+      "xl": "24px",
+      "2xl": "32px"
+    }
+  },
+  "capabilities": [
+    {
+      "feature": "每日點擊趨勢圖",
+      "class": "A",
+      "note": "使用 analytics.dailySeries 對應 clicks_by_date，Chart.js 折線直接繪製"
+    },
+    {
+      "feature": "國家／裝置／瀏覽器分佈",
+      "class": "A",
+      "note": "使用既有 country/device/browser distribution，探索工作台切換維度"
+    },
+    {
+      "feature": "總覽 KPI 與 Top Links",
+      "class": "A",
+      "note": "使用 overallStats 的總點擊、作用中連結與 top_links"
+    },
+    {
+      "feature": "短代碼／原始網址／標題關鍵字高亮",
+      "class": "B",
+      "note": "搜尋時以 mark 標記命中片段，純前端字串處理"
+    },
+    {
+      "feature": "依到期時間與封存旗標推導狀態",
+      "class": "B",
+      "note": "前端以 expires_at 與 is_active 推導作用中／已過期／已封存"
+    },
+    {
+      "feature": "全域搜尋與跨頁點擊數排序",
+      "class": "C",
+      "note": "示範對 large250 全資料集搜尋／排序後再分頁；正式環境需列表 API 新增 q 與 sort 參數，現況僅支援 page／limit"
+    },
+    {
+      "feature": "來源（referrer）分佈",
+      "class": "C",
+      "note": "現有 AnalyticsResponse 僅提供 recent_clicks[].referer，需後端新增聚合欄位才能正式上線"
+    }
+  ]
+}

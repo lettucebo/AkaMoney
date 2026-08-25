@@ -1,0 +1,22 @@
+{
+  "name": "akamoney-proposal-validation",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "test:unit": "node --test static-validator.test.mjs proposal-catalog.test.mjs",
+    "test:browser": "playwright test proposals.spec.mjs --grep-invert @screenshots",
+    "test:comparison": "playwright test --config .. comparison-center --reporter=list --output=validation/test-results",
+    "test": "npm run test:unit && npm run test:browser",
+    "validate": "node static-validator.mjs",
+    "screenshots": "playwright test proposals.spec.mjs --grep @screenshots --pass-with-no-tests",
+    "serve": "node server.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.61.1",
+    "linkedom": "0.18.13"
+  }
+}

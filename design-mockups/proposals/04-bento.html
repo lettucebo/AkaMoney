@@ -1,0 +1,1376 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AkaMoney 短網址管理｜Bento 即時監控牆</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.3/dist/index.global.js"></script>
+  <script>
+    window.onChartFailure = function () { window.__chartCdnFailed = true; };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js" onerror="window.onChartFailure()"></script>
+  <style type="text/tailwindcss">
+    /* Tailwind v4：以 @theme 定義本案的 Bento 設計 token（字體與磚牆斷點）。
+       磚牆欄寬、表單欄位、drawer 邊框、分頁列與登入／404 版心皆由 Tailwind utility class
+       實際驅動；瀏覽器版 CDN 會自動補上預設的 utilities 與 preflight。 */
+    @theme {
+      /* 內文與數據字體：供 font-sans / font-mono utility 使用（CJK 後備鏈依 BRIEF §7.2）。 */
+      --font-sans: "Inter", "Noto Sans TC", system-ui, "Microsoft JhengHei", sans-serif;
+      --font-mono: "JetBrains Mono", "Noto Sans TC", ui-monospace, monospace;
+
+      /* 磚牆重排斷點：供 max-bento: / max-brick: 變體使用（原 1100px / 720px 媒體查詢）。 */
+      --breakpoint-bento: 1100px;
+      --breakpoint-brick: 720px;
+    }
+  </style>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { max-width: 100%; overflow-x: hidden; }
+
+    body[data-proposal-id] {
+      --bg: #eeeef2;
+      --tile: #ffffff;
+      --tile-alt: #f6f6f9;
+      --text: #1c1c1e;
+      --muted: #6c6c76;
+      --border: #e1e1e8;
+      --accent: #0b5cd5;
+      --accent-ink: #ffffff;
+      --accent-soft: #e6efff;
+      --success: #0f9d76;
+      --success-soft: #e2f6ef;
+      --warning: #d97706;
+      --warning-soft: #fdf0dd;
+      --danger: #dc2626;
+      --danger-soft: #fdeaea;
+      --tooltip-bg: #1c1c1e;
+      --tooltip-text: #ffffff;
+      --shadow: 0 1px 2px rgba(20, 20, 32, .06), 0 12px 28px -18px rgba(20, 20, 32, .32);
+      --shadow-lift: 0 2px 4px rgba(20, 20, 32, .08), 0 24px 44px -22px rgba(20, 20, 32, .38);
+      --scrim: rgba(28, 28, 34, .38);
+      --r-sm: 8px; --r-md: 12px; --r-lg: 18px; --r-xl: 26px;
+      --rail-w: 232px;
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Inter", "Noto Sans TC", system-ui, "Microsoft JhengHei", sans-serif;
+      font-size: 15px;
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body[data-proposal-id][data-theme="dark"] {
+      --bg: #08080b;
+      --tile: #17171c;
+      --tile-alt: #1f1f27;
+      --text: #f5f5f7;
+      --muted: #9a9aa6;
+      --border: #2a2a33;
+      --accent: #5aa9ff;
+      --accent-ink: #06121f;
+      --accent-soft: #14263a;
+      --success: #34d399;
+      --success-soft: #10281f;
+      --warning: #fbbf24;
+      --warning-soft: #2c2110;
+      --danger: #f87171;
+      --danger-soft: #2e1616;
+      --tooltip-bg: #f5f5f7;
+      --tooltip-text: #08080b;
+      --shadow: 0 1px 0 rgba(255, 255, 255, .04), 0 18px 34px -24px rgba(0, 0, 0, .9);
+      --shadow-lift: 0 1px 0 rgba(255, 255, 255, .06), 0 28px 48px -26px rgba(0, 0, 0, .95);
+      --scrim: rgba(4, 4, 8, .62);
+    }
+
+    body[data-proposal-id][data-rail="collapsed"] { --rail-w: 78px; }
+
+    .mono { font-family: "JetBrains Mono", "Noto Sans TC", ui-monospace, monospace; }
+    .sr-only {
+      position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+    }
+
+    .shell { display: grid; grid-template-columns: var(--rail-w) minmax(0, 1fr); min-height: 100vh; }
+
+    .rail {
+      position: sticky; top: 0; align-self: start; height: 100vh; min-width: 0;
+      display: flex; flex-direction: column; gap: 6px; padding: 16px 12px;
+      background: var(--tile); border-right: 1px solid var(--border);
+      transition: width .2s ease;
+    }
+    .rail-head { display: flex; align-items: center; gap: 10px; padding: 4px 6px 14px; min-width: 0; }
+    .rail-mark {
+      flex: none; width: 34px; height: 34px; display: grid; place-items: center;
+      border-radius: 11px; background: var(--accent); color: var(--accent-ink);
+      font-weight: 700; letter-spacing: -.02em;
+    }
+    .rail-name { font-weight: 600; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .rail-toggle {
+      margin-top: auto; display: flex; align-items: center; gap: 10px; width: 100%;
+      padding: 10px; border: 1px dashed var(--border); border-radius: var(--r-md);
+      background: transparent; color: var(--muted); cursor: pointer; font: inherit;
+    }
+    .rail-toggle:hover { color: var(--text); border-color: var(--accent); }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px; width: 100%; min-width: 0;
+      padding: 9px 10px; border: 1px solid transparent; border-radius: var(--r-md);
+      background: transparent; color: var(--muted); font: inherit; text-align: left; cursor: pointer;
+    }
+    .nav-item:hover { background: var(--tile-alt); color: var(--text); }
+    .nav-item .glyph { flex: none; width: 22px; text-align: center; font-size: 15px; }
+    .nav-item .label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    body[data-active-view="dashboard"] .nav-item[data-view-target="dashboard"],
+    body[data-active-view="analytics"] .nav-item[data-view-target="analytics"],
+    body[data-active-view="stats"] .nav-item[data-view-target="stats"],
+    body[data-active-view="login"] .nav-item[data-view-target="login"],
+    body[data-active-view="notfound"] .nav-item[data-view-target="notfound"] {
+      background: var(--accent-soft); color: var(--accent); font-weight: 600;
+    }
+    body[data-rail="collapsed"] .rail-name,
+    body[data-rail="collapsed"] .nav-item .label,
+    body[data-rail="collapsed"] .rail-toggle .label { display: none; }
+    body[data-rail="collapsed"] .nav-item,
+    body[data-rail="collapsed"] .rail-toggle { justify-content: center; }
+
+    .main { min-width: 0; display: flex; flex-direction: column; }
+    .topbar {
+      position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 12px;
+      flex-wrap: wrap; padding: 14px 22px; background: color-mix(in srgb, var(--bg) 86%, transparent);
+      backdrop-filter: blur(14px); border-bottom: 1px solid var(--border);
+    }
+    .topbar h1 { margin: 0; font-size: 22px; letter-spacing: -.02em; }
+    .topbar .spacer { flex: 1 1 auto; }
+    .monitor-pill {
+      display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px;
+      border: 1px solid var(--border); border-radius: 999px; background: var(--tile);
+      color: var(--muted); font-size: 13px; max-width: min(46ch, 100%);
+    }
+    .monitor-pill .txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dot { flex: none; width: 8px; height: 8px; border-radius: 999px; background: var(--success); animation: pulse 2.4s ease-in-out infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .35; transform: scale(.7); } }
+
+    .content { padding: 20px 22px 96px; min-width: 0; }
+
+    .bento { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px; min-width: 0; }
+    /* 磚塊欄寬（含 1100px / 720px 斷點）改由 Tailwind col-span-* 與 max-bento / max-brick 變體提供。 */
+
+    .tile {
+      min-width: 0; padding: 18px; border: 1px solid var(--border); border-radius: var(--r-xl);
+      background: var(--tile); box-shadow: var(--shadow);
+      transition: box-shadow .2s ease, transform .2s ease;
+    }
+    .tile.accent { background: linear-gradient(150deg, var(--accent-soft), var(--tile) 78%); }
+    .tile-label { margin: 0 0 6px; font-size: 13px; color: var(--muted); letter-spacing: .01em; }
+    .tile-figure { margin: 0; font-size: 34px; font-weight: 700; letter-spacing: -.03em; line-height: 1.1; }
+    .tile-foot { margin: 8px 0 0; font-size: 13px; color: var(--muted); }
+    .tile h2 { margin: 0 0 12px; font-size: 17px; letter-spacing: -.01em; }
+    .tile h3 { margin: 0 0 8px; font-size: 15px; }
+
+    .chip {
+      display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px;
+      border-radius: 999px; font-size: 12px; font-weight: 500; border: 1px solid transparent;
+    }
+    .chip.ok { background: var(--success-soft); color: var(--success); }
+    .chip.warn { background: var(--warning-soft); color: var(--warning); }
+    .chip.mute { background: var(--tile-alt); color: var(--muted); border-color: var(--border); }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 9px 14px; border: 1px solid var(--border); border-radius: var(--r-md);
+      background: var(--tile); color: var(--text); font: inherit; font-size: 14px; cursor: pointer;
+      transition: transform .12s ease;
+    }
+    .btn:hover { border-color: var(--accent); color: var(--accent); }
+    .btn:active { transform: scale(.97); }
+    .btn:disabled { opacity: .45; cursor: not-allowed; transform: none; border-color: var(--border); color: var(--muted); }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+    .btn.primary:hover { filter: brightness(1.08); color: var(--accent-ink); }
+    .btn.ghost { background: transparent; }
+    .btn.sm { padding: 6px 10px; font-size: 13px; border-radius: var(--r-sm); }
+    .btn[data-copy-state="copied"] { background: var(--success-soft); border-color: var(--success); color: var(--success); font-weight: 600; }
+    .btn.danger { color: var(--danger); border-color: var(--danger); }
+    .btn.danger:hover { background: var(--danger-soft); color: var(--danger); }
+
+    :where(button, a, input, select, textarea, [tabindex]):focus-visible {
+      outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--r-sm);
+    }
+
+    /* 表單欄位（.field / .field > span）改由 Tailwind grid gap-1.5 與 text-[13px] 等 utility 直接組成。 */
+    .input, .textarea, .select {
+      width: 100%; min-width: 0; padding: 10px 12px; border: 1px solid var(--border);
+      border-radius: var(--r-md); background: var(--tile-alt); color: var(--text); font: inherit; font-size: 14px;
+    }
+    .input:focus, .textarea:focus, .select:focus { background: var(--tile); border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+    .textarea { min-height: 76px; resize: vertical; }
+    .hint { margin: 0; font-size: 12px; color: var(--muted); }
+
+    .toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 10px; align-items: center; }
+    .search-wrap { position: relative; min-width: 0; }
+    .search-wrap .glyph { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 13px; }
+    .search-wrap .input { padding-left: 32px; }
+
+    .links-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; min-width: 0; }
+    [data-link-row] {
+      display: grid; gap: 8px; min-width: 0; padding: 14px;
+      border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--tile-alt);
+      transition: box-shadow .18s ease, transform .18s ease;
+    }
+    [data-link-row]:hover { border-color: var(--accent); box-shadow: var(--shadow-lift); transform: translateY(-2px); }
+    [data-link-row][data-archived="true"] { opacity: .72; }
+    [data-link-row] > * { min-width: 0; }
+    .row-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .row-code { font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .row-title { font-size: 13px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .row-url { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .row-metrics { display: flex; align-items: baseline; gap: 6px; }
+    .row-metrics b { font-size: 20px; letter-spacing: -.02em; }
+    .row-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+    .row-detail { display: none; padding-top: 8px; border-top: 1px dashed var(--border); font-size: 12px; color: var(--muted); }
+    [data-link-row][data-expanded="true"] .row-detail { display: grid; gap: 4px; }
+    .row-detail .full-url { word-break: break-all; white-space: normal; }
+
+    .state {
+      display: grid; gap: 8px; justify-items: start; padding: 18px;
+      border: 1px dashed var(--border); border-radius: var(--r-lg); background: var(--tile-alt); color: var(--muted);
+    }
+    .state strong { color: var(--text); font-size: 15px; }
+    .state[data-state="error"] { border-color: var(--danger); border-style: solid; background: var(--danger-soft); color: var(--danger); }
+    .state[data-state="error"] strong { color: var(--danger); }
+
+    .skeleton { display: grid; gap: 10px; }
+    .links-grid[data-loading="true"] { opacity: .45; transition: opacity .18s ease; }
+    .skeleton i { display: block; height: 14px; border-radius: 999px; background: linear-gradient(90deg, var(--tile-alt), var(--border), var(--tile-alt)); background-size: 220% 100%; animation: shimmer 1.3s linear infinite; }
+    @keyframes shimmer { from { background-position: 220% 0; } to { background-position: -20% 0; } }
+
+    /* 分頁列（.pagination）改由 Tailwind utility 組成，見 #dataset-browse。 */
+
+    [data-chart] { min-width: 0; }
+    .canvas-wrap { position: relative; width: 100%; height: 220px; min-width: 0; }
+    .canvas-wrap.tall { height: 280px; }
+    .canvas-wrap.short { height: 120px; }
+    .canvas-wrap canvas { width: 100% !important; height: 100% !important; }
+    [data-chart] > svg { width: 100%; height: 180px; color: var(--muted); }
+    .chart-empty { display: grid; gap: 4px; place-items: center; height: 160px; padding: 12px; border: 1px dashed var(--border); border-radius: var(--r-lg); color: var(--muted); text-align: center; }
+
+    .stack { display: grid; gap: 10px; min-width: 0; }
+    .list-plain { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+    .list-plain li { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 13px; }
+    .list-plain li .grow { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .bar { position: relative; display: block; height: 6px; border-radius: 999px; background: var(--border); overflow: hidden; }
+    .bar > span { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: var(--accent); }
+
+    .drawer-scrim { position: fixed; inset: 0; z-index: 20; background: var(--scrim); backdrop-filter: blur(2px); }
+    .drawer {
+      position: fixed; z-index: 21; top: 0; right: 0; bottom: 0; width: min(460px, 100%);
+      display: flex; flex-direction: column; gap: 0; background: var(--tile);
+      border-left: 1px solid var(--border); box-shadow: var(--shadow-lift);
+      animation: slide-in .24s cubic-bezier(.32, .72, 0, 1);
+    }
+    @keyframes slide-in { from { transform: translateX(100%); } to { transform: translateX(0); } }
+    /* drawer 的頁首／頁尾（.drawer-head / .drawer-foot）改由 Tailwind utility 組成。 */
+    .drawer form { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
+    .drawer-body { flex: 1 1 auto; overflow-y: auto; padding: 20px; display: grid; gap: 14px; align-content: start; }
+
+    dialog.sheet {
+      width: min(28rem, calc(100vw - 2rem)); padding: 22px; color: var(--text);
+      border: 1px solid var(--border); border-radius: var(--r-xl); background: var(--tile); box-shadow: var(--shadow-lift);
+    }
+    dialog.sheet::backdrop { background: var(--scrim); }
+    dialog.sheet h2 { margin: 0 0 8px; font-size: 17px; }
+    dialog.sheet p { margin: 0 0 18px; color: var(--muted); font-size: 14px; }
+    /* .sheet-actions 改由 Tailwind flex justify-end gap-2 提供。 */
+
+    .toast {
+      position: fixed; z-index: 30; left: 50%; bottom: 24px; transform: translateX(-50%);
+      display: inline-flex; align-items: center; gap: 10px; padding: 11px 16px;
+      border: 1px solid var(--border); border-radius: 999px; background: var(--tile);
+      color: var(--text); box-shadow: var(--shadow-lift); font: inherit; font-size: 14px; cursor: pointer;
+    }
+    .toast:hover { border-color: var(--accent); color: var(--accent); }
+    .toast[hidden] { display: none; }
+
+    /* 登入／404 的置中版心（.center-card）改由 Tailwind utility 組成。 */
+
+    @media (max-width: 1100px) {
+      .toolbar { grid-template-columns: minmax(0, 1fr) auto auto; }
+      .toolbar .create-cta { grid-column: 1 / -1; }
+    }
+    @media (max-width: 720px) {
+      body[data-proposal-id] { --rail-w: 0px; font-size: 14px; }
+      .shell { grid-template-columns: minmax(0, 1fr); }
+      .rail {
+        position: fixed; z-index: 15; inset: auto 0 0 0; height: auto; flex-direction: row;
+        gap: 4px; padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+        border-right: 0; border-top: 1px solid var(--border); overflow-x: auto;
+      }
+      .rail-head, .rail-toggle { display: none; }
+      .rail > nav.stack {
+        display: flex; flex-direction: row; align-items: stretch; gap: 4px;
+        width: 100%; overflow-x: auto; scrollbar-width: none;
+      }
+      .rail > nav.stack::-webkit-scrollbar { display: none; }
+      .nav-item { flex: 1 0 auto; min-width: 60px; width: auto; }
+      .topbar h1 { flex: 1 1 auto; min-width: 0; }
+      .topbar .spacer { display: none; }
+      .monitor-pill { order: 3; flex: 1 0 100%; max-width: 100%; }
+      .nav-item { flex-direction: column; gap: 2px; padding: 6px 10px; font-size: 11px; }
+      .nav-item .label { display: block; font-size: 11px; }
+      .topbar { padding: 12px 14px; }
+      .topbar h1 { font-size: 19px; }
+      .content { padding: 14px 14px 150px; }
+      .content :where(button, select, input, article, #dataset-browse, .state, .tile) { scroll-margin-bottom: 150px; scroll-margin-top: 84px; }
+      .bento { gap: 12px; }
+      .tile { padding: 15px; border-radius: var(--r-lg); }
+      .tile-figure { font-size: 27px; }
+      .toolbar { grid-template-columns: 1fr 1fr; }
+      .toolbar .search-wrap, .toolbar .create-cta { grid-column: 1 / -1; }
+      .links-grid { grid-template-columns: minmax(0, 1fr); }
+      .canvas-wrap, .canvas-wrap.tall { height: 200px; }
+      .drawer { width: 100%; top: auto; height: min(88vh, 100%); border-left: 0; border-top: 1px solid var(--border); border-radius: var(--r-xl) var(--r-xl) 0 0; animation-name: slide-up; }
+      @keyframes slide-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    }
+
+    [data-view][hidden], [hidden] { display: none !important; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: .01ms !important; animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important; scroll-behavior: auto !important;
+      }
+    }
+  </style>
+</head>
+<body data-proposal-id="04-bento" data-theme="light" data-active-view="dashboard" data-dataset="default" data-rail="expanded">
+  <div class="shell">
+    <aside class="rail" aria-label="主要導覽">
+      <div class="rail-head">
+        <span class="rail-mark" aria-hidden="true">A</span>
+        <span class="rail-name">AkaMoney 監控台</span>
+      </div>
+      <nav class="stack" id="rail-nav" aria-label="切換頁面">
+        <button type="button" class="nav-item" data-action="view-switch" data-view-target="dashboard">
+          <span class="glyph" aria-hidden="true">▦</span><span class="label">監控牆</span>
+        </button>
+        <button type="button" class="nav-item" data-action="view-switch" data-view-target="analytics">
+          <span class="glyph" aria-hidden="true">◔</span><span class="label">成效分析</span>
+        </button>
+        <button type="button" class="nav-item" data-action="view-switch" data-view-target="stats">
+          <span class="glyph" aria-hidden="true">▤</span><span class="label">總覽統計</span>
+        </button>
+        <button type="button" class="nav-item" data-action="view-switch" data-view-target="create">
+          <span class="glyph" aria-hidden="true">＋</span><span class="label">建立短網址</span>
+        </button>
+        <button type="button" class="nav-item" data-action="view-switch" data-view-target="login">
+          <span class="glyph" aria-hidden="true">◉</span><span class="label">登入</span>
+        </button>
+        <button type="button" class="nav-item" data-action="view-switch" data-view-target="notfound">
+          <span class="glyph" aria-hidden="true">⊘</span><span class="label">找不到頁面</span>
+        </button>
+      </nav>
+      <button type="button" class="rail-toggle" id="rail-toggle" aria-expanded="true" aria-controls="rail-nav">
+        <span class="glyph" aria-hidden="true">⇤</span><span class="label">收合側欄</span>
+      </button>
+    </aside>
+
+    <div class="main">
+      <header class="topbar">
+        <h1 id="view-title">短網址監控牆</h1>
+        <span class="spacer"></span>
+        <span class="monitor-pill">
+          <span class="dot" aria-hidden="true"></span>
+          <span class="txt" id="monitor-ticker">監控中</span>
+        </span>
+        <button type="button" class="btn ghost" data-action="theme-toggle" aria-pressed="false">
+          <span aria-hidden="true">◐</span><span id="theme-label">深色模式</span>
+        </button>
+      </header>
+
+      <div class="content">
+        <section data-view="dashboard" aria-labelledby="view-title">
+          <div class="bento">
+            <article class="tile accent col-span-3 max-bento:col-span-6 max-brick:col-span-12">
+              <p class="tile-label">累計點擊</p>
+              <p class="tile-figure font-mono" id="kpi-clicks">—</p>
+              <p class="tile-foot" id="kpi-clicks-foot">監控期間累計</p>
+            </article>
+            <article class="tile col-span-3 max-bento:col-span-6 max-brick:col-span-12">
+              <p class="tile-label">作用中連結</p>
+              <p class="tile-figure font-mono" id="kpi-active">—</p>
+              <p class="tile-foot" id="kpi-active-foot">含封存共 — 筆</p>
+            </article>
+            <article class="tile col-span-3 max-bento:col-span-6 max-brick:col-span-12">
+              <p class="tile-label">平均每連結點擊</p>
+              <p class="tile-figure font-mono" id="kpi-average">—</p>
+              <p class="tile-foot" id="kpi-average-foot">依目前情境計算</p>
+            </article>
+            <article class="tile col-span-3 max-bento:col-span-6 max-brick:col-span-12" data-chart="dashboard-sparkline" data-chart-state="fallback">
+              <p class="tile-label">近 30 日節奏</p>
+              <div class="canvas-wrap short"><svg viewBox="0 0 300 100" role="img" aria-label="近期點擊趨勢縮圖"><polyline fill="none" stroke="currentColor" stroke-width="3" points="0,80 60,50 120,62 180,20 240,45 300,30"></polyline></svg></div>
+            </article>
+
+            <article class="tile col-span-8 max-bento:col-span-12">
+              <h2>連結磚牆</h2>
+              <div class="toolbar">
+                <span class="search-wrap">
+                  <span class="glyph" aria-hidden="true">⌕</span>
+                  <input class="input" type="search" data-action="search" id="search-input" aria-label="搜尋短網址" placeholder="搜尋短代碼、標題或原始網址">
+                </span>
+                <button type="button" class="btn" data-action="sort-clicks" aria-label="切換點擊數排序">點擊數：高至低</button>
+                <select class="select" id="list-filter" aria-label="顯示狀態篩選">
+                  <option value="all">全部狀態</option>
+                  <option value="active">僅作用中</option>
+                  <option value="archived">僅已封存</option>
+                </select>
+                <button type="button" class="btn primary create-cta" data-action="view-switch" data-view-target="create">＋ 建立短網址</button>
+              </div>
+              <div id="dashboard-state" class="stack mt-3.5"></div>
+              <div id="url-list" class="links-grid mt-3.5">
+                <article data-link-row data-url-id="placeholder-initial">
+                  <div class="row-top">
+                    <span class="row-code font-mono">aka.money/spring24</span>
+                    <span class="chip ok">作用中</span>
+                  </div>
+                  <span class="row-title">春季會員招募主頁</span>
+                  <span class="row-url">https://campaign.example.com/zh-tw/landing-001</span>
+                  <div class="row-metrics"><b class="mono">152</b><span class="row-url">次點擊</span></div>
+                  <div class="row-actions">
+                    <button type="button" class="btn sm" data-action="copy" data-copy-state="idle" data-code="spring24">複製短網址</button>
+                    <button type="button" class="btn sm danger" data-action="archive" data-id="placeholder-initial">封存</button>
+                  </div>
+                </article>
+              </div>
+              <div id="dataset-browse" class="mt-3.5 flex flex-wrap items-center gap-2 text-[13px] text-[var(--muted)]"></div>
+            </article>
+
+            <article class="tile col-span-4 max-bento:col-span-6 max-brick:col-span-12">
+              <h2>即時監控</h2>
+              <div class="stack" id="monitor-panel"></div>
+            </article>
+          </div>
+        </section>
+
+        <section data-view="analytics" aria-label="成效分析" hidden>
+          <div class="bento">
+            <article class="tile accent col-span-12">
+              <p class="tile-label">分析對象</p>
+              <div class="flex flex-wrap items-baseline gap-3">
+                <p class="tile-figure font-mono" id="analytics-subject-code">—</p>
+                <p class="tile-foot" id="analytics-subject-meta">—</p>
+              </div>
+            </article>
+            <article class="tile col-span-8 max-bento:col-span-12" data-chart="clicks-trend" data-chart-state="fallback">
+              <h2>每日點擊趨勢</h2>
+              <p class="tile-label" id="trend-range">監控區間</p>
+              <div class="canvas-wrap tall"><svg viewBox="0 0 300 160" role="img" aria-label="每日點擊趨勢"><polyline fill="none" stroke="currentColor" stroke-width="3" points="0,140 100,80 200,100 300,40"></polyline></svg></div>
+            </article>
+            <article class="tile col-span-4 max-bento:col-span-6 max-brick:col-span-12">
+              <h2>活動高峰</h2>
+              <div class="stack" id="spike-panel"></div>
+            </article>
+            <article class="tile col-span-4 max-bento:col-span-6 max-brick:col-span-12" data-chart="country-distribution" data-chart-state="fallback">
+              <h2>國家分佈</h2>
+              <div class="canvas-wrap"><svg viewBox="0 0 300 160" role="img" aria-label="國家分佈"><circle cx="150" cy="80" r="60" fill="none" stroke="currentColor" stroke-width="16"></circle></svg></div>
+            </article>
+            <article class="tile col-span-4 max-bento:col-span-6 max-brick:col-span-12" data-chart="device-distribution" data-chart-state="fallback">
+              <h2>裝置分佈</h2>
+              <div class="canvas-wrap"><svg viewBox="0 0 300 160" role="img" aria-label="裝置分佈"><circle cx="150" cy="80" r="60" fill="none" stroke="currentColor" stroke-width="16"></circle></svg></div>
+            </article>
+            <article class="tile col-span-4 max-bento:col-span-6 max-brick:col-span-12" data-chart="browser-distribution" data-chart-state="fallback">
+              <h2>瀏覽器分佈</h2>
+              <div class="canvas-wrap"><svg viewBox="0 0 300 160" role="img" aria-label="瀏覽器分佈"><circle cx="150" cy="80" r="60" fill="none" stroke="currentColor" stroke-width="16"></circle></svg></div>
+            </article>
+            <article class="tile col-span-12">
+              <h2>觀察重點</h2>
+              <ul class="list-plain" id="highlight-list"></ul>
+            </article>
+          </div>
+        </section>
+
+        <section data-view="stats" aria-label="總覽統計" hidden>
+          <div class="bento">
+            <article class="tile accent col-span-3 max-bento:col-span-6 max-brick:col-span-12">
+              <p class="tile-label">總點擊</p>
+              <p class="tile-figure font-mono" id="stats-total">—</p>
+              <p class="tile-foot" id="stats-range">—</p>
+            </article>
+            <article class="tile col-span-3 max-bento:col-span-6 max-brick:col-span-12">
+              <p class="tile-label">作用中／全部</p>
+              <p class="tile-figure font-mono" id="stats-active">—</p>
+              <p class="tile-foot" id="stats-archived">—</p>
+            </article>
+            <article class="tile col-span-3 max-bento:col-span-6 max-brick:col-span-12">
+              <p class="tile-label">平均每連結</p>
+              <p class="tile-figure font-mono" id="stats-average">—</p>
+              <p class="tile-foot">依目前情境的連結平均值</p>
+            </article>
+            <article class="tile col-span-3 max-bento:col-span-6 max-brick:col-span-12">
+              <p class="tile-label">封存中</p>
+              <p class="tile-figure font-mono" id="stats-archived-count">—</p>
+              <p class="tile-foot">可隨時還原</p>
+            </article>
+            <article class="tile col-span-8 max-bento:col-span-12" data-chart="stats-trend" data-chart-state="fallback">
+              <h2>整體點擊走勢</h2>
+              <div class="canvas-wrap tall"><svg viewBox="0 0 300 160" role="img" aria-label="整體點擊走勢"><polyline fill="none" stroke="currentColor" stroke-width="3" points="0,140 100,60 200,110 300,30"></polyline></svg></div>
+            </article>
+            <article class="tile col-span-4 max-bento:col-span-6 max-brick:col-span-12">
+              <h2>熱門連結排行</h2>
+              <ul class="list-plain" id="top-links"></ul>
+            </article>
+            <article class="tile col-span-6 max-bento:col-span-12" data-chart="stats-country" data-chart-state="fallback">
+              <h2>國家佔比</h2>
+              <div class="canvas-wrap"><svg viewBox="0 0 300 160" role="img" aria-label="國家佔比"><circle cx="150" cy="80" r="60" fill="none" stroke="currentColor" stroke-width="16"></circle></svg></div>
+            </article>
+            <article class="tile col-span-6 max-bento:col-span-12" data-chart="stats-device" data-chart-state="fallback">
+              <h2>裝置佔比</h2>
+              <div class="canvas-wrap"><svg viewBox="0 0 300 160" role="img" aria-label="裝置佔比"><circle cx="150" cy="80" r="60" fill="none" stroke="currentColor" stroke-width="16"></circle></svg></div>
+            </article>
+          </div>
+        </section>
+
+        <section data-view="login" aria-label="登入" hidden>
+          <div class="bento">
+            <article class="tile col-span-12">
+              <div class="mx-auto mt-[8vh] grid max-w-[460px] justify-items-center gap-3.5 text-center">
+                <span class="rail-mark" aria-hidden="true">A</span>
+                <h2>登入 AkaMoney 監控台</h2>
+                <p class="m-0 text-[var(--muted)]">使用公司帳號登入後，即可管理短網址並檢視即時成效磚牆。</p>
+                <button type="button" class="btn primary" id="login-submit">使用公司帳號登入</button>
+                <p class="hint">登入問題請聯絡內部 IT 服務台。</p>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section data-view="notfound" aria-label="找不到頁面" hidden>
+          <div class="bento">
+            <article class="tile col-span-12">
+              <div class="mx-auto mt-[8vh] grid max-w-[460px] justify-items-center gap-3.5 text-center">
+                <p class="tile-figure font-mono">404</p>
+                <h2>找不到這個短代碼</h2>
+                <p class="m-0 text-[var(--muted)]">這個短網址可能已過期、已被封存，或從未建立。</p>
+                <button type="button" class="btn primary" data-action="view-switch" data-view-target="dashboard">回到監控牆</button>
+              </div>
+            </article>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <div class="drawer-scrim" id="drawer-scrim" hidden></div>
+  <section class="drawer" data-view="create" role="dialog" aria-modal="true" aria-labelledby="drawer-title" hidden>
+    <header class="flex items-center gap-2.5 border-b border-solid border-[var(--border)] px-5 py-4.5">
+      <h2 id="drawer-title" class="m-0 text-[17px]">建立短網址</h2>
+      <span class="flex-auto"></span>
+      <button type="button" class="btn sm ghost" data-action="view-switch" data-view-target="dashboard" aria-label="關閉建立面板">✕</button>
+    </header>
+    <form id="create-form" novalidate>
+      <div class="drawer-body">
+        <div id="create-feedback"></div>
+        <label class="grid min-w-0 gap-1.5">
+          <span class="text-[13px] text-[var(--muted)]">原始網址（必填）</span>
+          <input class="input" type="url" name="original_url" required placeholder="https://example.com/landing">
+        </label>
+        <label class="grid min-w-0 gap-1.5">
+          <span class="text-[13px] text-[var(--muted)]">短代碼（必填，3–20 字，英數與 - _）</span>
+          <input class="input mono" name="short_code" required minlength="3" maxlength="20" pattern="[a-zA-Z0-9_\-]+" placeholder="summer2026">
+        </label>
+        <label class="grid min-w-0 gap-1.5">
+          <span class="text-[13px] text-[var(--muted)]">標題（選填）</span>
+          <input class="input" name="title" placeholder="夏季活動主頁">
+        </label>
+        <label class="grid min-w-0 gap-1.5">
+          <span class="text-[13px] text-[var(--muted)]">描述（選填）</span>
+          <textarea class="textarea" name="description" placeholder="用途說明，方便團隊辨識"></textarea>
+        </label>
+        <label class="grid min-w-0 gap-1.5">
+          <span class="text-[13px] text-[var(--muted)]">預覽圖網址（選填）</span>
+          <input class="input" type="url" name="image_url" placeholder="https://images.example.com/cover.jpg">
+        </label>
+        <label class="grid min-w-0 gap-1.5">
+          <span class="text-[13px] text-[var(--muted)]">到期時間（選填）</span>
+          <input class="input" type="datetime-local" name="expires_at">
+        </label>
+        <p class="hint">建立後會立即固定在監控牆最上方，方便確認成效。</p>
+      </div>
+      <div class="flex justify-end gap-2.5 border-t border-solid border-[var(--border)] bg-[var(--tile-alt)] px-5 py-4">
+        <button type="button" class="btn ghost" data-action="view-switch" data-view-target="dashboard">取消</button>
+        <button type="submit" class="btn primary" data-action="create-submit">建立短網址</button>
+      </div>
+    </form>
+  </section>
+
+  <dialog class="sheet" id="archive-dialog" aria-labelledby="archive-title">
+    <h2 id="archive-title">確認封存這個短網址？</h2>
+    <p id="archive-desc">封存後轉址會停止，但資料保留，可立即還原。</p>
+    <div class="flex justify-end gap-2">
+      <button type="button" class="btn" id="archive-cancel">取消</button>
+      <button type="button" class="btn danger" data-action="archive-confirm">確認封存</button>
+    </div>
+  </dialog>
+
+  <button type="button" class="toast" data-action="archive-undo" id="undo-toast" hidden>
+    <span aria-hidden="true">↺</span><span>已封存，點此還原</span>
+  </button>
+
+  <script src="../shared/scenarios.js"></script>
+  <script>
+    (function () {
+      var root = document.querySelector('[data-proposal-id]');
+      var VIEWS = ['dashboard', 'analytics', 'stats', 'login', 'create', 'notfound'];
+      var THEMES = ['light', 'dark'];
+      var DATASETS = ['default', 'large250', 'empty', 'noResults', 'edgeCases', 'zeroAnalytics', 'apiError'];
+      var VIEW_TITLES = {
+        dashboard: '短網址監控牆',
+        analytics: '成效分析',
+        stats: '總覽統計',
+        login: '登入',
+        create: '建立短網址',
+        notfound: '找不到頁面'
+      };
+      var SERIES = {
+        light: ['#0b5cd5', '#0f9d76', '#d97706', '#c026d3', '#0891b2'],
+        dark: ['#5aa9ff', '#34d399', '#fbbf24', '#e879f9', '#22d3ee']
+      };
+      var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+      var state = { view: 'dashboard', theme: 'light', dataset: 'default' };
+      var hostView = 'dashboard';
+      var scenario = window.AKAMONEY_SCENARIOS.getScenario('default');
+      var urls = scenario.urls.slice();
+      var sortDirection = 'desc';
+      var listFilter = 'all';
+      var query = '';
+      var pageIndex = 0;
+      var pageSize = 24;
+      var expanded = {};
+      var archiveTargetId = null;
+      var archiveTrigger = null;
+      var lastArchivedId = null;
+      var latestCreatedId = null;
+      var charts = [];
+      var tickerTimer = null;
+      var copyTimer = null;
+
+      var searchInput = document.getElementById('search-input');
+      var shellElement = document.querySelector('.shell');
+      var createTrigger = null;
+      var datasetTimer = null;
+      var listContainer = document.getElementById('url-list');
+      var stateContainer = document.getElementById('dashboard-state');
+      var browseContainer = document.getElementById('dataset-browse');
+      var drawer = document.querySelector('[data-view="create"]');
+      var scrim = document.getElementById('drawer-scrim');
+      var dialog = document.getElementById('archive-dialog');
+      var undoToast = document.getElementById('undo-toast');
+      var createForm = document.getElementById('create-form');
+      var createFeedback = document.getElementById('create-feedback');
+      var submitButton = createForm.querySelector('[data-action="create-submit"]');
+
+      function escapeHtml(value) {
+        return String(value == null ? '' : value).replace(/[&<>"']/g, function (character) {
+          return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character];
+        });
+      }
+
+      function formatNumber(value) {
+        return Number(value || 0).toLocaleString('zh-TW');
+      }
+
+      function formatDateTime(timestamp) {
+        if (!timestamp) return '—';
+        var date = new Date(timestamp);
+        return date.toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
+      }
+
+      function emit(type) {
+        if (window.parent === window) return;
+        window.parent.postMessage({
+          source: 'akamoney-proposal',
+          proposalId: '04-bento',
+          type: type,
+          state: { view: state.view, theme: state.theme, dataset: state.dataset }
+        }, '*');
+      }
+
+      /* ---------- 視圖切換（建立採右側 drawer，疊在宿主視圖上） ---------- */
+      var FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]),' +
+        ' textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+      function drawerFocusables() {
+        return Array.prototype.filter.call(drawer.querySelectorAll(FOCUSABLE), function (element) {
+          return element.offsetParent !== null || element === document.activeElement;
+        });
+      }
+
+      function restoreCreateTrigger() {
+        var trigger = createTrigger;
+        createTrigger = null;
+        if (!trigger || !trigger.isConnected || trigger.disabled) return;
+        if (typeof trigger.closest === 'function' && trigger.closest('[hidden], [inert]')) return;
+        try { trigger.focus(); } catch (error) { /* 觸發元素已不可聚焦時忽略 */ }
+      }
+
+      function applyView(view, shouldEmit) {
+        if (VIEWS.indexOf(view) === -1) return;
+        var leavingCreate = state.view === 'create' && view !== 'create';
+        if (view === 'create' && state.view !== 'create') {
+          var candidate = document.activeElement;
+          createTrigger = candidate && candidate !== document.body &&
+            typeof candidate.focus === 'function' && !drawer.contains(candidate) ? candidate : null;
+        }
+        state.view = view;
+        if (view !== 'create') hostView = view;
+        root.dataset.activeView = view;
+        document.querySelectorAll('[data-view]').forEach(function (element) {
+          var name = element.dataset.view;
+          var visible = view === 'create' ? (name === 'create' || name === hostView) : name === view;
+          element.hidden = !visible;
+          if (visible) element.removeAttribute('inert');
+          else element.setAttribute('inert', '');
+        });
+        scrim.hidden = view !== 'create';
+        /* drawer 開啟時整個 shell（側欄、頂列、宿主磚牆）與 undo toast 皆設為 inert，
+           焦點不會逸失到背景（BRIEF §8）。 */
+        if (view === 'create') {
+          shellElement.setAttribute('inert', '');
+          undoToast.setAttribute('inert', '');
+        } else {
+          shellElement.removeAttribute('inert');
+          undoToast.removeAttribute('inert');
+        }
+        document.getElementById('view-title').textContent = VIEW_TITLES[view] || VIEW_TITLES.dashboard;
+        if (view === 'create') {
+          var firstField = createForm.querySelector('input[name="original_url"]');
+          if (firstField) firstField.focus();
+        } else if (leavingCreate) {
+          restoreCreateTrigger();
+        }
+        if (shouldEmit !== false) emit('STATE_CHANGED');
+      }
+
+      /* ---------- 圖表 ---------- */
+      function themePalette() {
+        var style = getComputedStyle(root);
+        return {
+          series: SERIES[state.theme] || SERIES.light,
+          text: style.getPropertyValue('--text').trim() || '#1c1c1e',
+          muted: style.getPropertyValue('--muted').trim() || '#6c6c76',
+          grid: style.getPropertyValue('--border').trim() || '#e1e1e8',
+          tooltipBackground: style.getPropertyValue('--tooltip-bg').trim() || '#1c1c1e',
+          tooltipText: style.getPropertyValue('--tooltip-text').trim() || '#ffffff'
+        };
+      }
+
+      function chartSlot(container) {
+        var slot = container.querySelector('.canvas-wrap');
+        if (!slot) {
+          slot = document.createElement('div');
+          slot.className = 'canvas-wrap';
+          container.appendChild(slot);
+        }
+        return slot;
+      }
+
+      function renderFallback(container, values) {
+        var palette = themePalette();
+        var safe = values.length ? values : [0];
+        var maximum = Math.max.apply(Math, safe.concat([1]));
+        var points = safe.map(function (value, index) {
+          var x = safe.length === 1 ? 150 : (index / (safe.length - 1)) * 300;
+          var y = 145 - (Number(value) / maximum) * 120;
+          return x.toFixed(1) + ',' + y.toFixed(1);
+        }).join(' ');
+        chartSlot(container).innerHTML =
+          '<svg viewBox="0 0 300 160" role="img" aria-label="圖表離線降級檢視" style="width:100%;height:100%">' +
+          '<line x1="0" y1="145" x2="300" y2="145" stroke="' + palette.grid + '" stroke-width="2"></line>' +
+          '<polyline fill="none" stroke="' + palette.series[0] + '" stroke-width="4" points="' + points + '"></polyline>' +
+          '</svg>';
+        container.dataset.chartState = 'fallback';
+      }
+
+      function renderChart(container, labels, values, type) {
+        if (!container) return;
+        var numeric = values.map(function (value) { return Number(value) || 0; });
+        var isEmpty = numeric.length === 0 || numeric.every(function (value) { return value === 0; });
+        if (isEmpty) {
+          chartSlot(container).innerHTML =
+            '<div class="chart-empty"><strong>尚無可視化資料</strong><span>此情境目前沒有累積任何點擊</span></div>';
+          container.dataset.chartState = 'empty';
+          return;
+        }
+        if (window.__chartCdnFailed || typeof window.Chart === 'undefined') {
+          renderFallback(container, numeric);
+          return;
+        }
+        var palette = themePalette();
+        var slot = chartSlot(container);
+        slot.innerHTML = '<canvas></canvas>';
+        var isDoughnut = type === 'doughnut';
+        var chart = new window.Chart(slot.querySelector('canvas'), {
+          type: type || 'line',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: '點擊數',
+              data: numeric,
+              borderColor: isDoughnut ? palette.series : palette.series[0],
+              backgroundColor: isDoughnut
+                ? palette.series.map(function (color) { return color; })
+                : palette.series[0] + '33',
+              borderWidth: isDoughnut ? 0 : 2,
+              pointRadius: isDoughnut ? undefined : 0,
+              pointHoverRadius: isDoughnut ? undefined : 4,
+              tension: isDoughnut ? undefined : 0.32,
+              fill: !isDoughnut
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: reduceMotion.matches ? false : { duration: 420 },
+            cutout: isDoughnut ? '62%' : undefined,
+            plugins: {
+              legend: {
+                display: isDoughnut,
+                position: 'bottom',
+                labels: { color: palette.text, boxWidth: 10, boxHeight: 10, font: { size: 12 } }
+              },
+              tooltip: {
+                backgroundColor: palette.tooltipBackground,
+                titleColor: palette.tooltipText,
+                bodyColor: palette.tooltipText,
+                footerColor: palette.tooltipText,
+                borderColor: palette.grid,
+                borderWidth: 1
+              }
+            },
+            scales: isDoughnut ? {} : {
+              x: { ticks: { color: palette.muted, maxTicksLimit: 6 }, grid: { color: palette.grid } },
+              y: { beginAtZero: true, ticks: { color: palette.muted }, grid: { color: palette.grid } }
+            }
+          }
+        });
+        charts.push(chart);
+        container.dataset.chartState = 'rendered';
+      }
+
+      function renderCharts() {
+        charts.forEach(function (chart) { chart.destroy(); });
+        charts = [];
+        var daily = scenario.analytics.dailySeries || [];
+        var dailyLabels = daily.map(function (point) { return point.date; });
+        var dailyValues = daily.map(function (point) { return point.clicks; });
+        var countries = Object.keys(scenario.analytics.countryDistribution || {});
+        var devices = Object.keys(scenario.analytics.deviceDistribution || {});
+        var browsers = Object.keys(scenario.analytics.browserDistribution || {});
+        var trend = scenario.overallStats.click_trend || {};
+        var trendLabels = Object.keys(trend);
+        var statsCountries = Object.keys(scenario.overallStats.country_distribution || {});
+        var statsDevices = Object.keys(scenario.overallStats.device_distribution || {});
+
+        renderChart(document.querySelector('[data-chart="dashboard-sparkline"]'), dailyLabels, dailyValues, 'line');
+        renderChart(document.querySelector('[data-chart="clicks-trend"]'), dailyLabels, dailyValues, 'line');
+        renderChart(document.querySelector('[data-chart="country-distribution"]'), countries,
+          countries.map(function (key) { return scenario.analytics.countryDistribution[key]; }), 'doughnut');
+        renderChart(document.querySelector('[data-chart="device-distribution"]'), devices,
+          devices.map(function (key) { return scenario.analytics.deviceDistribution[key]; }), 'doughnut');
+        renderChart(document.querySelector('[data-chart="browser-distribution"]'), browsers,
+          browsers.map(function (key) { return scenario.analytics.browserDistribution[key]; }), 'doughnut');
+        renderChart(document.querySelector('[data-chart="stats-trend"]'), trendLabels,
+          trendLabels.map(function (key) { return trend[key]; }), 'line');
+        renderChart(document.querySelector('[data-chart="stats-country"]'), statsCountries,
+          statsCountries.map(function (key) { return scenario.overallStats.country_distribution[key]; }), 'doughnut');
+        renderChart(document.querySelector('[data-chart="stats-device"]'), statsDevices,
+          statsDevices.map(function (key) { return scenario.overallStats.device_distribution[key]; }), 'doughnut');
+      }
+
+      function applyTheme(theme, shouldEmit) {
+        if (THEMES.indexOf(theme) === -1) return;
+        state.theme = theme;
+        root.dataset.theme = theme;
+        var toggle = document.querySelector('[data-action="theme-toggle"]');
+        toggle.setAttribute('aria-pressed', theme === 'dark' ? 'true' : 'false');
+        document.getElementById('theme-label').textContent = theme === 'dark' ? '淺色模式' : '深色模式';
+        renderCharts();
+        if (shouldEmit !== false) emit('STATE_CHANGED');
+      }
+
+      /* ---------- 儀表板列表 ---------- */
+      function matchedUrls() {
+        var normalized = query.trim().toLocaleLowerCase('zh-TW');
+        return urls.filter(function (url) {
+          if (!normalized) return true;
+          return [url.short_code, url.original_url, url.title, url.description].some(function (value) {
+            return String(value || '').toLocaleLowerCase('zh-TW').indexOf(normalized) !== -1;
+          });
+        }).sort(function (left, right) {
+          if (left.id === latestCreatedId) return -1;
+          if (right.id === latestCreatedId) return 1;
+          return sortDirection === 'desc'
+            ? right.click_count - left.click_count
+            : left.click_count - right.click_count;
+        });
+      }
+
+      function rowMarkup(url) {
+        var expired = url.expires_at && url.expires_at < Date.now();
+        var badge = !url.is_active
+          ? '<span class="chip mute">已封存</span>'
+          : (expired ? '<span class="chip warn">已過期</span>' : '<span class="chip ok">作用中</span>');
+        var title = url.title ? escapeHtml(url.title) : '（未命名連結）';
+        return '<article data-link-row data-url-id="' + escapeHtml(url.id) + '"' +
+          ' data-archived="' + (url.is_active ? 'false' : 'true') + '"' +
+          ' data-expanded="' + (expanded[url.id] ? 'true' : 'false') + '">' +
+          '<div class="row-top"><span class="row-code font-mono">aka.money/' + escapeHtml(url.short_code) + '</span>' + badge + '</div>' +
+          '<span class="row-title">' + title + '</span>' +
+          '<span class="row-url" title="' + escapeHtml(url.original_url) + '">' + escapeHtml(url.original_url) + '</span>' +
+          '<div class="row-metrics"><b class="mono">' + formatNumber(url.click_count) + '</b><span class="row-url">次點擊</span></div>' +
+          '<div class="row-actions">' +
+          '<button type="button" class="btn sm" data-action="copy" data-copy-state="idle" data-code="' + escapeHtml(url.short_code) + '">複製短網址</button>' +
+          (url.is_active
+            ? '<button type="button" class="btn sm danger" data-action="archive" data-id="' + escapeHtml(url.id) + '">封存</button>'
+            : '<button type="button" class="btn sm" data-action="archive-undo" data-id="' + escapeHtml(url.id) + '">還原</button>') +
+          '<button type="button" class="btn sm ghost" data-expand="' + escapeHtml(url.id) + '" aria-expanded="' +
+          (expanded[url.id] ? 'true' : 'false') + '">' + (expanded[url.id] ? '收合' : '詳情') + '</button>' +
+          '</div>' +
+          '<div class="row-detail">' +
+          '<span class="full-url">原始網址：' + escapeHtml(url.original_url) + '</span>' +
+          '<span>說明：' + escapeHtml(url.description || '（無說明）') + '</span>' +
+          '<span>建立時間：' + formatDateTime(url.created_at) + '</span>' +
+          '<span>到期時間：' + (url.expires_at ? formatDateTime(url.expires_at) : '未設定') + '</span>' +
+          '</div>' +
+          '</article>';
+      }
+
+      function renderDashboard() {
+        var matches = matchedUrls();
+        var rows = listFilter === 'all' ? matches : matches.filter(function (url) {
+          return listFilter === 'archived' ? !url.is_active : url.is_active;
+        });
+        var pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
+        if (pageIndex > pageCount - 1) pageIndex = pageCount - 1;
+        if (pageIndex < 0) pageIndex = 0;
+        var visible = state.dataset === 'large250'
+          ? rows.slice(pageIndex * pageSize, (pageIndex + 1) * pageSize)
+          : rows;
+
+        stateContainer.innerHTML = '';
+        if (scenario.meta.error) {
+          stateContainer.innerHTML =
+            '<div class="state" data-state="error" role="alert"><strong>載入失敗</strong>' +
+            '<span>' + escapeHtml(scenario.meta.error) + '</span>' +
+            '<button type="button" class="btn sm" id="retry-button">重新載入</button></div>';
+        } else if (urls.length === 0) {
+          stateContainer.innerHTML =
+            '<div class="state" data-state="empty"><strong>還沒有任何短網址</strong>' +
+            '<span>建立第一筆短網址，監控牆就會開始累積成效磚。</span>' +
+            '<button type="button" class="btn sm primary" data-action="view-switch" data-view-target="create">建立第一筆短網址</button></div>';
+        } else if (matches.length === 0) {
+          stateContainer.innerHTML =
+            '<div class="state" data-state="no-results"><strong>找不到符合的短網址</strong>' +
+            '<span>目前搜尋條件沒有命中任何資料，請調整關鍵字。</span>' +
+            '<button type="button" class="btn sm" id="clear-search">清除搜尋條件</button></div>';
+        } else if (rows.length === 0) {
+          stateContainer.innerHTML =
+            '<div class="state" data-state="no-results"><strong>這個狀態篩選沒有資料</strong>' +
+            '<span>切換為「全部狀態」即可看到其他短網址。</span></div>';
+        }
+
+        listContainer.innerHTML = visible.map(rowMarkup).join('');
+
+        browseContainer.innerHTML = state.dataset === 'large250'
+          ? '<span role="status">共 ' + formatNumber(rows.length) + ' 筆，第 ' + (pageIndex + 1) + ' / ' + pageCount + ' 頁</span>' +
+            '<button type="button" class="btn sm" data-page="previous" aria-label="上一頁"' + (pageIndex === 0 ? ' disabled' : '') + '>上一頁</button>' +
+            '<button type="button" class="btn sm" data-page="next" aria-label="下一頁"' + (pageIndex >= pageCount - 1 ? ' disabled' : '') + '>下一頁</button>'
+          : '';
+      }
+
+      /* ---------- 磚牆資訊面板 ---------- */
+      function renderPanels() {
+        var stats = scenario.overallStats;
+        var analytics = scenario.analytics;
+
+        var subject = (stats.top_links && stats.top_links[0]) || urls[0] || null;
+        var subjectCodeEl = document.getElementById('analytics-subject-code');
+        var subjectMetaEl = document.getElementById('analytics-subject-meta');
+        if (subject) {
+          subjectCodeEl.textContent = 'aka.money/' + subject.short_code;
+          subjectMetaEl.textContent =
+            (subject.title ? subject.title + ' · ' : '') + '總點擊 ' + formatNumber(analytics.totalClicks) + ' 次';
+        } else {
+          subjectCodeEl.textContent = '目前沒有可分析的連結';
+          subjectMetaEl.textContent = '總點擊 ' + formatNumber(analytics.totalClicks || 0) + ' 次';
+        }
+
+        document.getElementById('kpi-clicks').textContent = formatNumber(stats.total_clicks);
+        document.getElementById('kpi-clicks-foot').textContent =
+          stats.date_range.start ? stats.date_range.start + ' ～ ' + stats.date_range.end : '尚無統計區間';
+        document.getElementById('kpi-active').textContent = formatNumber(stats.active_links);
+        document.getElementById('kpi-active-foot').textContent = '含封存共 ' + formatNumber(stats.total_links) + ' 筆';
+        document.getElementById('kpi-average').textContent = formatNumber(stats.average_clicks_per_link);
+        document.getElementById('kpi-average-foot').textContent = '封存中 ' + formatNumber(stats.archived_links) + ' 筆';
+
+        document.getElementById('stats-total').textContent = formatNumber(stats.total_clicks);
+        document.getElementById('stats-range').textContent =
+          stats.date_range.start ? stats.date_range.start + ' ～ ' + stats.date_range.end : '尚無統計區間';
+        document.getElementById('stats-active').textContent =
+          formatNumber(stats.active_links) + ' / ' + formatNumber(stats.total_links);
+        document.getElementById('stats-archived').textContent = '作用中比例以目前情境計算';
+        document.getElementById('stats-average').textContent = formatNumber(stats.average_clicks_per_link);
+        document.getElementById('stats-archived-count').textContent = formatNumber(stats.archived_links);
+
+        document.getElementById('trend-range').textContent =
+          stats.date_range.start ? '監控區間 ' + stats.date_range.start + ' ～ ' + stats.date_range.end : '尚無監控區間';
+
+        var spike = analytics.campaignSpike;
+        document.getElementById('spike-panel').innerHTML = spike
+          ? '<p class="tile-figure font-mono">' + formatNumber(spike.clicks) + '</p>' +
+            '<p class="tile-foot">' + escapeHtml(spike.label) + '｜' + escapeHtml(spike.date) + '</p>' +
+            '<p class="tile-foot">單日高峰約為平均日流量的放大訊號，可作為活動排程依據。</p>'
+          : '<div class="state"><strong>尚未偵測到高峰</strong><span>目前情境沒有足夠的每日資料。</span></div>';
+
+        var highlights = analytics.highlights || [];
+        document.getElementById('highlight-list').innerHTML = highlights.length
+          ? highlights.map(function (item) {
+              return '<li><span class="chip mute">觀察</span><span class="grow">' + escapeHtml(item) + '</span></li>';
+            }).join('')
+          : '<li><span class="grow">目前沒有可呈現的觀察重點。</span></li>';
+
+        var topLinks = stats.top_links || [];
+        var maxClicks = topLinks.reduce(function (max, item) { return Math.max(max, item.click_count); }, 0) || 1;
+        document.getElementById('top-links').innerHTML = topLinks.length
+          ? topLinks.map(function (item) {
+              return '<li><span class="grow"><span class="mono">' + escapeHtml(item.short_code) + '</span>' +
+                '<span class="bar" style="margin-top:4px"><span style="width:' +
+                Math.max(4, Math.round((item.click_count / maxClicks) * 100)) + '%"></span></span></span>' +
+                '<b class="mono">' + formatNumber(item.click_count) + '</b></li>';
+            }).join('')
+          : '<li><span class="grow">尚無排行資料。</span></li>';
+
+        var activeCount = urls.filter(function (url) { return url.is_active; }).length;
+        var monitorHighlights = (analytics.highlights || []).map(function (item) {
+          return '<li><span class="dot" aria-hidden="true"></span><span class="grow">' + escapeHtml(item) + '</span></li>';
+        }).join('');
+        var monitorTop = topLinks.slice(0, 3).map(function (item) {
+          return '<li><span class="grow mono">' + escapeHtml(item.short_code) + '</span><b class="mono">' +
+            formatNumber(item.click_count) + '</b></li>';
+        }).join('');
+        document.getElementById('monitor-panel').innerHTML =
+          '<p class="tile-foot" style="margin:0">資料快照時間</p>' +
+          '<p class="mono" style="margin:0;font-size:17px">' + formatDateTime(scenario.meta.generatedAt) + '</p>' +
+          '<div class="bar"><span style="width:' +
+          Math.max(4, Math.round((activeCount / Math.max(1, urls.length)) * 100)) + '%"></span></div>' +
+          '<p class="tile-foot" style="margin:0">作用中 ' + formatNumber(activeCount) + ' / ' + formatNumber(urls.length) + ' 筆連結</p>' +
+          '<hr style="border:0;border-top:1px solid var(--border);margin:2px 0">' +
+          '<p class="tile-label" style="margin:0">監控訊號</p>' +
+          '<ul class="list-plain">' + (monitorHighlights || '<li><span class="grow">尚無監控訊號。</span></li>') + '</ul>' +
+          '<hr style="border:0;border-top:1px solid var(--border);margin:2px 0">' +
+          '<p class="tile-label" style="margin:0">熱門前三名</p>' +
+          '<ul class="list-plain">' + (monitorTop || '<li><span class="grow">尚無排行資料。</span></li>') + '</ul>' +
+          '<p class="tile-foot" style="margin:0">' + escapeHtml(scenario.meta.summary) + '</p>';
+
+        startTicker();
+      }
+
+      function startTicker() {
+        var ticker = document.getElementById('monitor-ticker');
+        var messages = (scenario.analytics.highlights || []).slice();
+        if (scenario.analytics.campaignSpike) {
+          messages.unshift('高峰 ' + scenario.analytics.campaignSpike.date + '：' +
+            formatNumber(scenario.analytics.campaignSpike.clicks) + ' 次點擊');
+        }
+        messages.unshift('監控中｜累計 ' + formatNumber(scenario.overallStats.total_clicks) + ' 次點擊');
+        if (tickerTimer) window.clearInterval(tickerTimer);
+        var index = 0;
+        ticker.textContent = messages[0];
+        if (reduceMotion.matches || messages.length < 2) return;
+        tickerTimer = window.setInterval(function () {
+          index = (index + 1) % messages.length;
+          ticker.textContent = messages[index];
+        }, 4200);
+      }
+
+      function syncControls() {
+        var sortControl = document.querySelector('[data-action="sort-clicks"]');
+        sortControl.textContent = sortDirection === 'desc' ? '點擊數：高至低' : '點擊數：低至高';
+        document.getElementById('list-filter').value = listFilter;
+        searchInput.value = query;
+        undoToast.hidden = true;
+        createFeedback.innerHTML = '';
+      }
+
+      function loadingSkeleton(title) {
+        return '<div class="state" data-state="loading" role="status" aria-live="polite"><strong>' + title + '</strong>' +
+          '<div class="skeleton" style="width:100%"><i></i><i style="width:70%"></i><i style="width:45%"></i></div></div>';
+      }
+
+      function applyDataset(dataset, shouldEmit) {
+        if (DATASETS.indexOf(dataset) === -1) return;
+        state.dataset = dataset;
+        root.dataset.dataset = dataset;
+        scenario = window.AKAMONEY_SCENARIOS.getScenario(dataset);
+        urls = scenario.urls.slice();
+        latestCreatedId = null;
+        lastArchivedId = null;
+        expanded = {};
+        pageIndex = 0;
+        sortDirection = 'desc';
+        listFilter = 'all';
+        query = scenario.meta.searchQuery || '';
+        syncControls();
+        renderDashboard();
+        renderPanels();
+        renderCharts();
+        /* C6：切換資料集時，狀態列先短暫顯示 data-state="loading" 骨架屏，再換回真實狀態。 */
+        if (shouldEmit !== false) {
+          if (datasetTimer) window.clearTimeout(datasetTimer);
+          stateContainer.innerHTML = loadingSkeleton('切換資料集，重新載入監控牆…');
+          listContainer.dataset.loading = 'true';
+          datasetTimer = window.setTimeout(function () {
+            datasetTimer = null;
+            listContainer.removeAttribute('data-loading');
+            renderDashboard();
+          }, 140);
+          emit('STATE_CHANGED');
+        }
+      }
+
+      /* ---------- 互動 ---------- */
+      function copyShortUrl(button) {
+        var text = 'https://aka.money/' + button.dataset.code;
+        var label = button.textContent;
+        var finish = function () {
+          button.dataset.copyState = 'copied';
+          button.innerHTML = '<span aria-hidden="true">✓</span> 已複製';
+          if (copyTimer) window.clearTimeout(copyTimer);
+          copyTimer = window.setTimeout(function () {
+            if (!button.isConnected) return;
+            button.dataset.copyState = 'idle';
+            button.textContent = label;
+          }, 1600);
+        };
+        var task = navigator.clipboard && navigator.clipboard.writeText
+          ? navigator.clipboard.writeText(text)
+          : Promise.reject(new Error('clipboard unavailable'));
+        Promise.resolve(task).catch(function () {
+          var helper = document.createElement('textarea');
+          helper.value = text;
+          helper.setAttribute('aria-hidden', 'true');
+          helper.style.position = 'fixed';
+          helper.style.opacity = '0';
+          document.body.appendChild(helper);
+          helper.select();
+          try { document.execCommand('copy'); } catch (error) { /* 離線環境忽略 */ }
+          helper.remove();
+        }).then(finish, finish);
+      }
+
+      document.addEventListener('click', function (event) {
+        var pageControl = event.target.closest('[data-page]');
+        if (pageControl) {
+          pageIndex += pageControl.dataset.page === 'next' ? 1 : -1;
+          renderDashboard();
+          return;
+        }
+        var expander = event.target.closest('[data-expand]');
+        if (expander) {
+          var id = expander.dataset.expand;
+          expanded[id] = !expanded[id];
+          renderDashboard();
+          return;
+        }
+        if (event.target.closest('#retry-button')) {
+          stateContainer.innerHTML = loadingSkeleton('重新載入中…');
+          window.setTimeout(function () { renderDashboard(); }, 480);
+          return;
+        }
+        if (event.target.closest('#clear-search')) {
+          query = '';
+          pageIndex = 0;
+          searchInput.value = '';
+          renderDashboard();
+          return;
+        }
+        if (event.target.closest('#rail-toggle')) {
+          var collapsed = root.dataset.rail === 'collapsed';
+          root.dataset.rail = collapsed ? 'expanded' : 'collapsed';
+          var toggle = document.getElementById('rail-toggle');
+          toggle.setAttribute('aria-expanded', collapsed ? 'true' : 'false');
+          toggle.querySelector('.label').textContent = collapsed ? '收合側欄' : '展開側欄';
+          return;
+        }
+        if (event.target.closest('#archive-cancel')) {
+          dialog.close();
+          return;
+        }
+
+        var actionElement = event.target.closest('[data-action]');
+        if (!actionElement) return;
+        var action = actionElement.dataset.action;
+
+        if (action === 'view-switch') {
+          applyView(actionElement.dataset.viewTarget);
+        } else if (action === 'theme-toggle') {
+          applyTheme(state.theme === 'light' ? 'dark' : 'light');
+        } else if (action === 'sort-clicks') {
+          sortDirection = sortDirection === 'desc' ? 'asc' : 'desc';
+          pageIndex = 0;
+          actionElement.textContent = sortDirection === 'desc' ? '點擊數：高至低' : '點擊數：低至高';
+          renderDashboard();
+        } else if (action === 'copy') {
+          copyShortUrl(actionElement);
+        } else if (action === 'archive') {
+          archiveTargetId = actionElement.dataset.id;
+          archiveTrigger = actionElement;
+          var target = urls.filter(function (url) { return url.id === archiveTargetId; })[0];
+          document.getElementById('archive-desc').textContent = target
+            ? '封存 aka.money/' + target.short_code + ' 後轉址會停止，但資料保留，可立即還原。'
+            : '封存後轉址會停止，但資料保留，可立即還原。';
+          dialog.showModal();
+          document.querySelector('[data-action="archive-confirm"]').focus();
+        } else if (action === 'archive-confirm') {
+          var archiving = urls.filter(function (url) { return url.id === archiveTargetId; })[0];
+          if (archiving) {
+            archiving.is_active = false;
+            lastArchivedId = archiving.id;
+          }
+          dialog.close();
+          undoToast.hidden = false;
+          renderDashboard();
+          renderPanels();
+        } else if (action === 'archive-undo') {
+          var restoreId = actionElement.dataset.id || lastArchivedId;
+          var restoring = urls.filter(function (url) { return url.id === restoreId; })[0];
+          if (restoring) restoring.is_active = true;
+          if (!actionElement.dataset.id) actionElement.hidden = true;
+          else undoToast.hidden = true;
+          renderDashboard();
+          renderPanels();
+        }
+      });
+
+      document.addEventListener('keydown', function (event) {
+        if (state.view !== 'create') return;
+        if (event.key === 'Escape') {
+          applyView(hostView);
+          return;
+        }
+        if (event.key !== 'Tab') return;
+        /* Tab 循環鎖在 drawer 內（inert 已擋住背景，此處再保險一層）。 */
+        var focusables = drawerFocusables();
+        if (focusables.length === 0) return;
+        var first = focusables[0];
+        var last = focusables[focusables.length - 1];
+        var active = document.activeElement;
+        if (!drawer.contains(active)) {
+          event.preventDefault();
+          (event.shiftKey ? last : first).focus();
+          return;
+        }
+        if (event.shiftKey && active === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && active === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      });
+
+      scrim.addEventListener('click', function () { applyView(hostView); });
+
+      searchInput.addEventListener('input', function (event) {
+        query = event.target.value;
+        pageIndex = 0;
+        renderDashboard();
+      });
+
+      document.getElementById('list-filter').addEventListener('change', function (event) {
+        listFilter = event.target.value;
+        pageIndex = 0;
+        renderDashboard();
+      });
+
+      dialog.addEventListener('close', function () {
+        if (archiveTrigger && archiveTrigger.isConnected) archiveTrigger.focus();
+      });
+
+      document.getElementById('login-submit').addEventListener('click', function () {
+        applyView('dashboard');
+      });
+
+      createForm.addEventListener('submit', function (event) {
+        event.preventDefault();
+        var form = event.currentTarget;
+        if (!form.checkValidity()) {
+          createFeedback.innerHTML =
+            '<div class="state" data-state="error" role="alert"><strong>請先修正表單內容</strong>' +
+            '<span>原始網址需為合法網址，短代碼需為 3–20 字的英數、- 或 _。</span></div>';
+          form.reportValidity();
+          return;
+        }
+        var data = new FormData(form);
+        var shortCode = String(data.get('short_code'));
+        var now = Date.now();
+        latestCreatedId = 'created-' + now;
+        urls.unshift({
+          id: latestCreatedId,
+          short_code: shortCode,
+          original_url: String(data.get('original_url')),
+          short_url: 'https://aka.money/' + shortCode,
+          title: String(data.get('title') || '') || undefined,
+          description: String(data.get('description') || ''),
+          image_url: String(data.get('image_url') || ''),
+          created_at: now,
+          updated_at: now,
+          expires_at: data.get('expires_at') ? new Date(String(data.get('expires_at'))).getTime() : undefined,
+          is_active: true,
+          click_count: 0
+        });
+        query = '';
+        searchInput.value = '';
+        listFilter = 'all';
+        document.getElementById('list-filter').value = 'all';
+        pageIndex = 0;
+        submitButton.disabled = true;
+        submitButton.textContent = '建立中…';
+        createFeedback.innerHTML =
+          '<div class="state" data-state="loading" role="status" aria-live="polite"><strong>建立中…</strong>' +
+          '<div class="skeleton" style="width:100%"><i></i><i style="width:60%"></i></div></div>';
+        renderDashboard();
+        renderPanels();
+        window.setTimeout(function () {
+          submitButton.disabled = false;
+          submitButton.textContent = '建立短網址';
+          createFeedback.innerHTML =
+            '<div class="state" data-state="success" role="status"><strong>短網址建立成功</strong>' +
+            '<span class="mono">https://aka.money/' + escapeHtml(shortCode) + '</span>' +
+            '<span>已固定在監控牆最上方，可直接複製分享。</span></div>';
+          form.reset();
+        }, 240);
+      });
+
+      window.addEventListener('message', function (event) {
+        var data = event.data;
+        if (!data || typeof data !== 'object') return;
+        if (data.source !== 'akamoney-compare') return;
+        if (data.type === 'SET_VIEW' && VIEWS.indexOf(data.value) !== -1) applyView(data.value);
+        else if (data.type === 'SET_THEME' && THEMES.indexOf(data.value) !== -1) applyTheme(data.value);
+        else if (data.type === 'SET_DATASET' && DATASETS.indexOf(data.value) !== -1) applyDataset(data.value);
+      });
+
+      applyDataset('default', false);
+      applyTheme('light', false);
+      applyView('dashboard', false);
+      emit('READY');
+    })();
+  </script>
+
+</body>
+</html>

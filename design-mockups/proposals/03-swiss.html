@@ -1,0 +1,2653 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AKA.MONEY — 瑞士國際主義網格控制台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" />
+<script src="../shared/scenarios.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js" onerror="window.AKA_CHART_FAILED = true;"></script>
+<style>
+/* ============================================================
+   瑞士國際主義排版 — 嚴格模組網格 / 無襯線 / 黑白紅
+   ============================================================ */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body { margin: 0; padding: 0; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body[data-proposal-id] {
+  --font-sans: "Inter", "Noto Sans TC", system-ui, "Microsoft JhengHei", "PingFang TC", sans-serif;
+  --font-mono: "JetBrains Mono", "Noto Sans TC", ui-monospace, "Microsoft JhengHei", monospace;
+
+  --u: 8px;
+  --pad-x: 32px;
+  --rule-w: 1px;
+  --rule-heavy: 3px;
+
+  --fs-micro: 11px;
+  --fs-small: 12px;
+  --fs-base: 14px;
+  --fs-lead: 18px;
+  --fs-num: 28px;
+  --fs-display: 56px;
+
+  font-family: var(--font-sans);
+  font-size: var(--fs-base);
+  line-height: 1.45;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-wrap: break-word;
+}
+
+/* --- 淺色布景：純白紙面、黑色細線、單一紅 ------------------- */
+body[data-theme="light"] {
+  --bg: #ffffff;
+  --surface: #f2f2f0;
+  --surface-alt: #e6e6e3;
+  --text: #0a0a0a;
+  --text-2: #5c5c5c;
+  --text-3: #8a8a86;
+  --rule: #0a0a0a;
+  --rule-soft: #c9c9c4;
+  --rule-hair: #dedeD9;
+  --accent: #e2231a;
+  --accent-ink: #ffffff;
+  --accent-wash: #fdeceb;
+  --success: #0b7a3b;
+  --warning: #a85800;
+  --danger: #c8102e;
+  --block-ink: #ffffff;
+  --block-bg: #0a0a0a;
+  --focus: #e2231a;
+}
+
+/* --- 深色布景：獨立調校（非反相）：黑場、柔白字、提亮紅 ----- */
+body[data-theme="dark"] {
+  --bg: #000000;
+  --surface: #0f0f0f;
+  --surface-alt: #1b1b1b;
+  --text: #f2f0ed;
+  --text-2: #9d9d99;
+  --text-3: #6f6f6b;
+  --rule: #f2f0ed;
+  --rule-soft: #3a3a38;
+  --rule-hair: #262625;
+  --accent: #ff3b2f;
+  --accent-ink: #14100f;
+  --accent-wash: #24100e;
+  --success: #3ddc84;
+  --warning: #f0a53d;
+  --danger: #ff6b5e;
+  --block-ink: #000000;
+  --block-bg: #f2f0ed;
+  --focus: #ff3b2f;
+}
+
+/* 深色下，實心黑塊改為線框，避免整片死黑；此為獨立調校非反相 */
+body[data-theme="dark"] .kpi--lead { background: transparent; border: var(--rule-heavy) solid var(--accent); color: var(--accent); }
+body[data-theme="dark"] .kpi--lead .kpi__label { color: var(--accent); }
+body[data-theme="dark"] .kpi--lead .kpi__foot { color: var(--text-2); }
+body[data-theme="light"] .kpi--lead { background: var(--accent); color: var(--accent-ink); border: var(--rule-heavy) solid var(--accent); }
+body[data-theme="light"] .kpi--lead .kpi__label,
+body[data-theme="light"] .kpi--lead .kpi__foot { color: var(--accent-ink); }
+
+body[data-theme="dark"] .topbar { border-bottom-color: var(--rule-soft); }
+body[data-theme="dark"] .band--kpi { border-color: var(--rule-soft); }
+body[data-theme="dark"] .cell, body[data-theme="dark"] .rows thead th { border-color: var(--rule-hair); }
+
+a { color: inherit; }
+
+button, input, select, textarea { font: inherit; color: inherit; }
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+.sr {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* ---------- 頂部列 ---------- */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: var(--bg);
+  border-bottom: var(--rule-heavy) solid var(--rule);
+}
+
+.topbar__grid {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr) minmax(0, auto);
+  align-items: stretch;
+  gap: 0;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px var(--pad-x);
+  background: transparent;
+  border: 0;
+  border-right: var(--rule-w) solid var(--rule-soft);
+  cursor: pointer;
+  text-align: left;
+  min-width: 0;
+}
+
+.brand__mark {
+  width: 18px; height: 18px;
+  background: var(--accent);
+  flex: none;
+}
+
+.brand__word {
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.brand__sub {
+  font-size: var(--fs-micro);
+  letter-spacing: 0.14em;
+  color: var(--text-2);
+  border-left: var(--rule-w) solid var(--rule-soft);
+  padding-left: 12px;
+  white-space: nowrap;
+}
+
+.topnav {
+  display: flex;
+  align-items: stretch;
+  overflow-x: auto;
+  scrollbar-width: none;
+  min-width: 0;
+}
+.topnav::-webkit-scrollbar { display: none; }
+
+.navlink {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  border-right: var(--rule-w) solid var(--rule-soft);
+  padding: 0 20px;
+  font-size: var(--fs-small);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--text-2);
+  cursor: pointer;
+  white-space: nowrap;
+  position: relative;
+  transition: color 120ms linear, background-color 120ms linear;
+}
+
+.navlink__idx {
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  color: var(--text-3);
+  margin-right: 8px;
+}
+
+.navlink:hover { color: var(--text); background: var(--surface); }
+
+.navlink[aria-current="page"] { color: var(--text); font-weight: 700; }
+
+.navlink[aria-current="page"]::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: var(--rule-heavy);
+  background: var(--accent);
+}
+
+.topbar__actions {
+  display: flex;
+  align-items: stretch;
+  border-left: var(--rule-w) solid var(--rule-soft);
+}
+
+.btn {
+  appearance: none;
+  border: var(--rule-w) solid var(--rule);
+  background: transparent;
+  color: var(--text);
+  font-size: var(--fs-small);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 9px 16px;
+  cursor: pointer;
+  border-radius: 0;
+  transition: background-color 120ms linear, color 120ms linear, border-color 120ms linear;
+  white-space: nowrap;
+}
+.btn:hover { background: var(--text); color: var(--bg); }
+
+.btn--accent { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn--accent:hover { background: var(--text); border-color: var(--text); color: var(--bg); }
+
+.btn--ghost { border-color: var(--rule-soft); color: var(--text-2); }
+.btn--ghost:hover { background: var(--surface); color: var(--text); border-color: var(--rule); }
+
+.btn--bare {
+  border: 0;
+  padding: 0 18px;
+  height: 100%;
+  border-left: var(--rule-w) solid var(--rule-soft);
+  display: flex; align-items: center; gap: 10px;
+  background: transparent;
+}
+.btn--bare:hover { background: var(--surface); color: var(--text); }
+
+.btn--sm { padding: 5px 10px; font-size: var(--fs-micro); letter-spacing: 0.06em; }
+
+.theme-ind {
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  border: var(--rule-w) solid var(--rule-soft);
+  padding: 2px 6px;
+  letter-spacing: 0.1em;
+}
+
+.topbar__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  border-top: var(--rule-w) solid var(--rule-soft);
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  color: var(--text-2);
+  letter-spacing: 0.06em;
+}
+
+.topbar__meta span {
+  padding: 6px var(--pad-x);
+  border-right: var(--rule-w) solid var(--rule-soft);
+  white-space: nowrap;
+}
+
+.topbar__meta span b { color: var(--text); font-weight: 600; }
+
+/* ---------- 畫面容器 ---------- */
+.view { display: block; }
+.view[hidden] { display: none !important; }
+
+.shell { padding-bottom: 96px; }
+
+.view-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, auto);
+  gap: 24px;
+  align-items: end;
+  padding: 28px var(--pad-x) 20px;
+  border-bottom: var(--rule-heavy) solid var(--rule);
+}
+
+.view-title {
+  margin: 0;
+  font-size: var(--fs-display);
+  line-height: 0.92;
+  letter-spacing: -0.035em;
+  font-weight: 700;
+}
+
+.view-kicker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  letter-spacing: 0.18em;
+  color: var(--text-2);
+  margin-bottom: 12px;
+}
+.view-kicker::before {
+  content: "";
+  width: 28px; height: var(--rule-heavy);
+  background: var(--accent);
+}
+
+.view-lede {
+  max-width: 46ch;
+  font-size: var(--fs-small);
+  color: var(--text-2);
+  margin: 0;
+}
+
+/* ---------- KPI 模組帶 ---------- */
+.band--kpi {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  border-bottom: var(--rule-w) solid var(--rule);
+}
+
+.kpi {
+  grid-column: span 3;
+  padding: 18px var(--pad-x) 20px;
+  border-right: var(--rule-w) solid var(--rule-soft);
+  min-width: 0;
+}
+.kpi:last-child { border-right: 0; }
+
+.kpi--lead { padding: 18px var(--pad-x) 20px; }
+
+.kpi__label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  letter-spacing: 0.16em;
+  color: var(--text-2);
+  margin: 0 0 10px;
+}
+
+.kpi__value {
+  font-family: var(--font-mono);
+  font-size: var(--fs-num);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  display: block;
+  font-variant-numeric: tabular-nums;
+}
+
+.kpi__foot {
+  margin: 10px 0 0;
+  font-size: var(--fs-micro);
+  color: var(--text-2);
+  letter-spacing: 0.02em;
+}
+
+.kpi--chart { grid-column: span 3; padding-bottom: 12px; }
+
+.delta { font-family: var(--font-mono); font-weight: 700; }
+.delta--up { color: var(--success); }
+.delta--down { color: var(--danger); }
+.delta--flat { color: var(--text-2); }
+
+/* ---------- 工具列 ---------- */
+.toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, auto) minmax(0, auto);
+  gap: 0;
+  border-bottom: var(--rule-w) solid var(--rule);
+  align-items: stretch;
+}
+
+.toolbar__cell {
+  padding: 10px var(--pad-x);
+  border-right: var(--rule-w) solid var(--rule-soft);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.toolbar__cell:last-child { border-right: 0; }
+
+.field-label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  letter-spacing: 0.14em;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.input {
+  appearance: none;
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  border-bottom: var(--rule-w) solid var(--rule-soft);
+  background: transparent;
+  padding: 6px 2px;
+  font-size: var(--fs-base);
+  border-radius: 0;
+  transition: border-color 120ms linear;
+}
+.input:focus { outline: none; border-bottom-color: var(--accent); border-bottom-width: 2px; padding-bottom: 5px; }
+.input::placeholder { color: var(--text-3); }
+
+select.input { padding-right: 18px; cursor: pointer; }
+
+textarea.input--area {
+  resize: vertical;
+  min-height: 44px;
+  line-height: 1.45;
+}
+
+.sortbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: var(--rule-w) solid var(--rule);
+  background: transparent;
+  padding: 6px 12px;
+  font-size: var(--fs-small);
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.sortbtn:hover { background: var(--text); color: var(--bg); }
+.sortbtn__arrow { font-family: var(--font-mono); transition: transform 160ms ease; }
+.sortbtn[data-dir="asc"] .sortbtn__arrow { transform: rotate(180deg); }
+
+.count-readout {
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+  color: var(--text-2);
+  white-space: nowrap;
+}
+.count-readout b { color: var(--text); font-weight: 700; }
+
+/* ---------- 行內快速建立 ---------- */
+.quickcreate {
+  border-bottom: var(--rule-heavy) solid var(--accent);
+  background: var(--surface);
+  animation: qc-in 220ms cubic-bezier(0.2, 0, 0, 1);
+  overflow: hidden;
+}
+
+@keyframes qc-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.quickcreate__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 12px;
+  padding: 14px var(--pad-x);
+  border-bottom: var(--rule-w) solid var(--rule-soft);
+}
+
+.quickcreate__title {
+  margin: 0;
+  font-size: var(--fs-lead);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.quickcreate__hint {
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  color: var(--text-2);
+  letter-spacing: 0.08em;
+}
+
+.qc-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+}
+
+.qc-field {
+  grid-column: span 3;
+  padding: 12px var(--pad-x);
+  border-right: var(--rule-w) solid var(--rule-soft);
+  border-bottom: var(--rule-w) solid var(--rule-soft);
+  min-width: 0;
+}
+.qc-field--wide { grid-column: span 6; }
+.qc-field label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  letter-spacing: 0.14em;
+  color: var(--text-2);
+  margin-bottom: 6px;
+}
+.qc-field label .req { color: var(--accent); }
+.qc-note { font-size: var(--fs-micro); color: var(--text-3); margin: 6px 0 0; }
+
+.qc-actions {
+  grid-column: span 12;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  padding: 14px var(--pad-x);
+}
+
+.qc-error {
+  font-size: var(--fs-small);
+  color: var(--danger);
+  font-weight: 600;
+  margin: 0;
+}
+
+.qc-preview {
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+  color: var(--text-2);
+  margin-left: auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.qc-preview b { color: var(--accent); }
+
+/* ---------- 緊湊列表 ---------- */
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border-bottom: var(--rule-w) solid var(--rule);
+}
+
+.rows {
+  width: 100%;
+  min-width: 880px;
+  border-collapse: collapse;
+  font-size: var(--fs-small);
+}
+
+.rows thead th {
+  position: sticky;
+  top: 0;
+  background: var(--bg);
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  color: var(--text-2);
+  padding: 8px var(--pad-x) 8px 0;
+  border-bottom: var(--rule-w) solid var(--rule);
+  white-space: nowrap;
+}
+.rows thead th:first-child { padding-left: var(--pad-x); }
+
+.th-sort {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.th-sort:hover { color: var(--accent); }
+
+.rows tbody tr {
+  border-bottom: var(--rule-w) solid var(--rule-hair);
+  animation: row-in 200ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+.rows tbody tr:hover { background: var(--surface); }
+
+@keyframes row-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
+.cell {
+  padding: 7px var(--pad-x) 7px 0;
+  vertical-align: middle;
+  border: 0;
+}
+.cell:first-child { padding-left: var(--pad-x); }
+
+.row-code {
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.cell-title {
+  display: block;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cell-title--muted { color: var(--text-3); font-style: italic; }
+
+.cell-url {
+  display: block;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+}
+
+.cell-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.cell-date {
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.bar-mini {
+  display: block;
+  height: 3px;
+  background: var(--accent);
+  margin-top: 4px;
+  min-width: 1px;
+}
+
+.badge {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  letter-spacing: 0.08em;
+  padding: 2px 6px;
+  border: var(--rule-w) solid currentColor;
+  white-space: nowrap;
+}
+.badge--active { color: var(--success); }
+.badge--archived { color: var(--text-2); }
+.badge--expired { color: var(--warning); }
+.badge--new { color: var(--accent); }
+
+.cell-actions { white-space: nowrap; text-align: right; }
+
+.rowbtn {
+  appearance: none;
+  border: var(--rule-w) solid var(--rule-soft);
+  background: transparent;
+  padding: 3px 8px;
+  margin-left: 6px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: background-color 140ms linear, color 140ms linear, border-color 140ms linear;
+}
+.rowbtn:hover { border-color: var(--rule); background: var(--text); color: var(--bg); }
+
+.rowbtn[data-copy-state="copied"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+/* ---------- 分頁 ---------- */
+.pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 12px var(--pad-x);
+  border-bottom: var(--rule-w) solid var(--rule);
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+  color: var(--text-2);
+}
+.pager b { color: var(--text); }
+
+/* ---------- 狀態區 ---------- */
+.state {
+  padding: 48px var(--pad-x) 56px;
+  border-bottom: var(--rule-w) solid var(--rule);
+  display: grid;
+  grid-template-columns: minmax(0, 60px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+.state[hidden] { display: none !important; }
+
+.state__mark {
+  width: 48px; height: 48px;
+  border: var(--rule-heavy) solid var(--accent);
+}
+.state--error .state__mark { background: var(--accent); }
+.state--empty .state__mark { border-style: dashed; }
+
+.state__title {
+  margin: 0 0 8px;
+  font-size: 26px;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+}
+.state__body { margin: 0 0 16px; color: var(--text-2); max-width: 52ch; font-size: var(--fs-small); }
+.state__actions { display: flex; flex-wrap: wrap; gap: 10px; }
+
+.skeleton-list { display: grid; gap: 8px; max-width: 720px; }
+.skeleton {
+  height: 14px;
+  background: var(--surface-alt);
+  animation: sk 900ms linear infinite alternate;
+}
+@keyframes sk { from { opacity: 0.45; } to { opacity: 1; } }
+
+/* ---------- 分析／統計版面 ---------- */
+.grid12 {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  border-bottom: var(--rule-w) solid var(--rule);
+}
+
+.module {
+  grid-column: span 6;
+  padding: 18px var(--pad-x) 22px;
+  border-right: var(--rule-w) solid var(--rule-soft);
+  border-bottom: var(--rule-w) solid var(--rule-soft);
+  min-width: 0;
+}
+.module--full { grid-column: span 12; border-right: 0; }
+.module--wide { grid-column: span 8; }
+.module--narrow { grid-column: span 4; border-right: 0; }
+.module--third { grid-column: span 4; }
+.module:last-child { border-right: 0; }
+
+.module__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: var(--rule-w) solid var(--rule);
+  padding-bottom: 6px;
+  margin-bottom: 14px;
+}
+
+.module__title {
+  margin: 0;
+  font-size: var(--fs-small);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.module__meta {
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  color: var(--text-2);
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+/* 圖表容器 */
+[data-chart] {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  height: 210px;
+}
+[data-chart].chart--tall { height: 280px; }
+[data-chart].chart--mini { height: 64px; }
+
+[data-chart] canvas { display: block; width: 100% !important; height: 100% !important; }
+
+[data-chart] > svg { display: block; width: 100%; height: 100%; }
+
+.chart-zero {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 6px;
+  border: var(--rule-w) dashed var(--rule-soft);
+  padding: 12px 16px;
+}
+.chart-zero__mark {
+  font-family: var(--font-mono);
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1;
+}
+.chart-zero__text { font-size: var(--fs-micro); color: var(--text-2); margin: 0; letter-spacing: 0.04em; }
+
+.compare-table { width: 100%; border-collapse: collapse; font-size: var(--fs-small); }
+.compare-table th, .compare-table td {
+  text-align: left;
+  padding: 7px 8px 7px 0;
+  border-bottom: var(--rule-w) solid var(--rule-hair);
+}
+.compare-table thead th {
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  letter-spacing: 0.12em;
+  color: var(--text-2);
+  font-weight: 500;
+  border-bottom: var(--rule-w) solid var(--rule);
+}
+.compare-table td.num, .compare-table th.num {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.toplist { list-style: none; margin: 0; padding: 0; }
+.toplist li {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: baseline;
+  padding: 8px 0;
+  border-bottom: var(--rule-w) solid var(--rule-hair);
+}
+.toplist__rank { font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--accent); font-weight: 700; }
+.toplist__code { font-family: var(--font-mono); font-size: var(--fs-small); }
+.toplist__title { display: block; font-size: var(--fs-micro); color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.toplist__num { font-family: var(--font-mono); font-weight: 700; font-variant-numeric: tabular-nums; }
+.toplist__bar { grid-column: 2 / -1; height: 3px; background: var(--accent); }
+
+.notes { list-style: none; margin: 0; padding: 0; font-size: var(--fs-small); color: var(--text-2); }
+.notes li { padding: 6px 0 6px 18px; position: relative; border-bottom: var(--rule-w) solid var(--rule-hair); }
+.notes li::before { content: ""; position: absolute; left: 0; top: 13px; width: 8px; height: var(--rule-heavy); background: var(--accent); }
+
+.callout {
+  border-left: var(--rule-heavy) solid var(--accent);
+  padding: 10px 0 10px 14px;
+  font-size: var(--fs-small);
+}
+.callout b { font-family: var(--font-mono); }
+
+/* ---------- 登入 ---------- */
+.login-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  min-height: calc(100vh - 120px);
+}
+.login-poster {
+  grid-column: span 7;
+  border-right: var(--rule-w) solid var(--rule);
+  padding: 56px var(--pad-x);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 40px;
+  min-width: 0;
+}
+.login-type {
+  margin: 0;
+  font-size: clamp(48px, 9vw, 128px);
+  line-height: 0.86;
+  letter-spacing: -0.05em;
+  font-weight: 700;
+}
+.login-type em { font-style: normal; color: var(--accent); }
+.login-rule { height: var(--rule-heavy); background: var(--accent); width: 60%; }
+.login-meta { font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--text-2); letter-spacing: 0.14em; }
+.login-panel {
+  grid-column: span 5;
+  padding: 56px var(--pad-x);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 18px;
+  min-width: 0;
+}
+.login-panel h2 { margin: 0; font-size: var(--fs-lead); letter-spacing: -0.01em; }
+.login-panel p { margin: 0; color: var(--text-2); font-size: var(--fs-small); }
+.btn--block { display: block; width: 100%; text-align: center; padding: 14px 16px; font-size: var(--fs-base); }
+.login-dev {
+  border: var(--rule-w) dashed var(--rule-soft);
+  padding: 12px 14px;
+  font-size: var(--fs-micro);
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  line-height: 1.6;
+}
+
+/* ---------- 404 ---------- */
+.nf {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  min-height: calc(100vh - 120px);
+}
+.nf__code {
+  grid-column: span 6;
+  border-right: var(--rule-w) solid var(--rule);
+  padding: 48px var(--pad-x);
+  display: flex; align-items: center;
+  min-width: 0;
+}
+.nf__num {
+  font-family: var(--font-mono);
+  font-size: clamp(72px, 16vw, 190px);
+  font-weight: 700;
+  letter-spacing: -0.06em;
+  line-height: 0.8;
+  color: var(--accent);
+}
+.nf__body { grid-column: span 6; padding: 48px var(--pad-x); display: flex; flex-direction: column; justify-content: center; gap: 16px; min-width: 0; }
+.nf__body h2 { margin: 0; font-size: 32px; letter-spacing: -0.03em; }
+.nf__body p { margin: 0; color: var(--text-2); font-size: var(--fs-small); max-width: 44ch; }
+.nf__path {
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+  border: var(--rule-w) solid var(--rule-soft);
+  padding: 8px 10px;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- 對話層 ---------- */
+.scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 10, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 80;
+}
+body[data-theme="dark"] .scrim { background: rgba(0, 0, 0, 0.78); }
+.scrim[hidden] { display: none !important; }
+
+.dialog {
+  width: min(520px, 100%);
+  background: var(--bg);
+  border: var(--rule-heavy) solid var(--rule);
+  animation: dlg-in 180ms cubic-bezier(0.2, 0, 0, 1);
+}
+@keyframes dlg-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+.dialog__head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  padding: 14px 20px;
+  border-bottom: var(--rule-w) solid var(--rule);
+}
+.dialog__title { margin: 0; font-size: var(--fs-lead); font-weight: 700; letter-spacing: -0.01em; }
+.dialog__idx { font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--accent); letter-spacing: 0.14em; }
+.dialog__body { padding: 18px 20px; font-size: var(--fs-small); color: var(--text-2); }
+.dialog__target {
+  font-family: var(--font-mono);
+  color: var(--text);
+  display: block;
+  margin-top: 10px;
+  border-left: var(--rule-heavy) solid var(--accent);
+  padding-left: 10px;
+  overflow-wrap: anywhere;
+}
+.dialog__foot { display: flex; gap: 10px; justify-content: flex-end; padding: 14px 20px; border-top: var(--rule-w) solid var(--rule-soft); }
+
+/* ---------- Toast ---------- */
+.toasts {
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  max-width: min(460px, 100%);
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--block-bg);
+  color: var(--block-ink);
+  border-top: var(--rule-heavy) solid var(--accent);
+  padding: 12px 16px;
+  font-size: var(--fs-small);
+  animation: toast-in 200ms cubic-bezier(0.2, 0, 0, 1);
+}
+@keyframes toast-in { from { transform: translateX(-16px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+.toast__text { min-width: 0; overflow-wrap: anywhere; }
+.toast__text b { font-family: var(--font-mono); }
+.toast__btn {
+  appearance: none;
+  margin-left: auto;
+  border: var(--rule-w) solid currentColor;
+  background: transparent;
+  color: inherit;
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  letter-spacing: 0.1em;
+  padding: 4px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.toast__btn:hover { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+
+/* ---------- 頁尾 ---------- */
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  padding: 16px var(--pad-x);
+  border-top: var(--rule-heavy) solid var(--rule);
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  color: var(--text-2);
+  letter-spacing: 0.08em;
+}
+.footer__spacer { flex: 1 1 auto; }
+
+/* ---------- 響應式：模組網格塌陷 + 橫向捲動表格 ---------- */
+@media (max-width: 1320px) {
+  .brand__sub { display: none; }
+}
+
+@media (max-width: 1120px) {
+  body[data-proposal-id] { --pad-x: 24px; --fs-display: 44px; }
+  .kpi { grid-column: span 6; border-bottom: var(--rule-w) solid var(--rule-soft); }
+  .module { grid-column: span 12; border-right: 0; }
+  .module--wide, .module--narrow, .module--third { grid-column: span 12; border-right: 0; }
+  .login-poster, .login-panel, .nf__code, .nf__body { grid-column: span 12; border-right: 0; }
+  .login-poster, .nf__code { border-bottom: var(--rule-w) solid var(--rule); }
+  .topbar__grid { grid-template-columns: minmax(0, 1fr) minmax(0, auto); }
+  .brand { grid-column: 1; grid-row: 1; }
+  .topbar__actions { grid-column: 2; grid-row: 1; }
+  .topnav { grid-column: 1 / -1; grid-row: 2; border-top: var(--rule-w) solid var(--rule-soft); }
+}
+
+@media (max-width: 720px) {
+  body[data-proposal-id] { --pad-x: 16px; --fs-display: 34px; --fs-num: 24px; }
+  .view-head { grid-template-columns: minmax(0, 1fr); gap: 12px; padding-top: 20px; }
+  .kpi { grid-column: span 6; padding: 14px var(--pad-x); }
+  .kpi--chart { grid-column: span 12; }
+  .toolbar { grid-template-columns: minmax(0, 1fr); }
+  .toolbar__cell { border-right: 0; border-bottom: var(--rule-w) solid var(--rule-soft); }
+  .qc-field, .qc-field--wide { grid-column: span 12; }
+  .brand__sub { display: none; }
+  .topbar__actions .btn--bare { padding: 0 12px; }
+  .state { grid-template-columns: minmax(0, 1fr); padding: 32px var(--pad-x) 40px; }
+  .login-grid, .nf { min-height: 0; }
+  .login-poster { padding: 32px var(--pad-x); }
+  .toasts { max-width: 100%; right: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+</style>
+</head>
+<body data-proposal-id="03-swiss" data-theme="light" data-active-view="dashboard" data-dataset="default">
+<a class="sr" href="#main">跳至主要內容</a>
+
+<header class="topbar">
+  <div class="topbar__grid">
+    <button class="brand" type="button" data-action="view-switch" data-view-target="dashboard" aria-label="AKA.MONEY 回到控制台">
+      <span class="brand__mark" aria-hidden="true"></span>
+      <span class="brand__word">AKA.MONEY</span>
+      <span class="brand__sub">短網址控制台</span>
+    </button>
+
+    <nav class="topnav" aria-label="主要導覽">
+      <button class="navlink" type="button" data-action="view-switch" data-view-target="dashboard" aria-current="page"><span class="navlink__idx">01</span>控制台</button>
+      <button class="navlink" type="button" data-action="view-switch" data-view-target="analytics"><span class="navlink__idx">02</span>分析</button>
+      <button class="navlink" type="button" data-action="view-switch" data-view-target="stats"><span class="navlink__idx">03</span>統計</button>
+      <button class="navlink" type="button" data-action="view-switch" data-view-target="create"><span class="navlink__idx">04</span>建立</button>
+      <button class="navlink" type="button" data-action="view-switch" data-view-target="login"><span class="navlink__idx">05</span>登入</button>
+      <button class="navlink" type="button" data-action="view-switch" data-view-target="notfound"><span class="navlink__idx">06</span>404</button>
+    </nav>
+
+    <div class="topbar__actions">
+      <button class="btn btn--bare" type="button" data-action="theme-toggle" aria-pressed="false" aria-label="切換淺色或深色布景">
+        <span class="theme-ind mono" data-theme-label>LIGHT</span>
+        <span>布景</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="topbar__meta">
+    <span>資料集 <b data-meta-dataset>預設</b></span>
+    <span>短網址 <b data-meta-count>0</b></span>
+    <span>總點擊 <b data-meta-clicks>0</b></span>
+    <span>網格 12 欄 · 基線 8PX</span>
+  </div>
+</header>
+
+<main id="main" class="shell">
+
+  <!-- ============ 01 控制台 ============ -->
+  <section class="view" data-view="dashboard" aria-labelledby="dash-title">
+    <div class="view-head">
+      <div>
+        <p class="view-kicker">01 — 控制台總覽</p>
+        <h1 class="view-title" id="dash-title">短網址<br />營運總覽</h1>
+      </div>
+      <p class="view-lede">以嚴格的十二欄模組網格排列每一項指標。所有數字均來自共用情境資料，切換資料集即可檢視空白、錯誤與大量資料等邊界狀態。</p>
+    </div>
+
+    <div class="band--kpi">
+      <div class="kpi kpi--lead">
+        <p class="kpi__label">總點擊</p>
+        <span class="kpi__value" data-kpi="clicks">0</span>
+        <p class="kpi__foot" data-kpi-foot="clicks">近三十日累計</p>
+      </div>
+      <div class="kpi">
+        <p class="kpi__label">短網址總數</p>
+        <span class="kpi__value" data-kpi="links">0</span>
+        <p class="kpi__foot" data-kpi-foot="links">作用中 / 全部</p>
+      </div>
+      <div class="kpi">
+        <p class="kpi__label">平均每連結</p>
+        <span class="kpi__value" data-kpi="avg">0</span>
+        <p class="kpi__foot" data-kpi-foot="avg">帳戶基準線</p>
+      </div>
+      <div class="kpi kpi--chart">
+        <p class="kpi__label">近三十日走勢</p>
+        <div data-chart="dashboard-sparkline" data-chart-state="empty" class="chart--mini" role="img" aria-label="近三十日點擊走勢縮圖">
+          <div class="chart-zero"><p class="chart-zero__text">尚無走勢資料</p></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <div class="toolbar__cell">
+        <label class="field-label" for="dash-search">搜尋</label>
+        <input class="input" id="dash-search" type="search" data-action="search" placeholder="短代碼、標題或目標網址" autocomplete="off" />
+      </div>
+      <div class="toolbar__cell">
+        <label class="field-label" for="dash-filter">狀態</label>
+        <select class="input" id="dash-filter" data-filter="status">
+          <option value="all">全部</option>
+          <option value="active" selected>作用中</option>
+          <option value="archived">已封存</option>
+          <option value="expired">已過期</option>
+        </select>
+      </div>
+      <div class="toolbar__cell">
+        <button class="sortbtn" type="button" data-action="sort-clicks" data-dir="desc" aria-label="依點擊數排序">
+          <span>點擊排序</span><span class="sortbtn__arrow" aria-hidden="true">▼</span>
+        </button>
+      </div>
+      <div class="toolbar__cell">
+        <span class="count-readout">顯示 <b data-readout="shown">0</b> / <b data-readout="total">0</b></span>
+        <button class="btn btn--accent btn--sm" type="button" data-action="view-switch" data-view-target="create">＋ 快速建立</button>
+      </div>
+    </div>
+
+    <!-- ============ 04 建立（行內巢狀於控制台） ============ -->
+    <section class="view quickcreate" data-view="create" aria-labelledby="qc-title" hidden>
+      <div class="quickcreate__head">
+        <h2 class="quickcreate__title" id="qc-title">行內快速建立</h2>
+        <span class="quickcreate__hint">ESC 關閉 · ENTER 送出</span>
+      </div>
+      <form class="qc-grid" data-form="create" novalidate>
+        <div class="qc-field qc-field--wide">
+          <label for="create-url">原始網址 <span class="req" aria-hidden="true">*</span></label>
+          <input class="input" id="create-url" name="url" type="url" placeholder="https://example.com/very/long/path" required autocomplete="off" />
+          <p class="qc-note">必填，須為完整的 http(s) 網址。</p>
+        </div>
+        <div class="qc-field">
+          <label for="create-code">短代碼 <span class="req" aria-hidden="true">*</span></label>
+          <input class="input" id="create-code" name="shortCode" type="text" placeholder="quarterly-report" autocomplete="off" required pattern="[A-Za-z0-9_-]{3,20}" />
+          <p class="qc-note">必填，3–20 字元，英數、底線或連字號。</p>
+        </div>
+        <div class="qc-field">
+          <label for="create-title">標題</label>
+          <input class="input" id="create-title" name="title" type="text" placeholder="供內部辨識" autocomplete="off" />
+          <p class="qc-note">選填，僅供列表顯示。</p>
+        </div>
+        <div class="qc-field qc-field--wide">
+          <label for="create-desc">描述</label>
+          <textarea class="input input--area" id="create-desc" name="description" rows="2" placeholder="這條短網址的用途說明" autocomplete="off"></textarea>
+          <p class="qc-note">選填，作為內部備註使用。</p>
+        </div>
+        <div class="qc-field">
+          <label for="create-image">預覽圖</label>
+          <input class="input" id="create-image" name="imageUrl" type="url" placeholder="https://example.com/og.png" autocomplete="off" />
+          <p class="qc-note">選填，填入預覽圖網址。</p>
+        </div>
+        <div class="qc-field">
+          <label for="create-expire">到期時間</label>
+          <input class="input" id="create-expire" name="expiresAt" type="datetime-local" autocomplete="off" />
+          <p class="qc-note">選填，留空＝永不過期。</p>
+        </div>
+        <div class="qc-actions">
+          <button class="btn btn--accent" type="submit" data-action="create-submit">建立短網址</button>
+          <button class="btn btn--ghost" type="button" data-action="view-switch" data-view-target="dashboard">取消</button>
+          <p class="qc-error" data-create-error hidden></p>
+          <p class="qc-preview">預覽 <b data-create-preview>aka.money/────</b></p>
+        </div>
+      </form>
+    </section>
+
+    <div class="state" data-state="loading" hidden>
+      <div class="state__mark" aria-hidden="true"></div>
+      <div>
+        <h2 class="state__title">載入中</h2>
+        <p class="state__body">正在讀取情境資料集，請稍候。</p>
+        <div class="skeleton-list" aria-hidden="true">
+          <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="state state--empty" data-state="empty" hidden>
+      <div class="state__mark" aria-hidden="true"></div>
+      <div>
+        <h2 class="state__title">尚未建立任何短網址</h2>
+        <p class="state__body">此帳戶目前沒有任何短網址。建立第一筆之後，點擊趨勢、國家與裝置分佈都會即時出現在這個網格上。</p>
+        <div class="state__actions">
+          <button class="btn btn--accent" type="button" data-action="view-switch" data-view-target="create">建立第一筆短網址</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="state" data-state="no-results" hidden>
+      <div class="state__mark" aria-hidden="true"></div>
+      <div>
+        <h2 class="state__title">沒有符合的結果</h2>
+        <p class="state__body">找不到符合關鍵字 <b data-noresult-query class="mono"></b> 的短網址。請調整關鍵字或改變狀態篩選。</p>
+        <div class="state__actions">
+          <button class="btn" type="button" data-clear-search>清除搜尋條件</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="state state--error" data-state="error" hidden>
+      <div class="state__mark" aria-hidden="true"></div>
+      <div>
+        <h2 class="state__title">資料載入失敗</h2>
+        <p class="state__body" data-error-text>發生未知錯誤。</p>
+        <div class="state__actions">
+          <button class="btn btn--accent" type="button" data-retry>重新載入</button>
+          <button class="btn btn--ghost" type="button" data-action="view-switch" data-view-target="stats">改看統計摘要</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-wrap" data-table-wrap>
+      <table class="rows">
+        <caption class="sr">短網址清單，包含短代碼、標題、目標網址、點擊數、狀態與操作。</caption>
+        <thead>
+          <tr>
+            <th scope="col">短代碼</th>
+            <th scope="col">標題</th>
+            <th scope="col">目標網址</th>
+            <th scope="col" style="text-align:right">
+              <button class="th-sort" type="button" data-action="sort-clicks" aria-label="依點擊數排序">點擊<span class="sortbtn__arrow" aria-hidden="true">▼</span></button>
+            </th>
+            <th scope="col">建立日期</th>
+            <th scope="col">狀態</th>
+            <th scope="col" style="text-align:right">操作</th>
+          </tr>
+        </thead>
+        <tbody data-rows>
+          <tr data-link-row data-url-id="mock-url-001">
+            <td class="cell"><span class="row-code">aka.money/spring24</span></td>
+            <td class="cell"><span class="cell-title">春季會員招募主頁</span></td>
+            <td class="cell"><span class="cell-url">https://campaign.example.com/zh-tw/landing-001</span></td>
+            <td class="cell cell-num">152<span class="bar-mini" style="width:100%"></span></td>
+            <td class="cell cell-date">2026-08-23</td>
+            <td class="cell"><span class="badge badge--active">作用中</span></td>
+            <td class="cell cell-actions">
+              <button class="rowbtn" type="button" data-action="copy" data-url-id="mock-url-001" data-clip="aka.money/spring24" aria-label="複製 spring24 短網址">複製</button>
+              <button class="rowbtn" type="button" data-action="archive" data-url-id="mock-url-001" aria-label="封存 spring24">封存</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pager" data-pager hidden>
+      <button class="btn btn--ghost btn--sm" type="button" data-page="prev">← 上一頁</button>
+      <button class="btn btn--ghost btn--sm" type="button" data-page="next">下一頁 →</button>
+      <span>第 <b data-page-current>1</b> / <b data-page-total>1</b> 頁</span>
+    </div>
+  </section>
+
+  <!-- ============ 02 分析 ============ -->
+  <section class="view" data-view="analytics" aria-labelledby="ana-title" hidden>
+    <div class="view-head">
+      <div>
+        <p class="view-kicker">02 — 比較分析</p>
+        <h1 class="view-title" id="ana-title">單一連結<br />對照帳戶基準</h1>
+      </div>
+      <p class="view-lede">左欄為所選連結，右欄為帳戶平均；每一項指標同時給出差異值，讓比較成為版面的主結構而非附註。</p>
+    </div>
+
+    <div class="toolbar">
+      <div class="toolbar__cell">
+        <label class="field-label" for="ana-focus">分析對象</label>
+        <select class="input" id="ana-focus" data-analytics-focus></select>
+      </div>
+      <div class="toolbar__cell">
+        <span class="count-readout">期間 <b>近 30 日</b></span>
+      </div>
+      <div class="toolbar__cell">
+        <span class="count-readout">對照 <b>帳戶平均</b></span>
+      </div>
+      <div class="toolbar__cell">
+        <button class="btn btn--ghost btn--sm" type="button" data-action="view-switch" data-view-target="stats">前往整體統計</button>
+      </div>
+    </div>
+
+    <div class="state state--empty" data-analytics-empty hidden>
+      <div class="state__mark" aria-hidden="true"></div>
+      <div>
+        <h2 class="state__title">尚無可分析的連結</h2>
+        <p class="state__body">目前的資料集沒有可供分析的短網址。請切換資料集或先建立一筆短網址。</p>
+      </div>
+    </div>
+
+    <div class="grid12" data-analytics-body>
+      <section class="module module--full">
+        <div class="module__head">
+          <h2 class="module__title">每日點擊趨勢 — 帳戶彙總</h2>
+          <span class="module__meta" data-ana-meta>—</span>
+        </div>
+        <div data-chart="clicks-trend" data-chart-state="empty" class="chart--tall" role="img" aria-label="所選連結與帳戶平均的每日點擊趨勢">
+          <div class="chart-zero"><p class="chart-zero__text">尚無資料</p></div>
+        </div>
+      </section>
+
+      <section class="module module--wide">
+        <div class="module__head">
+          <h2 class="module__title">期間對照表</h2>
+          <span class="module__meta">後 15 日 vs 前 15 日</span>
+        </div>
+        <table class="compare-table">
+          <thead>
+            <tr>
+              <th scope="col">指標</th>
+              <th scope="col" class="num">所選連結</th>
+              <th scope="col" class="num">帳戶平均</th>
+              <th scope="col" class="num">差異</th>
+            </tr>
+          </thead>
+          <tbody data-compare-rows></tbody>
+        </table>
+      </section>
+
+      <section class="module module--narrow">
+        <div class="module__head">
+          <h2 class="module__title">解讀</h2>
+          <span class="module__meta">衍生自共用資料</span>
+        </div>
+        <ul class="notes" data-ana-notes></ul>
+      </section>
+
+      <section class="module module--third">
+        <div class="module__head">
+          <h2 class="module__title">國家分佈</h2>
+          <span class="module__meta">TOP 5</span>
+        </div>
+        <div data-chart="country-distribution" data-chart-state="empty" role="img" aria-label="所選連結的國家分佈">
+          <div class="chart-zero"><p class="chart-zero__text">尚無資料</p></div>
+        </div>
+      </section>
+
+      <section class="module module--third">
+        <div class="module__head">
+          <h2 class="module__title">裝置分佈</h2>
+          <span class="module__meta">比例</span>
+        </div>
+        <div data-chart="device-distribution" data-chart-state="empty" role="img" aria-label="所選連結的裝置分佈">
+          <div class="chart-zero"><p class="chart-zero__text">尚無資料</p></div>
+        </div>
+      </section>
+
+      <section class="module module--third">
+        <div class="module__head">
+          <h2 class="module__title">瀏覽器分佈</h2>
+          <span class="module__meta">比例</span>
+        </div>
+        <div data-chart="browser-distribution" data-chart-state="empty" role="img" aria-label="所選連結的瀏覽器分佈">
+          <div class="chart-zero"><p class="chart-zero__text">尚無資料</p></div>
+        </div>
+      </section>
+    </div>
+  </section>
+
+  <!-- ============ 03 統計 ============ -->
+  <section class="view" data-view="stats" aria-labelledby="stats-title" hidden>
+    <div class="view-head">
+      <div>
+        <p class="view-kicker">03 — 帳戶統計</p>
+        <h1 class="view-title" id="stats-title">整體流量<br />與排行</h1>
+      </div>
+      <p class="view-lede">帳戶層級的彙總數據：每日總點擊、來源國家與裝置佔比，以及貢獻最高的短網址排行。</p>
+    </div>
+
+    <div class="band--kpi">
+      <div class="kpi kpi--lead">
+        <p class="kpi__label">期間總點擊</p>
+        <span class="kpi__value" data-stat="total">0</span>
+        <p class="kpi__foot" data-stat-foot="total">近三十日</p>
+      </div>
+      <div class="kpi">
+        <p class="kpi__label">單日尖峰</p>
+        <span class="kpi__value" data-stat="peak">0</span>
+        <p class="kpi__foot" data-stat-foot="peak">—</p>
+      </div>
+      <div class="kpi">
+        <p class="kpi__label">日均點擊</p>
+        <span class="kpi__value" data-stat="mean">0</span>
+        <p class="kpi__foot" data-stat-foot="mean">算術平均</p>
+      </div>
+      <div class="kpi">
+        <p class="kpi__label">後半期變化</p>
+        <span class="kpi__value" data-stat="delta">0%</span>
+        <p class="kpi__foot" data-stat-foot="delta">後 15 日 vs 前 15 日</p>
+      </div>
+    </div>
+
+    <div class="grid12">
+      <section class="module module--full">
+        <div class="module__head">
+          <h2 class="module__title">每日總點擊</h2>
+          <span class="module__meta">帳戶彙總</span>
+        </div>
+        <div data-chart="stats-trend" data-chart-state="empty" class="chart--tall" role="img" aria-label="帳戶每日總點擊趨勢">
+          <div class="chart-zero"><p class="chart-zero__text">尚無資料</p></div>
+        </div>
+      </section>
+
+      <section class="module">
+        <div class="module__head">
+          <h2 class="module__title">國家佔比</h2>
+          <span class="module__meta">帳戶彙總</span>
+        </div>
+        <div data-chart="stats-country" data-chart-state="empty" role="img" aria-label="帳戶國家佔比">
+          <div class="chart-zero"><p class="chart-zero__text">尚無資料</p></div>
+        </div>
+      </section>
+
+      <section class="module">
+        <div class="module__head">
+          <h2 class="module__title">裝置佔比</h2>
+          <span class="module__meta">帳戶彙總</span>
+        </div>
+        <div data-chart="stats-device" data-chart-state="empty" role="img" aria-label="帳戶裝置佔比">
+          <div class="chart-zero"><p class="chart-zero__text">尚無資料</p></div>
+        </div>
+      </section>
+
+      <section class="module module--full">
+        <div class="module__head">
+          <h2 class="module__title">熱門短網址排行</h2>
+          <span class="module__meta">依期間點擊</span>
+        </div>
+        <ol class="toplist" data-toplist></ol>
+        <p class="callout" data-stats-callout hidden></p>
+      </section>
+    </div>
+  </section>
+
+  <!-- ============ 05 登入 ============ -->
+  <section class="view" data-view="login" aria-labelledby="login-title" hidden>
+    <div class="login-grid">
+      <div class="login-poster">
+        <div>
+          <p class="view-kicker">05 — 身分驗證</p>
+          <h1 class="login-type" id="login-title">AKA<br /><em>MONEY</em><br />控制台</h1>
+        </div>
+        <div class="login-rule" aria-hidden="true"></div>
+        <p class="login-meta">Microsoft Entra ID · 單一登入 · 組織帳戶</p>
+      </div>
+      <div class="login-panel">
+        <h2>使用組織帳戶登入</h2>
+        <p>本控制台僅開放已授權的 Entra ID 帳戶存取。登入後即可管理短網址、檢視分析與匯出統計。</p>
+        <button class="btn btn--accent btn--block" type="button" data-login>以 Microsoft 帳戶登入</button>
+        <button class="btn btn--block" type="button" data-action="view-switch" data-view-target="dashboard">以示範資料瀏覽</button>
+        <div class="login-dev">
+          開發模式 · VITE_SKIP_AUTH=true<br />
+          略過 Entra ID 並改用記憶體假資料。
+        </div>
+        <p role="status" data-login-status hidden></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 06 404 ============ -->
+  <section class="view" data-view="notfound" aria-labelledby="nf-title" hidden>
+    <div class="nf">
+      <div class="nf__code">
+        <span class="nf__num mono">404</span>
+      </div>
+      <div class="nf__body">
+        <p class="view-kicker">06 — 找不到短網址</p>
+        <h1 class="nf__title" id="nf-title" style="margin:0;font-size:32px;letter-spacing:-0.03em;">這個短代碼不存在<br />或已被封存</h1>
+        <p>轉址服務找不到對應的目標網址。短代碼可能輸入錯誤、已過期，或已被擁有者封存。</p>
+        <p class="nf__path mono">GET https://aka.money/<span data-nf-code>unknown-code</span> → 404</p>
+        <div class="state__actions">
+          <button class="btn btn--accent" type="button" data-action="view-switch" data-view-target="dashboard">回到控制台</button>
+          <button class="btn btn--ghost" type="button" data-action="view-switch" data-view-target="create">建立這個短代碼</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <span>AKA.MONEY 短網址控制台</span>
+    <span class="footer__spacer"></span>
+    <span data-footer-dataset>資料集：預設</span>
+    <span data-footer-theme>布景：淺色</span>
+  </footer>
+</main>
+
+<div class="scrim" data-confirm hidden role="presentation">
+  <div class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-desc">
+    <div class="dialog__head">
+      <h2 class="dialog__title" id="confirm-title">確認封存</h2>
+      <span class="dialog__idx mono">ARCHIVE</span>
+    </div>
+    <div class="dialog__body">
+      <p id="confirm-desc" style="margin:0">封存後短網址將停止轉址，統計資料會保留。此動作可在提示訊息中還原。</p>
+      <span class="dialog__target" data-confirm-target></span>
+    </div>
+    <div class="dialog__foot">
+      <button class="btn btn--ghost" type="button" data-confirm-cancel>取消</button>
+      <button class="btn btn--accent" type="button" data-action="archive-confirm">確認封存</button>
+    </div>
+  </div>
+</div>
+
+<div class="toasts" data-toasts aria-live="polite" aria-atomic="false"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  var SCENARIOS = window.AKAMONEY_SCENARIOS;
+  var root = document.body;
+  var PAGE_SIZE = 25;
+
+  var VIEWS = ['dashboard', 'analytics', 'stats', 'login', 'create', 'notfound'];
+  var DATASET_LABELS = {
+    default: '預設',
+    large250: '大量資料 250',
+    empty: '空白帳戶',
+    noResults: '搜尋無結果',
+    edgeCases: '邊界案例',
+    zeroAnalytics: '零點擊',
+    apiError: 'API 失敗'
+  };
+
+  var THEME = {
+    light: {
+      series: ['#e2231a', '#0a0a0a', '#5c5c5c', '#0b7a3b', '#0047ab'],
+      fill: 'rgba(226, 35, 26, 0.12)',
+      grid: '#d5d5d0',
+      axis: '#5c5c5c',
+      border: '#0a0a0a',
+      tip: { bg: '#0a0a0a', title: '#ffffff', body: '#ffffff', border: '#e2231a' }
+    },
+    dark: {
+      series: ['#ff3b2f', '#f2f0ed', '#9d9d99', '#3ddc84', '#6fa8ff'],
+      fill: 'rgba(255, 59, 47, 0.22)',
+      grid: '#2c2c2a',
+      axis: '#9d9d99',
+      border: '#f2f0ed',
+      tip: { bg: '#f2f0ed', title: '#000000', body: '#000000', border: '#ff3b2f' }
+    }
+  };
+
+  var state = {
+    theme: 'light',
+    view: 'dashboard',
+    dataset: 'default',
+    search: '',
+    filter: 'active',
+    sortDir: 'desc',
+    page: 0,
+    focusId: null
+  };
+
+  var scenario = null;
+  var links = [];
+  var pinned = {};
+  var charts = {};
+  var chartSpecs = {};
+  var pendingArchiveId = null;
+  var archiveTrigger = null;
+  var createTrigger = null;
+  var loadTimer = null;
+  var readySent = false;
+
+  var $ = function (sel, scope) { return (scope || document).querySelector(sel); };
+  var $$ = function (sel, scope) { return Array.prototype.slice.call((scope || document).querySelectorAll(sel)); };
+
+  function reduceMotion() {
+    return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+
+  function num(value) {
+    return Number(value || 0).toLocaleString('zh-TW');
+  }
+
+  function dateOf(ts) {
+    if (!ts) return '—';
+    return new Date(ts).toISOString().slice(0, 10);
+  }
+
+  function statusOf(link) {
+    if (!link.is_active) return 'archived';
+    if (link.expires_at && link.expires_at < Date.now()) return 'expired';
+    return 'active';
+  }
+
+  var STATUS_TEXT = { active: '作用中', archived: '已封存', expired: '已過期' };
+
+  function escapeHtml(value) {
+    return String(value === undefined || value === null ? '' : value)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  /* ---------------- 對外狀態通報 ---------------- */
+
+  function emit(type) {
+    if (window.parent === window) return;
+    try {
+      window.parent.postMessage({
+        source: 'akamoney-proposal',
+        proposalId: '03-swiss',
+        type: type,
+        state: { view: state.view, theme: state.theme, dataset: state.dataset }
+      }, '*');
+    } catch (error) { /* 忽略跨來源限制 */ }
+  }
+
+  function syncRootAttributes() {
+    root.setAttribute('data-theme', state.theme);
+    root.setAttribute('data-active-view', state.view);
+    root.setAttribute('data-dataset', state.dataset);
+  }
+
+  /* ---------------- 圖表 ---------------- */
+
+  function zeroMarkup(text) {
+    return '<div class="chart-zero"><span class="chart-zero__mark" aria-hidden="true">0</span>' +
+      '<p class="chart-zero__text">' + escapeHtml(text || '此期間沒有點擊資料') + '</p></div>';
+  }
+
+  function fallbackSvg(values) {
+    var max = Math.max.apply(null, values.concat([1]));
+    var step = values.length > 1 ? 100 / (values.length - 1) : 100;
+    var points = values.map(function (value, index) {
+      return (index * step).toFixed(2) + ',' + (36 - (Number(value) / max) * 32).toFixed(2);
+    }).join(' ');
+    return '<svg viewBox="0 0 100 40" preserveAspectRatio="none" role="img" aria-label="圖表函式庫無法載入，改以簡易輪廓呈現">' +
+      '<polyline points="' + points + '" fill="none" stroke="currentColor" stroke-width="1" />' +
+      '<line x1="0" y1="39" x2="100" y2="39" stroke="currentColor" stroke-width="0.5" opacity="0.4" />' +
+      '</svg>';
+  }
+
+  function chartConfig(spec) {
+    var tokens = THEME[state.theme];
+    var isDoughnut = spec.kind === 'doughnut';
+    var dataset;
+
+    if (spec.kind === 'line') {
+      dataset = {
+        label: spec.label || '點擊',
+        data: spec.values,
+        borderColor: tokens.series[0],
+        backgroundColor: tokens.fill,
+        borderWidth: 2,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        pointHoverBackgroundColor: tokens.series[0],
+        tension: 0,
+        fill: true
+      };
+    } else if (spec.kind === 'bar') {
+      dataset = {
+        label: spec.label || '點擊',
+        data: spec.values,
+        backgroundColor: tokens.series[0],
+        borderColor: tokens.series[1],
+        borderWidth: 0,
+        borderRadius: 0,
+        maxBarThickness: 26
+      };
+    } else {
+      dataset = {
+        label: spec.label || '佔比',
+        data: spec.values,
+        backgroundColor: spec.values.map(function (_, index) {
+          return tokens.series[index % tokens.series.length];
+        }),
+        borderColor: tokens.series[1],
+        borderWidth: 1
+      };
+    }
+
+    var options = {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: reduceMotion() ? 0 : 360 },
+      interaction: { intersect: false, mode: 'index' },
+      plugins: {
+        legend: isDoughnut
+          ? { display: true, position: 'bottom', labels: { color: tokens.axis, boxWidth: 10, boxHeight: 10, font: { size: 10 } } }
+          : { display: false },
+        tooltip: {
+          backgroundColor: tokens.tip.bg,
+          titleColor: tokens.tip.title,
+          bodyColor: tokens.tip.body,
+          footerColor: tokens.tip.title,
+          borderColor: tokens.tip.border,
+          borderWidth: 2,
+          cornerRadius: 0,
+          displayColors: false,
+          padding: 10
+        }
+      }
+    };
+
+    if (!isDoughnut) {
+      options.scales = {
+        x: {
+          grid: { color: tokens.grid, borderColor: tokens.grid, drawTicks: false },
+          ticks: { color: tokens.axis, maxTicksLimit: spec.maxTicks || 7, font: { size: 10 }, autoSkip: true }
+        },
+        y: {
+          beginAtZero: true,
+          grid: { color: tokens.grid, borderColor: tokens.grid, drawTicks: false },
+          ticks: { color: tokens.axis, font: { size: 10 }, maxTicksLimit: 5 }
+        }
+      };
+      if (spec.compact) {
+        options.scales.x.display = false;
+        options.scales.y.display = false;
+        options.scales.x.ticks.color = tokens.axis;
+        options.scales.y.ticks.color = tokens.axis;
+      }
+    } else {
+      options.cutout = '58%';
+    }
+
+    return {
+      type: spec.kind,
+      data: { labels: spec.labels, datasets: [dataset] },
+      options: options
+    };
+  }
+
+  function paintChart(id) {
+    var container = document.querySelector('[data-chart="' + id + '"]');
+    if (!container) return;
+    var spec = chartSpecs[id];
+
+    if (charts[id]) {
+      try { charts[id].destroy(); } catch (error) { /* noop */ }
+      delete charts[id];
+    }
+
+    var values = (spec && spec.values) || [];
+    var total = values.reduce(function (sum, value) { return sum + (Number(value) || 0); }, 0);
+
+    if (!spec || values.length === 0 || total <= 0) {
+      container.innerHTML = zeroMarkup(spec && spec.emptyText);
+      container.setAttribute('data-chart-state', 'empty');
+      return;
+    }
+
+    if (typeof window.Chart !== 'function') {
+      container.innerHTML = fallbackSvg(values);
+      container.setAttribute('data-chart-state', 'fallback');
+      return;
+    }
+
+    container.innerHTML = '';
+    var canvas = document.createElement('canvas');
+    container.appendChild(canvas);
+    try {
+      charts[id] = new window.Chart(canvas.getContext('2d'), chartConfig(spec));
+      container.setAttribute('data-chart-state', 'rendered');
+    } catch (error) {
+      container.innerHTML = fallbackSvg(values);
+      container.setAttribute('data-chart-state', 'fallback');
+    }
+  }
+
+  function paintAllCharts() {
+    Object.keys(chartSpecs).forEach(paintChart);
+  }
+
+  function resizeVisibleCharts() {
+    Object.keys(charts).forEach(function (id) {
+      try { charts[id].resize(); } catch (error) { /* noop */ }
+    });
+  }
+
+  /* ---------------- 資料載入 ---------------- */
+
+  function loadDataset(name, showLoading) {
+    var target = name;
+    try {
+      scenario = SCENARIOS.getScenario(target);
+    } catch (error) {
+      target = 'default';
+      scenario = SCENARIOS.getScenario(target);
+    }
+    state.dataset = target;
+    links = scenario.urls.map(function (url) { return Object.assign({}, url); });
+    pinned = {};
+    state.page = 0;
+    state.search = (scenario.meta && scenario.meta.searchQuery) || '';
+    state.filter = 'active';
+    var filterEl = $('#dash-filter');
+    if (filterEl) filterEl.value = 'active';
+    var searchEl = $('#dash-search');
+    if (searchEl) searchEl.value = state.search;
+    state.focusId = links.length ? links[0].id : null;
+
+    syncRootAttributes();
+    buildChartSpecs();
+
+    if (showLoading) {
+      setLoading(true);
+      if (loadTimer) window.clearTimeout(loadTimer);
+      loadTimer = window.setTimeout(function () {
+        setLoading(false);
+        renderAll();
+      }, 150);
+    } else {
+      setLoading(false);
+      renderAll();
+    }
+  }
+
+  var loading = false;
+  function setLoading(value) {
+    loading = value;
+    var block = $('[data-state="loading"]');
+    if (block) block.hidden = !value;
+  }
+
+  function buildChartSpecs() {
+    var analytics = scenario.analytics || {};
+    var stats = scenario.overallStats || {};
+    var daily = analytics.dailySeries || [];
+    var trend = stats.click_trend || {};
+
+    chartSpecs = {
+      'dashboard-sparkline': {
+        kind: 'line',
+        compact: true,
+        labels: daily.map(function (point) { return point.date; }),
+        values: daily.map(function (point) { return point.clicks; }),
+        emptyText: '尚無走勢資料',
+        label: '每日點擊'
+      },
+      'clicks-trend': {
+        kind: 'line',
+        labels: daily.map(function (point) { return point.date.slice(5); }),
+        values: daily.map(function (point) { return point.clicks; }),
+        emptyText: '此期間沒有點擊資料',
+        label: '每日點擊'
+      },
+      'country-distribution': {
+        kind: 'doughnut',
+        labels: Object.keys(analytics.countryDistribution || {}),
+        values: Object.keys(analytics.countryDistribution || {}).map(function (key) {
+          return analytics.countryDistribution[key];
+        }),
+        emptyText: '尚無國家分佈資料',
+        label: '國家'
+      },
+      'device-distribution': {
+        kind: 'doughnut',
+        labels: Object.keys(analytics.deviceDistribution || {}),
+        values: Object.keys(analytics.deviceDistribution || {}).map(function (key) {
+          return analytics.deviceDistribution[key];
+        }),
+        emptyText: '尚無裝置分佈資料',
+        label: '裝置'
+      },
+      'browser-distribution': {
+        kind: 'bar',
+        labels: Object.keys(analytics.browserDistribution || {}),
+        values: Object.keys(analytics.browserDistribution || {}).map(function (key) {
+          return analytics.browserDistribution[key];
+        }),
+        emptyText: '尚無瀏覽器分佈資料',
+        label: '瀏覽器'
+      },
+      'stats-trend': {
+        kind: 'bar',
+        labels: Object.keys(trend).map(function (key) { return key.slice(5); }),
+        values: Object.keys(trend).map(function (key) { return trend[key]; }),
+        emptyText: '此期間沒有點擊資料',
+        label: '每日總點擊'
+      },
+      'stats-country': {
+        kind: 'doughnut',
+        labels: Object.keys(stats.country_distribution || {}),
+        values: Object.keys(stats.country_distribution || {}).map(function (key) {
+          return stats.country_distribution[key];
+        }),
+        emptyText: '尚無國家分佈資料',
+        label: '國家'
+      },
+      'stats-device': {
+        kind: 'doughnut',
+        labels: Object.keys(stats.device_distribution || {}),
+        values: Object.keys(stats.device_distribution || {}).map(function (key) {
+          return stats.device_distribution[key];
+        }),
+        emptyText: '尚無裝置分佈資料',
+        label: '裝置'
+      }
+    };
+  }
+
+  /* ---------------- 列表 ---------------- */
+
+  function matchesSearch(link, query) {
+    if (!query) return true;
+    var haystack = [link.short_code, link.title, link.original_url, link.description]
+      .filter(Boolean).join(' ').toLowerCase();
+    return haystack.indexOf(query.toLowerCase()) !== -1;
+  }
+
+  function visibleLinks() {
+    var query = state.search.trim();
+    var filtered = links.filter(function (link) {
+      if (state.filter !== 'all' && statusOf(link) !== state.filter) return false;
+      return matchesSearch(link, query);
+    });
+    var direction = state.sortDir === 'asc' ? 1 : -1;
+    filtered.sort(function (left, right) {
+      var leftPinned = pinned[left.id] ? 1 : 0;
+      var rightPinned = pinned[right.id] ? 1 : 0;
+      if (leftPinned !== rightPinned) return rightPinned - leftPinned;
+      if (left.click_count !== right.click_count) {
+        return (left.click_count - right.click_count) * direction;
+      }
+      return left.short_code < right.short_code ? -1 : 1;
+    });
+    return filtered;
+  }
+
+  function renderRows() {
+    var body = $('[data-rows]');
+    if (!body) return;
+
+    var all = visibleLinks();
+    var totalPages = Math.max(1, Math.ceil(all.length / PAGE_SIZE));
+    if (state.page > totalPages - 1) state.page = totalPages - 1;
+    if (state.page < 0) state.page = 0;
+    var slice = all.slice(state.page * PAGE_SIZE, state.page * PAGE_SIZE + PAGE_SIZE);
+    var maxClicks = all.reduce(function (max, link) {
+      return Math.max(max, link.click_count || 0);
+    }, 1);
+
+    body.innerHTML = slice.map(function (link) {
+      var status = statusOf(link);
+      var title = link.title ? escapeHtml(link.title) : '（未命名連結）';
+      var titleClass = link.title ? 'cell-title' : 'cell-title cell-title--muted';
+      var width = Math.max(2, Math.round(((link.click_count || 0) / maxClicks) * 100));
+      var actions = status === 'archived'
+        ? '<button class="rowbtn" type="button" data-restore data-url-id="' + escapeHtml(link.id) + '">還原封存</button>'
+        : '<button class="rowbtn" type="button" data-action="archive" data-url-id="' + escapeHtml(link.id) + '" aria-label="封存 ' + escapeHtml(link.short_code) + '">封存</button>';
+
+      return '<tr data-link-row data-url-id="' + escapeHtml(link.id) + '">' +
+        '<td class="cell"><span class="row-code">aka.money/' + escapeHtml(link.short_code) + '</span>' +
+        (pinned[link.id] ? ' <span class="badge badge--new">新建</span>' : '') + '</td>' +
+        '<td class="cell"><span class="' + titleClass + '" title="' + escapeHtml(link.title || '未命名連結') + '">' + title + '</span></td>' +
+        '<td class="cell"><span class="cell-url" title="' + escapeHtml(link.original_url) + '">' + escapeHtml(link.original_url) + '</span></td>' +
+        '<td class="cell cell-num">' + num(link.click_count) +
+        '<span class="bar-mini" style="width:' + width + '%"></span></td>' +
+        '<td class="cell cell-date">' + dateOf(link.created_at) + '</td>' +
+        '<td class="cell"><span class="badge badge--' + status + '">' + STATUS_TEXT[status] + '</span></td>' +
+        '<td class="cell cell-actions">' +
+        '<button class="rowbtn" type="button" data-action="copy" data-url-id="' + escapeHtml(link.id) + '" data-clip="aka.money/' + escapeHtml(link.short_code) + '" aria-label="複製 ' + escapeHtml(link.short_code) + ' 短網址">複製</button>' +
+        actions +
+        '</td></tr>';
+    }).join('');
+
+    var hasRows = slice.length > 0;
+    var query = state.search.trim();
+    var isError = state.dataset === 'apiError' || Boolean(scenario.meta && scenario.meta.error);
+
+    $('[data-table-wrap]').hidden = !hasRows || isError || loading;
+
+    var pager = $('[data-pager]');
+    pager.hidden = !hasRows || isError || totalPages <= 1;
+    $('[data-page-current]').textContent = String(state.page + 1);
+    $('[data-page-total]').textContent = String(totalPages);
+    $('[data-page="prev"]').disabled = state.page === 0;
+    $('[data-page="next"]').disabled = state.page >= totalPages - 1;
+
+    $('[data-state="empty"]').hidden = !(!isError && !loading && links.length === 0);
+    $('[data-state="no-results"]').hidden = !(!isError && !loading && links.length > 0 && all.length === 0);
+    $('[data-noresult-query]').textContent = query || '（空白）';
+
+    var errorBlock = $('[data-state="error"]');
+    errorBlock.hidden = !(isError && !loading);
+    $('[data-error-text]').textContent =
+      (scenario.meta && scenario.meta.error) || '目前無法載入設計資料，請稍後再試。';
+
+    $('[data-readout="shown"]').textContent = String(slice.length);
+    $('[data-readout="total"]').textContent = String(all.length);
+  }
+
+  /* ---------------- 各畫面內容 ---------------- */
+
+  function renderTopMeta() {
+    var stats = scenario.overallStats || {};
+    $('[data-meta-dataset]').textContent = DATASET_LABELS[state.dataset] || state.dataset;
+    $('[data-meta-count]').textContent = num(links.length);
+    $('[data-meta-clicks]').textContent = num(stats.total_clicks);
+    $('[data-footer-dataset]').textContent = '資料集：' + (DATASET_LABELS[state.dataset] || state.dataset);
+    $('[data-footer-theme]').textContent = '布景：' + (state.theme === 'dark' ? '深色' : '淺色');
+  }
+
+  function renderDashboardKpis() {
+    var stats = scenario.overallStats || {};
+    var active = links.filter(function (link) { return link.is_active; }).length;
+    $('[data-kpi="clicks"]').textContent = num(stats.total_clicks);
+    $('[data-kpi="links"]').textContent = num(links.length);
+    $('[data-kpi="avg"]').textContent = num(stats.average_clicks_per_link);
+    $('[data-kpi-foot="links"]').textContent = '作用中 ' + active + ' / 全部 ' + links.length;
+    var range = stats.date_range || {};
+    $('[data-kpi-foot="clicks"]').textContent = range.start
+      ? range.start + ' → ' + range.end : '尚無統計期間';
+  }
+
+  function halves(values) {
+    var half = Math.floor(values.length / 2);
+    var first = values.slice(0, half).reduce(function (a, b) { return a + b; }, 0);
+    var second = values.slice(half).reduce(function (a, b) { return a + b; }, 0);
+    return { first: first, second: second };
+  }
+
+  function pct(value) {
+    return (value >= 0 ? '＋' : '−') + Math.abs(value).toFixed(1) + '%';
+  }
+
+  function renderAnalytics() {
+    var select = $('[data-analytics-focus]');
+    var hasLinks = links.length > 0;
+    $('[data-analytics-empty]').hidden = hasLinks;
+    $('[data-analytics-body]').hidden = false;
+
+    select.innerHTML = links.slice(0, 60).map(function (link) {
+      return '<option value="' + escapeHtml(link.id) + '">' +
+        escapeHtml(link.short_code) + ' — ' + escapeHtml(link.title || '未命名連結') + '</option>';
+    }).join('');
+    if (!hasLinks) {
+      select.innerHTML = '<option value="">（無可分析的連結）</option>';
+    }
+    if (state.focusId) select.value = state.focusId;
+
+    var focus = links.filter(function (link) { return link.id === state.focusId; })[0] || links[0] || null;
+    var stats = scenario.overallStats || {};
+    var totalClicks = stats.total_clicks || 0;
+    var linkCount = links.length || 1;
+    var average = stats.average_clicks_per_link || 0;
+    var daily = (scenario.analytics && scenario.analytics.dailySeries) || [];
+    var split = halves(daily.map(function (point) { return point.clicks; }));
+    var change = split.first > 0 ? ((split.second - split.first) / split.first) * 100 : 0;
+
+    $('[data-ana-meta]').textContent = focus
+      ? '對象 ' + focus.short_code + ' · 帳戶平均 ' + num(average)
+      : '尚無分析對象';
+
+    var focusClicks = focus ? focus.click_count : 0;
+    var share = totalClicks > 0 ? (focusClicks / totalClicks) * 100 : 0;
+    var evenShare = 100 / linkCount;
+    var ranked = links.slice().sort(function (a, b) { return b.click_count - a.click_count; });
+    var rank = focus ? ranked.map(function (l) { return l.id; }).indexOf(focus.id) + 1 : 0;
+    var median = Math.ceil(linkCount / 2);
+
+    var rows = [
+      ['期間點擊', num(focusClicks), num(average), pctDelta(focusClicks, average)],
+      ['佔帳戶總點擊', share.toFixed(1) + '%', evenShare.toFixed(1) + '%', pct(share - evenShare) + ' pp'],
+      ['排名', rank ? '第 ' + rank + ' 名' : '—', '中位 第 ' + median + ' 名', rank ? (rank <= median ? '優於中位' : '低於中位') : '—'],
+      ['日均點擊', (focusClicks / 30).toFixed(1), (average / 30).toFixed(1), pctDelta(focusClicks, average)]
+    ];
+
+    $('[data-compare-rows]').innerHTML = rows.map(function (row) {
+      var tone = row[3].indexOf('−') === 0 || row[3] === '低於中位' ? 'delta--down'
+        : (row[3] === '—' ? 'delta--flat' : 'delta--up');
+      return '<tr><th scope="row">' + escapeHtml(row[0]) + '</th>' +
+        '<td class="num">' + escapeHtml(row[1]) + '</td>' +
+        '<td class="num">' + escapeHtml(row[2]) + '</td>' +
+        '<td class="num"><span class="delta ' + tone + '">' + escapeHtml(row[3]) + '</span></td></tr>';
+    }).join('');
+
+    var spike = scenario.analytics && scenario.analytics.campaignSpike;
+    var notes = [];
+    notes.push('後 15 日合計 ' + num(split.second) + '，前 15 日合計 ' + num(split.first) + '，變化 ' + pct(change) + '。');
+    if (focus) {
+      notes.push('所選連結 ' + focus.short_code + ' 的點擊為帳戶平均的 ' +
+        (average > 0 ? (focusClicks / average).toFixed(2) : '0.00') + ' 倍。');
+    }
+    if (spike) {
+      notes.push('單日高峰 ' + spike.date + '（' + num(spike.clicks) + ' 次）— ' + spike.label + '。');
+    }
+    (scenario.analytics.highlights || []).forEach(function (item) { notes.push(item + '。'); });
+    $('[data-ana-notes]').innerHTML = notes.map(function (note) {
+      return '<li>' + escapeHtml(note) + '</li>';
+    }).join('');
+  }
+
+  function pctDelta(value, base) {
+    if (!base) return value > 0 ? '＋100.0%' : '—';
+    return pct(((value - base) / base) * 100);
+  }
+
+  function renderStats() {
+    var stats = scenario.overallStats || {};
+    var trend = stats.click_trend || {};
+    var keys = Object.keys(trend);
+    var values = keys.map(function (key) { return trend[key]; });
+    var total = values.reduce(function (a, b) { return a + b; }, 0);
+    var peak = values.length ? Math.max.apply(null, values) : 0;
+    var peakDate = keys[values.indexOf(peak)] || '—';
+    var mean = values.length ? total / values.length : 0;
+    var split = halves(values);
+    var change = split.first > 0 ? ((split.second - split.first) / split.first) * 100 : 0;
+
+    $('[data-stat="total"]').textContent = num(stats.total_clicks);
+    $('[data-stat="peak"]').textContent = num(peak);
+    $('[data-stat="mean"]').textContent = mean.toFixed(1);
+    $('[data-stat="delta"]').textContent = values.length ? pct(change) : '—';
+    $('[data-stat-foot="peak"]').textContent = values.length ? '出現於 ' + peakDate : '尚無資料';
+    var range = stats.date_range || {};
+    $('[data-stat-foot="total"]').textContent = range.start ? range.start + ' → ' + range.end : '尚無統計期間';
+
+    var top = stats.top_links || [];
+    var max = top.reduce(function (acc, item) { return Math.max(acc, item.click_count || 0); }, 1);
+    $('[data-toplist]').innerHTML = top.map(function (item, index) {
+      var width = Math.max(2, Math.round(((item.click_count || 0) / max) * 100));
+      return '<li><span class="toplist__rank">' + String(index + 1).padStart(2, '0') + '</span>' +
+        '<span><span class="toplist__code">aka.money/' + escapeHtml(item.short_code) + '</span>' +
+        '<span class="toplist__title">' + escapeHtml(item.title || '未命名連結') + '</span></span>' +
+        '<span class="toplist__num">' + num(item.click_count) + '</span>' +
+        '<span class="toplist__bar" style="width:' + width + '%"></span></li>';
+    }).join('');
+
+    var callout = $('[data-stats-callout]');
+    if (top.length === 0) {
+      callout.hidden = false;
+      callout.innerHTML = '<b>尚無排行資料</b> — 目前的資料集沒有可統計的短網址。';
+    } else {
+      callout.hidden = false;
+      callout.innerHTML = '<b>' + escapeHtml(scenario.meta.summary) + '</b>';
+    }
+  }
+
+  function renderNotFound() {
+    var sample = links[0];
+    $('[data-nf-code]').textContent = sample ? sample.short_code + '-old' : 'unknown-code';
+  }
+
+  function renderAll() {
+    renderTopMeta();
+    renderDashboardKpis();
+    renderRows();
+    renderAnalytics();
+    renderStats();
+    renderNotFound();
+    paintAllCharts();
+  }
+
+  /* ---------------- 畫面切換 ---------------- */
+
+  function setView(name, options) {
+    if (VIEWS.indexOf(name) === -1) return;
+    if (name === 'create' && state.view !== 'create') {
+      var trigger = document.activeElement;
+      createTrigger = (trigger && trigger !== document.body && typeof trigger.focus === 'function') ? trigger : null;
+    }
+    state.view = name;
+    root.setAttribute('data-active-view', name);
+
+    VIEWS.forEach(function (view) {
+      var element = document.querySelector('[data-view="' + view + '"]');
+      if (!element) return;
+      if (view === 'create') {
+        element.hidden = name !== 'create';
+      } else if (view === 'dashboard') {
+        element.hidden = !(name === 'dashboard' || name === 'create');
+      } else {
+        element.hidden = view !== name;
+      }
+    });
+
+    $$('.navlink').forEach(function (link) {
+      var target = link.getAttribute('data-view-target');
+      if (target === name) {
+        link.setAttribute('aria-current', 'page');
+      } else {
+        link.removeAttribute('aria-current');
+      }
+    });
+
+    if (name === 'create') {
+      var field = $('#create-url');
+      if (field && !(options && options.silentFocus)) {
+        window.setTimeout(function () { field.focus(); }, 20);
+      }
+    }
+
+    window.requestAnimationFrame(resizeVisibleCharts);
+    emit('STATE_CHANGED');
+  }
+
+  function restoreCreateTriggerFocus() {
+    var trigger = createTrigger;
+    createTrigger = null;
+    if (!trigger || !document.contains(trigger) || trigger.disabled) return;
+    if (trigger.closest('[hidden]')) return;
+    trigger.focus();
+  }
+
+  function setTheme(name) {
+    state.theme = name === 'dark' ? 'dark' : 'light';
+    root.setAttribute('data-theme', state.theme);
+    var toggle = $('[data-action="theme-toggle"]');
+    if (toggle) toggle.setAttribute('aria-pressed', state.theme === 'dark' ? 'true' : 'false');
+    var label = $('[data-theme-label]');
+    if (label) label.textContent = state.theme === 'dark' ? 'DARK' : 'LIGHT';
+    renderTopMeta();
+    paintAllCharts();
+    emit('STATE_CHANGED');
+  }
+
+  /* ---------------- 提示訊息 ---------------- */
+
+  function toast(message, options) {
+    var host = $('[data-toasts]');
+    var node = document.createElement('div');
+    node.className = 'toast';
+    node.setAttribute('role', 'status');
+    var text = document.createElement('span');
+    text.className = 'toast__text';
+    text.innerHTML = message;
+    node.appendChild(text);
+
+    if (options && options.actionLabel) {
+      var button = document.createElement('button');
+      button.className = 'toast__btn';
+      button.type = 'button';
+      button.textContent = options.actionLabel;
+      if (options.actionName) button.setAttribute('data-action', options.actionName);
+      if (options.actionId) button.setAttribute('data-url-id', options.actionId);
+      node.appendChild(button);
+    }
+
+    host.appendChild(node);
+    var life = (options && options.duration) || 4000;
+    window.setTimeout(function () {
+      if (node.parentNode) node.parentNode.removeChild(node);
+    }, life);
+    return node;
+  }
+
+  /* ---------------- 互動 ---------------- */
+
+  function handleCopy(button) {
+    var text = button.getAttribute('data-clip') || '';
+    var original = button.getAttribute('data-original-label') || button.textContent;
+    button.setAttribute('data-original-label', original);
+    button.setAttribute('data-copy-state', 'copied');
+    button.textContent = '已複製';
+
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText('https://' + text)['catch'](function () { /* 忽略權限錯誤 */ });
+      }
+    } catch (error) { /* 忽略不支援的環境 */ }
+
+    toast('已複製短網址 <b>' + escapeHtml(text) + '</b> 至剪貼簿', { duration: 2600 });
+
+    window.setTimeout(function () {
+      button.removeAttribute('data-copy-state');
+      button.textContent = original;
+    }, 1800);
+  }
+
+  function openConfirm(button) {
+    pendingArchiveId = button.getAttribute('data-url-id');
+    archiveTrigger = button;
+    var link = links.filter(function (item) { return item.id === pendingArchiveId; })[0];
+    $('[data-confirm-target]').textContent = link
+      ? 'aka.money/' + link.short_code + ' — ' + (link.title || '未命名連結') : '';
+    var scrim = $('[data-confirm]');
+    scrim.hidden = false;
+    window.setTimeout(function () {
+      var confirmButton = $('[data-action="archive-confirm"]');
+      if (confirmButton) confirmButton.focus();
+    }, 20);
+  }
+
+  function closeConfirm(restoreFocus) {
+    var scrim = $('[data-confirm]');
+    if (scrim.hidden) return;
+    scrim.hidden = true;
+    if (restoreFocus && archiveTrigger && document.contains(archiveTrigger)) {
+      archiveTrigger.focus();
+    }
+    pendingArchiveId = null;
+  }
+
+  function confirmArchive() {
+    var id = pendingArchiveId;
+    closeConfirm(false);
+    if (!id) return;
+    var link = links.filter(function (item) { return item.id === id; })[0];
+    if (!link) return;
+    link.is_active = false;
+    renderRows();
+    toast('已封存 <b>aka.money/' + escapeHtml(link.short_code) + '</b>，轉址已停止。', {
+      actionLabel: '還原',
+      actionName: 'archive-undo',
+      actionId: id,
+      duration: 12000
+    });
+  }
+
+  function undoArchive(button) {
+    var id = button.getAttribute('data-url-id');
+    var link = links.filter(function (item) { return item.id === id; })[0];
+    if (link) {
+      link.is_active = true;
+      renderRows();
+      toast('已還原 <b>aka.money/' + escapeHtml(link.short_code) + '</b>。', { duration: 2600 });
+    }
+    var host = button.closest('.toast');
+    if (host && host.parentNode) host.parentNode.removeChild(host);
+  }
+
+  function restoreLink(button) {
+    var id = button.getAttribute('data-url-id');
+    var link = links.filter(function (item) { return item.id === id; })[0];
+    if (!link) return;
+    link.is_active = true;
+    renderRows();
+    toast('已還原 <b>aka.money/' + escapeHtml(link.short_code) + '</b>。', { duration: 2600 });
+  }
+
+  function submitCreate(event) {
+    event.preventDefault();
+    var urlField = $('#create-url');
+    var codeField = $('#create-code');
+    var titleField = $('#create-title');
+    var descField = $('#create-desc');
+    var imageField = $('#create-image');
+    var expireField = $('#create-expire');
+    var errorBox = $('[data-create-error]');
+
+    var url = urlField.value.trim();
+    var code = codeField.value.trim();
+    var imageUrl = imageField.value.trim();
+    var expireRaw = expireField.value.trim();
+
+    errorBox.hidden = true;
+    errorBox.textContent = '';
+
+    if (!url || !/^https?:\/\/\S+$/i.test(url)) {
+      errorBox.hidden = false;
+      errorBox.textContent = '請輸入有效的原始網址（需以 http:// 或 https:// 開頭）。';
+      urlField.focus();
+      return;
+    }
+    if (!code) {
+      errorBox.hidden = false;
+      errorBox.textContent = '請輸入短代碼（必填）。';
+      codeField.focus();
+      return;
+    }
+    if (!/^[A-Za-z0-9_-]{3,20}$/.test(code)) {
+      errorBox.hidden = false;
+      errorBox.textContent = '短代碼需為 3–20 個英數字、底線或連字號。';
+      codeField.focus();
+      return;
+    }
+    if (links.some(function (link) { return link.short_code === code; })) {
+      errorBox.hidden = false;
+      errorBox.textContent = '這個短代碼已經被使用，請換一個。';
+      codeField.focus();
+      return;
+    }
+    if (imageUrl && !/^https?:\/\/\S+$/i.test(imageUrl)) {
+      errorBox.hidden = false;
+      errorBox.textContent = '預覽圖需為有效網址（需以 http:// 或 https:// 開頭）。';
+      imageField.focus();
+      return;
+    }
+
+    var expiresAt = null;
+    if (expireRaw) {
+      var parsed = new Date(expireRaw).getTime();
+      if (isNaN(parsed)) {
+        errorBox.hidden = false;
+        errorBox.textContent = '到期時間格式不正確，請重新選擇或留空表示永不過期。';
+        expireField.focus();
+        return;
+      }
+      expiresAt = parsed;
+    }
+
+    var finalCode = code;
+    var now = Date.now();
+    var record = {
+      id: 'session-' + finalCode,
+      short_code: finalCode,
+      original_url: url,
+      short_url: 'https://aka.money/' + finalCode,
+      title: titleField.value.trim() || '新建短網址 ' + finalCode,
+      description: descField.value.trim() || '本工作階段建立的短網址',
+      created_at: now,
+      updated_at: now,
+      is_active: true,
+      click_count: 0
+    };
+    if (imageUrl) record.image_url = imageUrl;
+    if (expiresAt !== null) record.expires_at = expiresAt;
+
+    links.unshift(record);
+    pinned[record.id] = true;
+    state.search = '';
+    $('#dash-search').value = '';
+    state.filter = 'active';
+    $('#dash-filter').value = 'active';
+    state.page = 0;
+
+    urlField.value = '';
+    codeField.value = '';
+    titleField.value = '';
+    descField.value = '';
+    imageField.value = '';
+    expireField.value = '';
+    updatePreview();
+
+    setView('dashboard');
+    renderTopMeta();
+    renderDashboardKpis();
+    renderRows();
+    renderAnalytics();
+
+    toast('已建立 <b>aka.money/' + escapeHtml(finalCode) + '</b>，成功加入清單最上方。', { duration: 5000 });
+  }
+
+  function updatePreview() {
+    var codeField = $('#create-code');
+    var preview = $('[data-create-preview]');
+    if (!codeField || !preview) return;
+    var code = codeField.value.trim();
+    preview.textContent = 'aka.money/' + (code || '────');
+  }
+
+  /* ---------------- 事件綁定 ---------------- */
+
+  document.addEventListener('click', function (event) {
+    var actionable = event.target.closest('[data-action], [data-page], [data-restore], [data-clear-search], [data-retry], [data-confirm-cancel], [data-login]');
+    if (!actionable) return;
+
+    if (actionable.hasAttribute('data-clear-search')) {
+      state.search = '';
+      $('#dash-search').value = '';
+      state.page = 0;
+      renderRows();
+      return;
+    }
+    if (actionable.hasAttribute('data-retry')) {
+      loadDataset(state.dataset === 'apiError' ? 'default' : state.dataset, true);
+      emit('STATE_CHANGED');
+      return;
+    }
+    if (actionable.hasAttribute('data-confirm-cancel')) {
+      closeConfirm(true);
+      return;
+    }
+    if (actionable.hasAttribute('data-login')) {
+      var status = $('[data-login-status]');
+      status.hidden = false;
+      status.textContent = '示範模式：已模擬 Entra ID 登入完成，正在前往控制台。';
+      window.setTimeout(function () { setView('dashboard'); }, 300);
+      return;
+    }
+    if (actionable.hasAttribute('data-restore')) {
+      restoreLink(actionable);
+      return;
+    }
+    if (actionable.hasAttribute('data-page')) {
+      state.page += actionable.getAttribute('data-page') === 'next' ? 1 : -1;
+      renderRows();
+      var wrap = $('[data-table-wrap]');
+      if (wrap) wrap.scrollTop = 0;
+      return;
+    }
+
+    var action = actionable.getAttribute('data-action');
+    if (action === 'theme-toggle') {
+      setTheme(state.theme === 'dark' ? 'light' : 'dark');
+    } else if (action === 'view-switch') {
+      var leavingCreate = state.view === 'create' && actionable.getAttribute('data-view-target') !== 'create';
+      setView(actionable.getAttribute('data-view-target'));
+      if (leavingCreate) restoreCreateTriggerFocus();
+    } else if (action === 'copy') {
+      handleCopy(actionable);
+    } else if (action === 'sort-clicks') {
+      state.sortDir = state.sortDir === 'desc' ? 'asc' : 'desc';
+      $$('[data-action="sort-clicks"]').forEach(function (button) {
+        button.setAttribute('data-dir', state.sortDir);
+        var arrow = button.querySelector('.sortbtn__arrow');
+        if (arrow) arrow.textContent = state.sortDir === 'desc' ? '▼' : '▲';
+      });
+      state.page = 0;
+      renderRows();
+    } else if (action === 'archive') {
+      openConfirm(actionable);
+    } else if (action === 'archive-confirm') {
+      confirmArchive();
+    } else if (action === 'archive-undo') {
+      undoArchive(actionable);
+    }
+  });
+
+  document.addEventListener('input', function (event) {
+    if (event.target.matches('[data-action="search"]')) {
+      state.search = event.target.value;
+      state.page = 0;
+      renderRows();
+    } else if (event.target.matches('#create-code')) {
+      updatePreview();
+    }
+  });
+
+  document.addEventListener('change', function (event) {
+    if (event.target.matches('[data-filter="status"]')) {
+      state.filter = event.target.value;
+      state.page = 0;
+      renderRows();
+    } else if (event.target.matches('[data-analytics-focus]')) {
+      state.focusId = event.target.value;
+      renderAnalytics();
+    }
+  });
+
+  document.addEventListener('submit', function (event) {
+    if (event.target.matches('[data-form="create"]')) submitCreate(event);
+  });
+
+  document.addEventListener('keydown', function (event) {
+    if (event.key !== 'Escape') return;
+    var scrim = $('[data-confirm]');
+    if (!scrim.hidden) {
+      event.preventDefault();
+      closeConfirm(true);
+      return;
+    }
+    if (state.view === 'create') {
+      event.preventDefault();
+      setView('dashboard');
+      restoreCreateTriggerFocus();
+    }
+  });
+
+  window.addEventListener('message', function (event) {
+    var payload = event.data;
+    if (!payload || typeof payload !== 'object') return;
+    if (payload.source !== 'akamoney-compare') return;
+    var value = payload.value;
+    if (typeof value !== 'string') return;
+
+    if (payload.type === 'SET_VIEW') {
+      if (VIEWS.indexOf(value) === -1) return;
+      setView(value);
+    } else if (payload.type === 'SET_THEME') {
+      if (value !== 'light' && value !== 'dark') return;
+      setTheme(value);
+    } else if (payload.type === 'SET_DATASET') {
+      if (SCENARIOS.listScenarios().indexOf(value) === -1) return;
+      loadDataset(value, true);
+      emit('STATE_CHANGED');
+    }
+  });
+
+  /* ---------------- 啟動 ---------------- */
+
+  function boot() {
+    var params = new URLSearchParams(window.location.search);
+    var dataset = params.get('dataset');
+    var theme = params.get('theme');
+    var view = params.get('view');
+
+    if (theme === 'dark' || theme === 'light') state.theme = theme;
+
+    loadDataset(dataset && SCENARIOS.listScenarios().indexOf(dataset) !== -1 ? dataset : 'default', false);
+    setTheme(state.theme);
+    setView(view && VIEWS.indexOf(view) !== -1 ? view : 'dashboard', { silentFocus: true });
+    updatePreview();
+
+    if (!readySent) {
+      readySent = true;
+      emit('READY');
+      emit('STATE_CHANGED');
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+})();
+</script>
+</body>
+</html>

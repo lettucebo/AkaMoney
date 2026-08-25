@@ -1,0 +1,1323 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AkaMoney · Playful 品牌個性</title>
+    <link rel="icon" href="data:,">
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.3/dist/index.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
+    <script src="../shared/scenarios.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap">
+    <style>
+      :root {
+        --bg: #fffaf7;
+        --surface: rgba(255,255,255,0.7);
+        --surface-strong: #fffdfb;
+        --surface-soft: #fef1eb;
+        --panel: #fff7f4;
+        --text: #2b1b1a;
+        --muted: #7a5d59;
+        --subtle: #b99082;
+        --border: rgba(92, 56, 46, 0.12);
+        --accent: #ff7d59;
+        --accent-2: #ffb067;
+        --accent-3: #7ec8b8;
+        --accent-soft: rgba(255, 125, 89, 0.14);
+        --success: #42b883;
+        --warning: #f4b94a;
+        --danger: #e2634a;
+        --shadow: 0 20px 50px rgba(69, 39, 28, 0.12);
+        --radius-xl: 28px;
+        --radius-lg: 22px;
+        --radius-md: 16px;
+        --radius-sm: 12px;
+      }
+      body[data-theme="dark"] {
+        --bg: #130f1b;
+        --surface: rgba(29, 25, 37, 0.84);
+        --surface-strong: #1d1a28;
+        --surface-soft: #2a2437;
+        --panel: #120f1b;
+        --text: #f8efe9;
+        --muted: #d4bcc3;
+        --subtle: #a38a90;
+        --border: rgba(243, 220, 200, 0.12);
+        --accent: #ff9e7a;
+        --accent-2: #ffc677;
+        --accent-3: #7bced5;
+        --accent-soft: rgba(255, 158, 122, 0.16);
+        --success: #61d6a0;
+        --warning: #f8d06a;
+        --danger: #ff7d7d;
+        --shadow: 0 20px 52px rgba(0,0,0,0.35);
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; min-height: 100%; }
+      body {
+        background-color: var(--bg);
+        background-image: radial-gradient(circle at top left, rgba(255,180,120,0.28), transparent 24%),
+                          radial-gradient(circle at top right, rgba(126,200,184,0.22), transparent 18%);
+        background-repeat: no-repeat;
+        color: var(--text);
+        font-family: "Inter", "Noto Sans TC", sans-serif;
+        line-height: 1.5;
+      }
+      button, input, select, textarea { font: inherit; }
+      button { cursor: pointer; }
+      a { color: inherit; text-decoration: none; }
+      ::selection { background: var(--accent-soft); }
+      [data-proposal-id] { min-width: 0; }
+      [data-view][hidden] { display: none !important; }
+      .app-shell { max-width: 1500px; margin: 0 auto; padding: 24px 18px 38px; }
+      .topbar {
+        display: flex; align-items: center; gap: 18px; padding: 14px 18px;
+        background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-xl);
+        box-shadow: var(--shadow); backdrop-filter: blur(12px); position: sticky; top: 12px; z-index: 25;
+      }
+      .brand {
+        display: inline-flex; align-items: center; gap: 12px; min-width: 0; flex-shrink: 0;
+      }
+      .brand-mark {
+        width: 34px; height: 34px; border-radius: 12px; background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        color: #fff; display: grid; place-items: center; font-weight: 800; font-size: 15px; box-shadow: 0 8px 22px rgba(255,125,89,0.38);
+      }
+      .brand-text { font-family: "Space Grotesk", "Noto Sans TC", sans-serif; font-size: 1.05rem; letter-spacing: 0.04em; }
+      .workspace-tabs {
+        display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-left: 8px;
+      }
+      .nav-btn {
+        border: 1px solid transparent; background: transparent; color: var(--muted); border-radius: 999px;
+        padding: 8px 14px; font-weight: 600; transition: all 0.2s ease;
+      }
+      .nav-btn.active {
+        background: var(--accent-soft); color: var(--text); border-color: rgba(255,125,89,0.18);
+      }
+      .nav-btn:hover { background: rgba(255,255,255,0.5); }
+      body[data-theme="dark"] .nav-btn:hover { background: rgba(255,255,255,0.04); }
+      .topbar-actions { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+      .theme-toggle, .primary-btn, .secondary-btn, .chip-btn {
+        border: 1px solid var(--border); border-radius: 999px; padding: 9px 14px; background: rgba(255,255,255,0.4);
+        color: var(--text); font-weight: 600; transition: transform 0.2s ease, border-color 0.2s ease;
+      }
+      .theme-toggle:hover, .primary-btn:hover, .secondary-btn:hover, .chip-btn:hover { transform: translateY(-1px); }
+      .primary-btn {
+        background: linear-gradient(135deg, var(--accent), var(--accent-2)); border: none; color: white; box-shadow: 0 12px 26px rgba(255, 125, 89, 0.28);
+      }
+      .primary-btn[disabled] { opacity: 0.6; cursor: not-allowed; }
+      .view-panel { padding-top: 24px; }
+      .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-xl); box-shadow: var(--shadow); }
+      .dashboard-layout { display: grid; grid-template-columns: 1.8fr 0.9fr; gap: 18px; }
+      .hero {
+        background: linear-gradient(135deg, rgba(255, 125, 89, 0.09), rgba(126,200,184,0.12)); border: 1px solid var(--border);
+        border-radius: var(--radius-xl); padding: 22px; display: flex; justify-content: space-between; gap: 14px; align-items: center;
+      }
+      .eyebrow { text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.68rem; color: var(--muted); font-weight: 700; }
+      h1, h2, h3 { margin: 0; }
+      .hero h1 { font-family: "Noto Serif TC", serif; font-size: clamp(1.9rem, 4vw, 3rem); letter-spacing: -0.04em; }
+      .hero-copy { max-width: 30rem; }
+      .hero-copy p { margin: 8px 0 0; color: var(--muted); }
+      .hero-badges { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+      .badge {
+        border-radius: 999px; padding: 8px 10px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+        border: 1px solid var(--border); background: rgba(255,255,255,0.52); color: var(--muted);
+      }
+      .badge.success { color: var(--success); background: rgba(66,184,131,0.12); }
+      .badge.warn { color: var(--warning); background: rgba(244,185,74,0.12); }
+      .stats-row { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin-top: 18px; }
+      .metric { padding: 16px 18px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface-strong); }
+      .metric-label { font-size: 0.74rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+      .metric-value { font-family: "Space Grotesk", "Noto Sans TC", sans-serif; font-size: clamp(1.3rem, 2vw, 2rem); margin-top: 10px; letter-spacing: -0.04em; }
+      .metric-trend { margin-top: 8px; font-size: 0.74rem; color: var(--success); }
+      .toolbar {
+        display: grid; grid-template-columns: minmax(0,1fr) auto auto; gap: 12px; align-items: center; margin-top: 18px; min-width: 0;
+      }
+      .search-field { position: relative; min-width: 0; }
+      .search-field input {
+        width: 100%; min-height: 46px; border-radius: 14px; padding: 0 44px 0 42px; border: 1px solid var(--border); background: var(--panel);
+        color: var(--text); outline: none; font-size: 0.95rem; transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      }
+      .search-field input:focus { border-color: rgba(255,125,89,0.4); box-shadow: 0 0 0 4px rgba(255,125,89,0.12); }
+      .search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--muted); }
+      .sort-field { display: flex; align-items: center; gap: 8px; }
+      .chip-btn { border-radius: 12px; padding: 10px 12px; }
+      .list-panel { margin-top: 18px; }
+      .table-wrap { border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--surface); overflow: hidden; }
+      .card-grid {
+        display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; padding: 14px;
+      }
+      @media (max-width: 980px) { .card-grid { grid-template-columns: 1fr; } .dashboard-layout { grid-template-columns: 1fr; } }
+      .link-card {
+        background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 14px; display: flex; flex-direction: column; gap: 10px; min-width: 0;
+      }
+      .link-head { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
+      .url-code {
+        display: inline-flex; align-items: center; gap: 8px; font-family: "JetBrains Mono", "Noto Sans TC", monospace; font-size: 0.8rem; letter-spacing: 0.02em; color: var(--text);
+      }
+      .url-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); box-shadow: 0 0 0 5px rgba(66,184,131,0.08); }
+      .status-pill {
+        display: inline-flex; align-items: center; justify-content: center; padding: 4px 8px; border-radius: 999px;
+        font-size: 0.66rem; letter-spacing: 0.08em; text-transform: uppercase; border: 1px solid var(--border);
+      }
+      .status-pill.active { background: rgba(66,184,131,0.12); color: var(--success); }
+      .status-pill.archived { background: rgba(117, 117, 117, 0.08); color: var(--muted); }
+      .link-card h3 {
+        font-family: "Noto Serif TC", serif; font-size: 1.12rem; line-height: 1.3; letter-spacing: -0.03em;
+      }
+      .link-url { color: var(--muted); font-size: 0.78rem; line-height: 1.5; word-break: break-all; }
+      .link-meta {
+        display: flex; justify-content: space-between; gap: 10px; align-items: center; flex-wrap: wrap; color: var(--muted); font-size: 0.72rem;
+      }
+      .stat-inline { font-family: "JetBrains Mono", "Noto Sans TC", monospace; }
+      .card-actions { display: flex; justify-content: space-between; gap: 10px; align-items: center; margin-top: auto; }
+      .mini-btn {
+        border: 1px solid var(--border); border-radius: 12px; background: rgba(255,255,255,0.42); color: var(--text); padding: 8px 10px; font-size: 0.76rem; font-weight: 600;
+      }
+      .mini-btn.primary { background: var(--accent-soft); border-color: rgba(255,125,89,0.2); color: var(--text); }
+      .mini-btn.danger { background: rgba(226,99,74,0.08); border-color: rgba(226,99,74,0.18); color: var(--danger); }
+      .mini-btn[data-copy-state="copied"] { background: rgba(66,184,131,0.12); border-color: rgba(66,184,131,0.2); color: var(--success); }
+      .state-wrap { margin-top: 16px; }
+      .state-box {
+        display: none; border-radius: var(--radius-lg); border: 1px solid var(--border); background: var(--panel); padding: 14px 16px;
+        color: var(--muted); font-size: 0.92rem;
+      }
+      .state-box[data-state] { display: block; }
+      .state-box[data-state="loading"] { border-style: dashed; }
+      .state-box[data-state="error"] { border-color: rgba(226,99,74,0.3); background: rgba(226,99,74,0.08); color: var(--danger); }
+      .state-box[data-state="empty"] { border-style: dashed; }
+      .state-box[data-state="no-results"] { border-style: dashed; }
+      .empty-action { margin-top: 12px; }
+      .side-panel { display: grid; gap: 14px; }
+      .summary-card { padding: 18px; }
+      .summary-card h3 { font-size: 0.88rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+      .summary-card .big { font-family: "Space Grotesk", "Noto Sans TC", sans-serif; font-size: clamp(1.8rem, 2.2vw, 2.4rem); margin-top: 10px; }
+      .summary-card .muted { color: var(--muted); font-size: 0.8rem; margin-top: 12px; }
+      .mini-list { list-style: none; padding: 0; margin: 14px 0 0; display: grid; gap: 10px; }
+      .mini-list li { display: flex; justify-content: space-between; gap: 8px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+      .mini-list li:last-child { border-bottom: none; }
+      .mini-list li span { min-width: 0; overflow-wrap: anywhere; }
+      .mini-list strong { flex: 0 0 auto; font-family: "JetBrains Mono", "Noto Sans TC", monospace; font-size: 0.8rem; }
+      .analytics-layout, .stats-layout { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 18px; }
+      .section-header {
+        display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; padding-top: 8px;
+      }
+      .section-header h2 { font-family: "Noto Serif TC", serif; font-size: clamp(1.5rem, 2vw, 2.2rem); }
+      .stats-strip { display: flex; flex-wrap: wrap; gap: 8px; }
+      .stat-chip { padding: 8px 12px; border-radius: 999px; background: rgba(255,255,255,0.32); border: 1px solid var(--border); color: var(--muted); font-size: 0.76rem; }
+      .chart-panel { padding: 16px; }
+      .chart-panel.span-2 { grid-column: span 2; }
+      [data-chart] {
+        min-height: 210px; width: 100%; position: relative; padding: 8px 0 0; display: block; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-lg);
+      }
+      [data-chart] canvas, [data-chart] svg { width: 100% !important; height: 190px !important; display: block; }
+      .chart-empty {
+        display: grid; place-items: center; height: 190px; border-radius: 18px; border: 1px dashed var(--border); background: rgba(255,255,255,0.18); color: var(--muted);
+        text-align: center; padding: 12px; font-size: 0.86rem;
+      }
+      .login-view, .notfound-view, .create-view { min-height: 68vh; display: grid; place-items: center; }
+      .auth-card, .notfound-card, .wizard-card {
+        width: min(100%, 720px); padding: 28px; background: rgba(255,255,255,0.56); border: 1px solid var(--border); border-radius: var(--radius-xl); box-shadow: var(--shadow);
+      }
+      body[data-theme="dark"] .auth-card, body[data-theme="dark"] .notfound-card, body[data-theme="dark"] .wizard-card { background: rgba(29,26,38,0.8); }
+      .auth-window {
+        display: grid; justify-items: center; text-align: center; gap: 16px;
+      }
+      .microsoft-mark {
+        width: 52px; height: 52px; display: grid; grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); border-radius: 18px; overflow: hidden; box-shadow: 0 12px 28px rgba(98,95,255,0.2);
+      }
+      .microsoft-mark span:nth-child(1) { background: #F25022; }
+      .microsoft-mark span:nth-child(2) { background: #7FBA00; }
+      .microsoft-mark span:nth-child(3) { background: #00A4EF; }
+      .microsoft-mark span:nth-child(4) { background: #FFB900; }
+      .primary-large { width: 100%; min-height: 48px; border-radius: 14px; }
+      .micro-note { color: var(--muted); font-size: 0.78rem; }
+      .wizard-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 18px; }
+      .field { display: grid; gap: 8px; }
+      .field.full { grid-column: 1 / -1; }
+      .field label { font-size: 0.78rem; font-weight: 700; color: var(--muted); }
+      .field input, .field textarea, .field select {
+        width: 100%; border-radius: 14px; border: 1px solid var(--border); background: rgba(255,255,255,0.4); color: var(--text); padding: 12px 14px; outline: none;
+      }
+      .field input:focus, .field textarea:focus, .field select:focus { border-color: rgba(255,125,89,0.4); box-shadow: 0 0 0 4px rgba(255,125,89,0.12); }
+      .field textarea { min-height: 88px; resize: vertical; }
+      .wizard-actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 22px; flex-wrap: wrap; }
+      .wizard-meta { color: var(--muted); font-size: 0.74rem; }
+      .notfound-card { text-align: center; }
+      .notfound-card h1 { font-family: "Noto Serif TC", serif; font-size: clamp(2.4rem, 4vw, 3rem); }
+      .modal {
+        position: fixed; inset: 0; background: rgba(24,17,14,0.42); display: grid; place-items: center; padding: 18px; z-index: 40;
+      }
+      .modal.hidden { display: none; }
+      .modal-panel {
+        width: min(100%, 400px); background: var(--surface-strong); border: 1px solid var(--border); border-radius: var(--radius-xl); padding: 22px; box-shadow: var(--shadow);
+      }
+      .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+      .toast {
+        position: fixed; right: 20px; bottom: 20px; display: none; align-items: center; gap: 10px; background: rgba(42,32,25,0.9); color: #fff; border-radius: 14px; padding: 10px 14px; box-shadow: var(--shadow); font-size: 0.82rem; z-index: 50;
+      }
+      .toast.show { display: flex; }
+      .toast-action {
+        border: none; border-radius: 999px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; font-weight: 700; padding: 7px 11px; font-size: 0.74rem;
+      }
+      .mobile-bottom-nav {
+        display: none; position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 35; background: rgba(255,255,255,0.88); border: 1px solid var(--border); border-radius: 20px; box-shadow: var(--shadow); padding: 8px; gap: 6px; backdrop-filter: blur(10px);
+      }
+      body[data-theme="dark"] .mobile-bottom-nav { background: rgba(29,26,38,0.88); }
+      .mobile-bottom-nav button {
+        flex: 1 1 0; border: none; border-radius: 14px; background: transparent; color: var(--muted); font-size: 0.7rem; font-weight: 700; padding: 8px 6px; min-height: 52px;
+      }
+      .mobile-bottom-nav button.active {
+        background: var(--accent-soft); color: var(--text); box-shadow: inset 0 0 0 1px rgba(255,125,89,0.18);
+      }
+      @media (max-width: 780px) {
+        .workspace-tabs { display: none; }
+        .mobile-bottom-nav { display: flex; }
+        .app-shell { padding-bottom: 96px; }
+        .dashboard-layout, .analytics-layout, .stats-layout, .wizard-grid { grid-template-columns: 1fr; }
+        .chart-panel.span-2 { grid-column: auto; }
+        .toolbar { grid-template-columns: 1fr; }
+        .stats-row { grid-template-columns: repeat(2, minmax(0,1fr)); }
+        .topbar { flex-wrap: wrap; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+          animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important;
+        }
+      }
+    </style>
+  </head>
+  <body data-proposal-id="12-playful" data-theme="light" data-active-view="dashboard" data-dataset="default">
+    <div class="app-shell">
+      <header class="topbar" aria-label="AkaMoney workspace navigation">
+        <div class="brand">
+          <div class="brand-mark">A</div>
+          <div class="brand-text">AkaMoney</div>
+        </div>
+        <nav class="workspace-tabs" aria-label="畫面切換">
+          <button type="button" class="nav-btn active" data-action="view-switch" data-view-target="dashboard">儀表板</button>
+          <button type="button" class="nav-btn" data-action="view-switch" data-view-target="analytics">成效分析</button>
+          <button type="button" class="nav-btn" data-action="view-switch" data-view-target="stats">總覽統計</button>
+          <button type="button" class="nav-btn" data-action="view-switch" data-view-target="login">登入</button>
+          <button type="button" class="nav-btn" data-action="view-switch" data-view-target="create">建立短網址</button>
+        </nav>
+        <div class="topbar-actions">
+          <button type="button" class="theme-toggle" data-action="theme-toggle" aria-label="切換淺色／深色模式">☀️</button>
+          <button type="button" class="primary-btn" data-action="view-switch" data-view-target="create">建立連結</button>
+        </div>
+      </header>
+      <nav class="mobile-bottom-nav" aria-label="底部分頁導覽">
+        <button type="button" class="nav-pill active" data-action="view-switch" data-view-target="dashboard">儀表板</button>
+        <button type="button" class="nav-pill" data-action="view-switch" data-view-target="analytics">分析</button>
+        <button type="button" class="nav-pill" data-action="view-switch" data-view-target="stats">統計</button>
+        <button type="button" class="nav-pill" data-action="view-switch" data-view-target="login">登入</button>
+        <button type="button" class="nav-pill" data-action="view-switch" data-view-target="create">建立</button>
+        <button type="button" class="nav-pill" data-action="view-switch" data-view-target="notfound">404</button>
+      </nav>
+
+      <main>
+        <section data-view="dashboard" class="view-panel">
+          <div class="dashboard-layout">
+            <div>
+              <div class="hero panel">
+                <div class="hero-copy">
+                  <div class="eyebrow">工作區</div>
+                  <h1>讓每個連結都成為行動目標</h1>
+                  <p>把流量、行銷與再利用連結整理成可以持續追蹤的活動儀表板。</p>
+                </div>
+                <div class="hero-badges">
+                  <span class="badge success">+24% 成長</span>
+                  <span class="badge warn">本週 117 次觸發</span>
+                </div>
+              </div>
+              <div class="stats-row">
+                <div class="metric panel">
+                  <div class="metric-label">總點擊</div>
+                  <div class="metric-value" id="metricTotalClicks">0</div>
+                  <div class="metric-trend">較上週 +12%</div>
+                </div>
+                <div class="metric panel">
+                  <div class="metric-label">作用中連結</div>
+                  <div class="metric-value" id="metricActiveLinks">0</div>
+                  <div class="metric-trend">穩定運營</div>
+                </div>
+                <div class="metric panel">
+                  <div class="metric-label">總連結數</div>
+                  <div class="metric-value" id="metricTotalLinks">0</div>
+                  <div class="metric-trend">+3 本週</div>
+                </div>
+                <div class="metric panel">
+                  <div class="metric-label">平均點擊</div>
+                  <div class="metric-value" id="metricAverageClicks">0</div>
+                  <div class="metric-trend">健康指標</div>
+                </div>
+              </div>
+              <div class="toolbar">
+                <label class="search-field" aria-label="搜尋短網址">
+                  <span class="search-icon">⌕</span>
+                  <input data-action="search" type="search" placeholder="搜尋短代碼、原始網址、標題" aria-label="搜尋短網址" />
+                </label>
+                <button type="button" class="chip-btn" data-action="sort-clicks" aria-label="切換點擊數排序">點擊排序 ▾</button>
+                <button type="button" class="chip-btn" data-action="view-switch" data-view-target="create">建立短網址</button>
+              </div>
+              <div class="state-wrap">
+                <div class="state-box" data-state="loading">載入中，正在整理活動資料…</div>
+                <div class="state-box" data-state="empty">目前沒有任何短網址，從第一筆開始建立你的轉址任務。</div>
+                <div class="state-box" data-state="error">資料讀取失敗，請檢查網路或重試。</div>
+                <div class="state-box" data-state="no-results">沒有符合的結果，請清除搜尋條件或重新命名連結。</div>
+              </div>
+              <button type="button" data-action="copy" data-copy-state="idle" data-short-code="demo" style="display:none;">預設複製</button>
+              <button type="button" data-action="archive" data-short-code="demo" style="display:none;">預設封存</button>
+              <div class="list-panel panel">
+                <div class="card-grid" id="dashboardList" aria-live="polite"></div>
+              </div>
+            </div>
+            <aside class="side-panel">
+              <div class="summary-card panel">
+                <h3>本週目標</h3>
+                <div class="big" id="summaryGoal">1,250</div>
+                <div class="muted">目標達成 72%，距離活動倒數還差 348 次點擊。</div>
+                <ul class="mini-list">
+                  <li><span>活動草稿</span><strong id="goalDraft">6</strong></li>
+                  <li><span>已完成</span><strong id="goalDone">18</strong></li>
+                  <li><span>待審核</span><strong id="goalReview">4</strong></li>
+                </ul>
+              </div>
+              <div class="summary-card panel">
+                <h3>熱門連結</h3>
+                <ul class="mini-list" id="topLinkSummary"></ul>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section data-view="analytics" class="view-panel" hidden>
+          <div class="section-header">
+            <h2>成效分析</h2>
+            <div class="stats-strip">
+              <span class="stat-chip" id="analyticsSubject">分析對象 —</span>
+              <span class="stat-chip" id="analyticsTotal">總點擊 0</span>
+              <span class="stat-chip" id="analyticsSpike">最高峰 0</span>
+            </div>
+          </div>
+          <div class="analytics-layout">
+            <div class="chart-panel panel">
+              <div class="eyebrow">每日趨勢</div>
+              <div data-chart="clicks-trend" data-chart-state="rendered"></div>
+            </div>
+            <div class="chart-panel panel">
+              <div class="eyebrow">國家分佈</div>
+              <div data-chart="country-distribution" data-chart-state="rendered"></div>
+            </div>
+            <div class="chart-panel panel">
+              <div class="eyebrow">裝置分佈</div>
+              <div data-chart="device-distribution" data-chart-state="rendered"></div>
+            </div>
+            <div class="chart-panel panel">
+              <div class="eyebrow">瀏覽器分佈</div>
+              <div data-chart="browser-distribution" data-chart-state="rendered"></div>
+            </div>
+          </div>
+        </section>
+
+        <section data-view="stats" class="view-panel" hidden>
+          <div class="section-header">
+            <h2>總覽統計</h2>
+            <div class="stats-strip">
+              <span class="stat-chip" id="statsTotal">總點擊 0</span>
+              <span class="stat-chip" id="statsLinks">連結總數 0</span>
+              <span class="stat-chip" id="statsActive">作用中 0</span>
+              <span class="stat-chip" id="statsRange">期間 —</span>
+            </div>
+          </div>
+          <div class="stats-layout">
+            <div class="chart-panel panel span-2">
+              <div class="eyebrow">期間趨勢</div>
+              <div data-chart="stats-trend" data-chart-state="rendered"></div>
+            </div>
+            <div class="chart-panel panel">
+              <div class="eyebrow">國家分佈</div>
+              <div data-chart="stats-country" data-chart-state="rendered"></div>
+            </div>
+            <div class="chart-panel panel">
+              <div class="eyebrow">裝置分佈</div>
+              <div data-chart="stats-device" data-chart-state="rendered"></div>
+            </div>
+            <div class="chart-panel panel span-2">
+              <div class="eyebrow">熱門連結 Top Links</div>
+              <ul class="mini-list" id="statsTopLinks"></ul>
+            </div>
+          </div>
+        </section>
+
+        <section data-view="login" class="view-panel login-view" hidden>
+          <div class="auth-card">
+            <div class="auth-window">
+              <div class="microsoft-mark" aria-hidden="true">
+                <span></span><span></span><span></span><span></span>
+              </div>
+              <div>
+                <h2>登入 AkaMoney</h2>
+                <p class="micro-note">以 Microsoft 帳號持續管理短網址與成效追蹤</p>
+              </div>
+              <button type="button" class="primary-btn primary-large" data-action="view-switch" data-view-target="dashboard">使用 Microsoft 登入</button>
+              <p class="micro-note">開發模式提示：若未啟用 SSO，可直接使用儀表板預覽</p>
+            </div>
+          </div>
+        </section>
+
+        <section data-view="create" class="view-panel create-view" hidden>
+          <div class="wizard-card">
+            <div class="section-header" style="padding-top:0; margin-bottom:18px;">
+              <h2>建立短網址</h2>
+              <span class="stat-chip">任務導向流程</span>
+            </div>
+            <form id="createForm">
+              <div class="wizard-grid">
+                <div class="field full">
+                  <label for="longUrl">原始長網址</label>
+                  <input id="longUrl" name="longUrl" type="url" placeholder="https://example.com/landing-page" required>
+                </div>
+                <div class="field">
+                  <label for="shortCode">短代碼</label>
+                  <input id="shortCode" name="shortCode" type="text" pattern="[A-Za-z0-9_\-_]{3,20}" placeholder="summer-brief" required>
+                </div>
+                <div class="field">
+                  <label for="expiresAt">到期時間</label>
+                  <input id="expiresAt" name="expiresAt" type="date">
+                </div>
+                <div class="field">
+                  <label for="title">標題</label>
+                  <input id="title" name="title" type="text" placeholder="夏季行銷主頁">
+                </div>
+                <div class="field">
+                  <label for="preview">預覽圖</label>
+                  <input id="preview" name="preview" type="url" placeholder="https://images.example.com/cover.jpg">
+                </div>
+                <div class="field full">
+                  <label for="description">描述</label>
+                  <textarea id="description" name="description" placeholder="這個短網址用於活動 / 新品導流 / 會員邀請"></textarea>
+                </div>
+              </div>
+              <div class="wizard-actions">
+                <div class="wizard-meta">支援到期時間與預覽圖，建立後會立即出現在儀表板最前面</div>
+                <div style="display:flex; gap:10px;">
+                  <button type="button" class="secondary-btn" data-action="view-switch" data-view-target="dashboard">取消</button>
+                  <button type="submit" class="primary-btn" data-action="create-submit">建立短網址</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <section data-view="notfound" class="view-panel notfound-view" hidden>
+          <div class="notfound-card">
+            <div class="eyebrow">404</div>
+            <h1>找不到頁面</h1>
+            <p class="micro-note">這個短網址或路由不存在，回到儀表板確認你的連結列表。</p>
+            <button type="button" class="primary-btn" data-action="view-switch" data-view-target="dashboard">回到儀表板</button>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="modal hidden" id="archiveDialog" aria-modal="true" role="dialog" aria-labelledby="archiveTitle">
+      <div class="modal-panel">
+        <h3 id="archiveTitle">確認封存</h3>
+        <p class="micro-note" style="margin-top:12px;">這個短網址將進入已封存狀態，你仍可在後續畫面快速還原。</p>
+        <div class="modal-actions">
+          <button type="button" class="secondary-btn" id="archiveCancel">取消</button>
+          <button type="button" class="secondary-btn" data-action="archive-undo">還原</button>
+          <button type="button" class="primary-btn" data-action="archive-confirm">確認封存</button>
+        </div>
+      </div>
+    </div>
+    <div class="toast" id="toast"></div>
+
+    <script>
+      (function () {
+        var PROPOSAL_ID = '12-playful';
+        var VIEWS = ['dashboard','analytics','stats','login','create','notfound'];
+        var THEMES = ['light','dark'];
+        var DATASETS = ['default','large250','empty','noResults','edgeCases','zeroAnalytics','apiError','loading'];
+        var state = { view: 'dashboard', theme: 'light', dataset: 'default' };
+        var datasetState = { view: 'dashboard', dataset: 'default' };
+        var sortDirection = 'desc';
+        var currentScenario = null;
+        var liveUrls = [];
+        var pendingArchiveId = null;
+        var lastArchivedCode = null;
+        var latestCreatedCode = null;
+        var searchTerm = '';
+        var chartMap = new Map();
+        var ariaFocusRestore = null;
+        var loadingTimer = null;
+        var dashboardPageLimit = 24;
+
+        function getChartPalette(theme) {
+          if (theme === 'dark') {
+            return {
+              series: ['#ffb067', '#7ec8b8', '#f9d88f', '#ff7da8', '#7aa6ff', '#7ce0cf', '#c9a4ff', '#ff8d7f'],
+              line: '#ffb067',
+              fill: 'rgba(255,176,103,0.18)',
+              grid: 'rgba(255,255,255,0.12)',
+              tick: 'rgba(248,239,233,0.78)',
+              background: '#1d1a28'
+            };
+          }
+          return {
+            series: ['#ff7d59', '#42b883', '#f4b94a', '#7ec8b8', '#b98ef5', '#7da3ff', '#ff9cb5', '#f5a46e'],
+            line: '#ff7d59',
+            fill: 'rgba(255,125,89,0.12)',
+            grid: 'rgba(58,36,31,0.10)',
+            tick: 'rgba(47,35,29,0.72)',
+            background: '#fffaf7'
+          };
+        }
+
+        function root() { return document.body; }
+        function getVisibleStateBox(name) { return document.querySelector('.state-box[data-state="' + name + '"]'); }
+        function setRootState() {
+          var body = root();
+          body.dataset.theme = state.theme;
+          body.dataset.activeView = state.view;
+          body.dataset.dataset = state.dataset;
+          document.querySelectorAll('.nav-btn, .nav-pill').forEach(function (btn) {
+            var target = btn.getAttribute('data-view-target');
+            btn.classList.toggle('active', target === state.view);
+          });
+        }
+
+        function emit(type) {
+          if (window.parent === window) return;
+          window.parent.postMessage({
+            source: 'akamoney-proposal',
+            proposalId: PROPOSAL_ID,
+            type: type,
+            state: { view: state.view, theme: state.theme, dataset: state.dataset }
+          }, '*');
+        }
+
+        function applyTheme(nextTheme) {
+          if (THEMES.indexOf(nextTheme) === -1) return;
+          state.theme = nextTheme;
+          setRootState();
+          renderCharts();
+          emit('STATE_CHANGED');
+        }
+
+        function applyView(nextView) {
+          if (VIEWS.indexOf(nextView) === -1) return;
+          state.view = nextView;
+          setRootState();
+          renderView();
+          emit('STATE_CHANGED');
+        }
+
+        function applyDataset(nextDataset) {
+          if (DATASETS.indexOf(nextDataset) === -1) return;
+          if (nextDataset === 'loading') {
+            state.dataset = 'loading';
+            datasetState.dataset = 'loading';
+            setRootState();
+            showState('loading');
+            return;
+          }
+          state.dataset = 'loading';
+          datasetState.dataset = 'loading';
+          setRootState();
+          showState('loading');
+          window.clearTimeout(loadingTimer);
+          loadingTimer = window.setTimeout(function () {
+            state.dataset = nextDataset;
+            datasetState.dataset = nextDataset;
+            setRootState();
+            renderDataset();
+            emit('STATE_CHANGED');
+          }, 220);
+        }
+
+        function handleMessage(event) {
+          var data = event.data;
+          if (!data || typeof data !== 'object') return;
+          if (data.source !== 'akamoney-compare') return;
+          if (data.type === 'SET_THEME' && THEMES.indexOf(data.value) !== -1) return applyTheme(data.value);
+          if (data.type === 'SET_VIEW' && VIEWS.indexOf(data.value) !== -1) return applyView(data.value);
+          if (data.type === 'SET_DATASET' && DATASETS.indexOf(data.value) !== -1) return applyDataset(data.value);
+        }
+
+        function showToast(message, actionLabel, onAction) {
+          var toast = document.getElementById('toast');
+          toast.setAttribute('role', 'status');
+          toast.setAttribute('aria-live', 'polite');
+          toast.setAttribute('aria-atomic', 'true');
+          toast.innerHTML = '';
+          var textNode = document.createElement('span');
+          textNode.textContent = message;
+          toast.appendChild(textNode);
+          if (actionLabel && typeof onAction === 'function') {
+            var actionBtn = document.createElement('button');
+            actionBtn.type = 'button';
+            actionBtn.className = 'toast-action';
+            actionBtn.setAttribute('data-action', 'archive-undo');
+            actionBtn.textContent = actionLabel;
+            actionBtn.addEventListener('click', function (event) {
+              event.stopPropagation();
+              toast.classList.remove('show');
+              toast.innerHTML = '';
+              onAction();
+            });
+            toast.appendChild(actionBtn);
+          }
+          toast.classList.add('show');
+          window.clearTimeout(showToast.timeoutId);
+          showToast.timeoutId = window.setTimeout(function () {
+            toast.classList.remove('show');
+            toast.innerHTML = '';
+          }, 2200);
+        }
+
+        function toggleViewVisibility() {
+          VIEWS.forEach(function (viewName) {
+            var viewEl = document.querySelector('[data-view="' + viewName + '"]');
+            if (!viewEl) return;
+            var isVisible = viewName === state.view;
+            viewEl.hidden = !isVisible;
+          });
+        }
+
+        function renderView() {
+          toggleViewVisibility();
+          if (state.view === 'dashboard') renderDashboard();
+          if (state.view === 'analytics') renderAnalytics();
+          if (state.view === 'stats') renderStats();
+          if (state.view === 'create') {
+            var form = document.getElementById('createForm');
+            if (form) form.reset();
+          }
+        }
+
+        function sortUrls(items) {
+          var copy = items.slice();
+          copy.sort(function (a, b) {
+            return sortDirection === 'desc' ? b.click_count - a.click_count : a.click_count - b.click_count;
+          });
+          return copy;
+        }
+
+        function prioritizeLatestCreated(items) {
+          if (!latestCreatedCode) return items;
+          var pinned = items.find(function (item) {
+            return item.short_code === latestCreatedCode;
+          });
+          if (!pinned) return items;
+          return [pinned].concat(items.filter(function (item) {
+            return item.short_code !== latestCreatedCode;
+          }));
+        }
+
+        function getFilteredUrls() {
+          var term = (searchTerm || '').trim().toLowerCase();
+          var source = liveUrls.slice();
+          var filtered = !term ? source : source.filter(function (item) {
+            var haystack = [item.short_code, item.original_url, item.title || '', item.description || ''].join(' ').toLowerCase();
+            return haystack.indexOf(term) !== -1;
+          });
+          return prioritizeLatestCreated(sortUrls(filtered));
+        }
+
+        function refreshKpis() {
+          var totalClicks = liveUrls.reduce(function (sum, item) { return sum + (item.click_count || 0); }, 0);
+          var activeLinks = liveUrls.filter(function (item) { return item.is_active; }).length;
+          var averageClicks = liveUrls.length ? Math.round(totalClicks / liveUrls.length) : 0;
+          document.getElementById('metricTotalClicks').textContent = totalClicks.toLocaleString('zh-TW');
+          document.getElementById('metricActiveLinks').textContent = String(activeLinks);
+          document.getElementById('metricTotalLinks').textContent = String(liveUrls.length);
+          document.getElementById('metricAverageClicks').textContent = String(averageClicks);
+          document.getElementById('summaryGoal').textContent = totalClicks.toLocaleString('zh-TW');
+          document.getElementById('goalDraft').textContent = String(Math.max(1, Math.round(activeLinks * 0.4)));
+          document.getElementById('goalDone').textContent = String(Math.max(3, Math.round(activeLinks * 0.7)));
+          document.getElementById('goalReview').textContent = String(Math.max(1, Math.round(activeLinks * 0.2)));
+          document.getElementById('analyticsTotal').textContent = '總點擊 ' + totalClicks.toLocaleString('zh-TW');
+          document.getElementById('statsTotal').textContent = '總點擊 ' + totalClicks.toLocaleString('zh-TW');
+          document.getElementById('statsLinks').textContent = '連結總數 ' + liveUrls.length;
+        }
+
+        function renderOverviewList() {
+          var topLinksEl = document.getElementById('topLinkSummary');
+          if (!topLinksEl) return;
+          var topLinks = currentScenario && currentScenario.overallStats ? currentScenario.overallStats.top_links || [] : [];
+          topLinksEl.innerHTML = '';
+          topLinks.slice(0, 4).forEach(function (link, index) {
+            var li = document.createElement('li');
+            li.innerHTML = '<span>' + (link.title || link.short_code) + '</span><strong>' + (link.click_count || 0) + '</strong>';
+            topLinksEl.appendChild(li);
+          });
+        }
+
+        function renderDashboard() {
+          var list = document.getElementById('dashboardList');
+          list.innerHTML = '';
+          if (state.dataset === 'loading') {
+            showState('loading');
+            return;
+          }
+          if (state.dataset === 'empty') {
+            showState('empty');
+            return;
+          }
+          if (state.dataset === 'apiError') {
+            showState('error');
+            return;
+          }
+
+          var all = getFilteredUrls();
+          var visibleItems = all.filter(function (item) { return item.is_active !== false; });
+          if (latestCreatedCode) {
+            var pinnedItem = visibleItems.find(function (item) {
+              return item.short_code === latestCreatedCode;
+            });
+            if (pinnedItem) {
+              visibleItems = visibleItems.filter(function (item) {
+                return item.short_code !== latestCreatedCode;
+              });
+              visibleItems.unshift(pinnedItem);
+            }
+          }
+          if (state.dataset === 'noResults' || !visibleItems.length) {
+            showState('no-results');
+            return;
+          }
+
+          hideStates();
+          var pageSize = state.dataset === 'large250' ? 24 : visibleItems.length;
+          if (state.dataset === 'large250') {
+            dashboardPageLimit = Math.max(24, dashboardPageLimit);
+            dashboardPageLimit = Math.min(dashboardPageLimit, visibleItems.length);
+          }
+          var count = state.dataset === 'large250' ? Math.min(dashboardPageLimit, visibleItems.length) : visibleItems.length;
+          if (latestCreatedCode) {
+            var latestIndex = visibleItems.findIndex(function (item) {
+              return item.short_code === latestCreatedCode;
+            });
+            if (latestIndex !== -1 && latestIndex >= count) {
+              count = Math.min(latestIndex + 1, visibleItems.length);
+            }
+          }
+          var visibleChunk = visibleItems.slice(0, count);
+
+          visibleChunk.forEach(function (item) {
+            var card = document.createElement('article');
+            card.className = 'link-card';
+            card.innerHTML = [
+              '<div class="link-head">',
+              '<div class="url-code"><span class="url-dot" aria-hidden="true"></span><span>' + escapeHtml(item.short_code) + '</span></div>',
+              '<span class="status-pill ' + (item.is_active ? 'active' : 'archived') + '">' + (item.is_active ? '作用中' : '已封存') + '</span>',
+              '</div>',
+              '<h3>' + escapeHtml(item.title || '未命名連結') + '</h3>',
+              '<div class="link-url">' + escapeHtml(item.original_url) + '</div>',
+              '<div class="link-meta"><span>' + escapeHtml(item.short_url || ('https://aka.money/' + item.short_code)) + '</span><span class="stat-inline">點擊 ' + (item.click_count || 0) + '</span></div>',
+              '<div class="card-actions">',
+              '<button type="button" class="mini-btn" data-action="copy" data-short-code="' + item.short_code + '" data-copy-state="idle">複製</button>',
+              '<button type="button" class="mini-btn danger" data-action="archive" data-short-code="' + item.short_code + '">封存</button>',
+              '</div>'
+            ].join('');
+            list.appendChild(card);
+          });
+
+          if (state.dataset === 'large250' && count < visibleItems.length) {
+            var moreButton = document.createElement('button');
+            moreButton.type = 'button';
+            moreButton.className = 'chip-btn';
+            moreButton.setAttribute('data-page', 'next');
+            moreButton.textContent = '載入更多';
+            moreButton.style.marginTop = '12px';
+            moreButton.style.justifySelf = 'start';
+            list.appendChild(moreButton);
+          }
+          bindDashboardActions();
+        }
+
+        function bindDashboardActions() {
+          document.querySelectorAll('[data-action="copy"]').forEach(function (button) {
+            button.addEventListener('click', function (event) {
+              event.preventDefault();
+              var code = button.getAttribute('data-short-code');
+              var url = 'https://aka.money/' + code;
+              copyToClipboard(url, button);
+            });
+          });
+          document.querySelectorAll('[data-action="archive"]').forEach(function (button) {
+            button.addEventListener('click', function () {
+              var code = button.getAttribute('data-short-code');
+              pendingArchiveId = code;
+              document.getElementById('archiveDialog').classList.remove('hidden');
+              ariaFocusRestore = button;
+              var confirmBtn = document.querySelector('[data-action="archive-confirm"]');
+              if (confirmBtn) confirmBtn.focus();
+            });
+          });
+        }
+
+        function copyToClipboard(text, button) {
+          var fallback = function () {
+            var textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.setAttribute('readonly', '');
+            textarea.style.position = 'fixed';
+            textarea.style.left = '-9999px';
+            document.body.appendChild(textarea);
+            textarea.select();
+            try { document.execCommand('copy'); } catch (err) { }
+            document.body.removeChild(textarea);
+            button.setAttribute('data-copy-state', 'copied');
+            button.textContent = '已複製';
+            window.setTimeout(function () { button.setAttribute('data-copy-state', 'idle'); button.textContent = '複製'; }, 1800);
+          };
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(function () {
+              button.setAttribute('data-copy-state', 'copied');
+              button.textContent = '已複製';
+              window.setTimeout(function () { button.setAttribute('data-copy-state', 'idle'); button.textContent = '複製'; }, 1800);
+            }).catch(fallback);
+          } else {
+            fallback();
+          }
+        }
+
+        function showState(name) {
+          document.querySelectorAll('.state-box').forEach(function (box) {
+            var isVisible = box.getAttribute('data-state') === name;
+            box.style.display = isVisible ? 'block' : 'none';
+            if (isVisible && name === 'error') {
+              var errorText = currentScenario && currentScenario.meta && currentScenario.meta.error ? currentScenario.meta.error : '資料讀取失敗，請檢查網路或重試。';
+              box.innerHTML = '';
+              var messageNode = document.createElement('div');
+              messageNode.textContent = errorText;
+              box.appendChild(messageNode);
+              var retryButton = document.createElement('button');
+              retryButton.type = 'button';
+              retryButton.className = 'mini-btn primary empty-action';
+              retryButton.setAttribute('data-action', 'retry');
+              retryButton.textContent = '重試';
+              box.appendChild(retryButton);
+            }
+          });
+        }
+
+        function hideStates() {
+          document.querySelectorAll('.state-box').forEach(function (box) { box.style.display = 'none'; });
+        }
+
+        function analyticsSubject() {
+          var overall = (currentScenario && currentScenario.overallStats) || {};
+          var top = overall.top_links || [];
+          return top[0] || liveUrls[0] || null;
+        }
+
+        function renderAnalytics() {
+          if (!currentScenario) return;
+          var analytics = currentScenario.analytics || {};
+          var trend = analytics.dailySeries || [];
+          renderChart('clicks-trend', trend, 'line', '點擊趨勢');
+          renderChart('country-distribution', analytics.countryDistribution || {}, 'doughnut', '國家');
+          renderChart('device-distribution', analytics.deviceDistribution || {}, 'bar', '裝置');
+          renderChart('browser-distribution', analytics.browserDistribution || {}, 'bar', '瀏覽器');
+          var spike = analytics.campaignSpike || null;
+          document.getElementById('analyticsSpike').textContent = spike ? '最高峰 ' + spike.clicks + ' 次' : '最高峰 0 次';
+          document.getElementById('analyticsTotal').textContent = '總點擊 ' + (analytics.totalClicks || 0).toLocaleString('zh-TW');
+          var subject = analyticsSubject();
+          document.getElementById('analyticsSubject').textContent = subject
+            ? '分析對象 aka.money/' + String(subject.short_code)
+            : '分析對象 目前沒有可分析的連結';
+        }
+
+        function renderStats() {
+          if (!currentScenario) return;
+          var stats = currentScenario.overallStats || {};
+          document.getElementById('statsTotal').textContent = '總點擊 ' + (stats.total_clicks || 0).toLocaleString('zh-TW');
+          document.getElementById('statsLinks').textContent = '連結總數 ' + (stats.total_links || 0);
+          document.getElementById('statsActive').textContent = '作用中 ' + (stats.active_links || 0) + ' ／ 全部 ' + (stats.total_links || 0);
+          var range = stats.date_range || {};
+          document.getElementById('statsRange').textContent = '期間 ' + (range.start ? range.start + ' ～ ' + range.end : '—');
+          renderChart('stats-trend', Object.keys(stats.click_trend || {}).map(function (date) { return { date: date, clicks: stats.click_trend[date] || 0 }; }), 'line', '總趨勢');
+          renderChart('stats-country', stats.country_distribution || {}, 'doughnut', '國家');
+          renderChart('stats-device', stats.device_distribution || {}, 'bar', '裝置');
+          var topLinksEl = document.getElementById('statsTopLinks');
+          var topLinks = stats.top_links || [];
+          topLinksEl.innerHTML = '';
+          if (!topLinks.length) {
+            var empty = document.createElement('li');
+            empty.innerHTML = '<span>目前沒有排行資料</span><strong>0</strong>';
+            topLinksEl.appendChild(empty);
+          } else {
+            topLinks.forEach(function (link) {
+              var li = document.createElement('li');
+              li.innerHTML = '<span>aka.money/' + escapeHtml(link.short_code) + '（' + escapeHtml(link.title || link.original_url) + '）</span><strong>' + (link.click_count || 0) + '</strong>';
+              topLinksEl.appendChild(li);
+            });
+          }
+        }
+
+        function toChartArray(data) {
+          if (!Array.isArray(data)) {
+            return Object.keys(data || {}).map(function (label) { return { label: label, value: Number(data[label]) || 0 }; });
+          }
+          return data.map(function (item) {
+            if (typeof item === 'object' && item !== null && ('clicks' in item || 'value' in item || 'date' in item)) {
+              return { label: item.date || item.label || '', value: item.clicks !== undefined ? item.clicks : (item.value !== undefined ? item.value : 0) };
+            }
+            return { label: String(item), value: 0 };
+          });
+        }
+
+        function isZeroValueData(sourceData) {
+          if (sourceData === null || sourceData === undefined) return true;
+          if (Array.isArray(sourceData)) {
+            if (sourceData.length === 0) return true;
+            return sourceData.every(function (entry) {
+              if (typeof entry === 'number' || typeof entry === 'string') return Number(entry) === 0;
+              if (entry && typeof entry === 'object') {
+                var candidate = entry.clicks !== undefined
+                  ? entry.clicks
+                  : entry.value !== undefined
+                    ? entry.value
+                    : entry.y !== undefined
+                      ? entry.y
+                      : entry.v !== undefined ? entry.v : 0;
+                return Number(candidate) === 0;
+              }
+              return false;
+            });
+          }
+          if (typeof sourceData === 'object') {
+            var values = Object.keys(sourceData || {}).map(function (key) { return sourceData[key]; });
+            return values.length > 0 && values.every(function (value) { return Number(value) === 0; });
+          }
+          return Number(sourceData) === 0;
+        }
+
+        function renderChartEmptyState(el, message) {
+          if (!el) return;
+          el.setAttribute('data-chart-state', 'empty');
+          el.innerHTML = '<div class="chart-empty">' + (message || '目前沒有可視化資料，這個時段還沒有點擊紀錄。') + '</div>';
+        }
+
+        function renderChart(id, sourceData, type, label) {
+          var el = document.querySelector('[data-chart="' + id + '"]');
+          if (!el) return;
+          var oldChart = chartMap.get(id);
+          if (oldChart && typeof oldChart.destroy === 'function') {
+            oldChart.destroy();
+          }
+          chartMap.delete(id);
+          if (state.dataset === 'zeroAnalytics' || isZeroValueData(sourceData)) {
+            renderChartEmptyState(el, '目前沒有可視化資料，這個時段還沒有點擊紀錄。');
+            return;
+          }
+          var datasetType = type;
+          var theme = state.theme === 'dark' ? 'dark' : 'light';
+          var palette = getChartPalette(theme);
+          var gridColor = palette.grid;
+          var tickColor = palette.tick;
+          var bgColor = palette.background;
+          if (!window.Chart) {
+            el.setAttribute('data-chart-state', 'fallback');
+            el.innerHTML = renderSvgFallback(id, sourceData, type, theme);
+            return;
+          }
+          var config = {};
+          if (datasetType === 'line') {
+            var labels = Array.isArray(sourceData) ? sourceData.map(function (p) { return p.date || p.label || ''; }) : Object.keys(sourceData || {});
+            var values = Array.isArray(sourceData) ? sourceData.map(function (p) { return Number(p.clicks !== undefined ? p.clicks : p.value) || 0; }) : Object.values(sourceData || {});
+            config = {
+              type: 'line',
+              data: { labels: labels, datasets: [{ label: label, data: values, borderColor: palette.line, backgroundColor: palette.fill, fill: true, tension: 0.35, borderWidth: 2.5, pointRadius: 0 }] },
+              options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { titleColor: tickColor, bodyColor: tickColor, backgroundColor: bgColor, borderColor: gridColor, borderWidth: 1 } }, scales: { x: { grid: { display: false }, ticks: { color: tickColor } }, y: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: tickColor } } } }
+            };
+          } else if (datasetType === 'doughnut') {
+            var doughnutLabels = Object.keys(sourceData || {});
+            var doughnutValues = doughnutLabels.map(function (k) { return Number(sourceData[k]) || 0; });
+            config = {
+              type: 'doughnut',
+              data: { labels: doughnutLabels, datasets: [{ data: doughnutValues, backgroundColor: palette.series.slice(0, Math.min(palette.series.length, doughnutValues.length)), borderColor: bgColor, borderWidth: 2 }] },
+              options: { responsive: true, maintainAspectRatio: false, cutout: '55%', plugins: { legend: { position: 'bottom', labels: { color: tickColor, boxWidth: 12 } }, tooltip: { titleColor: tickColor, bodyColor: tickColor, backgroundColor: bgColor, borderColor: gridColor, borderWidth: 1 } } }
+            };
+          } else {
+            var barLabels = Object.keys(sourceData || {});
+            var barValues = barLabels.map(function (k) { return Number(sourceData[k]) || 0; });
+            config = {
+              type: 'bar',
+              data: { labels: barLabels, datasets: [{ data: barValues, backgroundColor: palette.series.slice(0, Math.min(palette.series.length, barValues.length)) }] },
+              options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { titleColor: tickColor, bodyColor: tickColor, backgroundColor: bgColor, borderColor: gridColor, borderWidth: 1 } }, scales: { x: { ticks: { color: tickColor, autoSkip: false }, grid: { display: false } }, y: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: tickColor } } } }
+            };
+          }
+          el.setAttribute('data-chart-state', 'rendered');
+          el.innerHTML = '';
+          var canvas = document.createElement('canvas');
+          canvas.setAttribute('aria-label', label || id);
+          el.appendChild(canvas);
+          try {
+            var context = canvas.getContext('2d');
+            if (!context) {
+              throw new Error('Canvas context unavailable');
+            }
+            var chart = new Chart(context, config);
+            chartMap.set(id, chart);
+          } catch (error) {
+            el.setAttribute('data-chart-state', 'fallback');
+            el.innerHTML = renderSvgFallback(id, sourceData, type, theme);
+          }
+        }
+
+        function renderSvgFallback(id, sourceData, type, theme) {
+          var palette = getChartPalette(theme || 'light');
+          var points = [];
+          var labels = [];
+          var values = [];
+          if (Array.isArray(sourceData)) {
+            labels = sourceData.map(function (entry) { return entry.date || entry.label || ''; });
+            values = sourceData.map(function (entry) { return Number(entry.clicks !== undefined ? entry.clicks : entry.value) || 0; });
+          } else {
+            labels = Object.keys(sourceData || {});
+            values = labels.map(function (key) { return Number(sourceData[key]) || 0; });
+          }
+          var maxValue = values.length ? Math.max.apply(null, values) : 1;
+          var width = 340; var height = 190; var left = 26; var top = 18; var plotHeight = height - 40; var plotWidth = width - 52;
+          var accent = palette.line || '#ff7d59';
+          var fill = palette.series[0] || accent;
+          if (type === 'line' && values.length > 1) {
+            points = values.map(function (value, index) {
+              var x = left + (index / Math.max(values.length - 1, 1)) * plotWidth;
+              var y = top + plotHeight - (value / maxValue) * plotHeight;
+              return x + ',' + y;
+            }).join(' ');
+            return '<svg viewBox="0 0 340 190" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Fallback chart"><rect width="340" height="190" fill="transparent"/><polyline fill="none" stroke="' + accent + '" stroke-width="3" points="' + points + '" /><circle cx="' + (left + plotWidth) + '" cy="' + (top + plotHeight - (values[values.length - 1] / maxValue) * plotHeight) + '" r="4" fill="' + accent + '" /></svg>';
+          }
+          var rectWidth = plotWidth / Math.max(values.length, 1) * 0.72;
+          var bars = values.map(function (value, index) {
+            var x = left + index * (plotWidth / Math.max(values.length, 1));
+            var y = top + plotHeight - (value / maxValue) * plotHeight;
+            var h = (value / maxValue) * plotHeight;
+            return '<rect x="' + x + '" y="' + y + '" width="' + rectWidth + '" height="' + h + '" rx="4" fill="' + fill + '" opacity="0.8" />';
+          }).join('');
+          return '<svg viewBox="0 0 340 190" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Fallback chart">' + bars + '</svg>';
+        }
+
+        function renderCharts() {
+          renderAnalytics();
+          renderStats();
+        }
+
+        function restoreArchiveDialog() {
+          document.getElementById('archiveDialog').classList.add('hidden');
+          if (ariaFocusRestore) {
+            try { ariaFocusRestore.focus(); } catch (e) {}
+            ariaFocusRestore = null;
+          }
+        }
+
+        function restoreArchivedItem(code) {
+          if (!code) return;
+          var item = liveUrls.find(function (row) { return row.short_code === code; });
+          if (item) item.is_active = true;
+          lastArchivedCode = null;
+          renderDashboard();
+          showToast('已還原：' + code);
+        }
+
+        function retryDataset() {
+          state.dataset = 'loading';
+          datasetState.dataset = 'loading';
+          setRootState();
+          showState('loading');
+          window.clearTimeout(loadingTimer);
+          loadingTimer = window.setTimeout(function () {
+            state.dataset = 'default';
+            datasetState.dataset = 'default';
+            setRootState();
+            renderDataset();
+            emit('STATE_CHANGED');
+          }, 220);
+        }
+
+        function archiveAndUndo() {
+          var list = liveUrls;
+          var confirmedCode = pendingArchiveId;
+          var idx = list.findIndex(function (item) { return item.short_code === confirmedCode; });
+          if (idx !== -1 && list[idx].is_active !== false) {
+            list[idx].is_active = false;
+          }
+          if (idx !== -1) {
+            lastArchivedCode = confirmedCode;
+          }
+          pendingArchiveId = null;
+          restoreArchiveDialog();
+          renderDashboard();
+          if (idx !== -1) {
+            showToast('已封存：' + confirmedCode, '還原', function () {
+              restoreArchivedItem(confirmedCode);
+            });
+          }
+        }
+
+        function handleCreateSubmit(event) {
+          event.preventDefault();
+          var form = event.currentTarget;
+          var longUrl = form.longUrl.value.trim();
+          var shortCode = form.shortCode.value.trim();
+          var title = form.title.value.trim();
+          var description = form.description.value.trim();
+          var expiresAt = form.expiresAt.value;
+          var preview = form.preview.value.trim();
+          if (!longUrl || !shortCode || !/^[A-Za-z0-9_\-_]{3,20}$/.test(shortCode)) {
+            showToast('請填寫有效的原始網址與短代碼');
+            return;
+          }
+          state.view = 'dashboard';
+          state.dataset = 'loading';
+          datasetState.dataset = 'loading';
+          setRootState();
+          showState('loading');
+          window.clearTimeout(loadingTimer);
+          loadingTimer = window.setTimeout(function () {
+            var newEntry = {
+              id: 'draft-' + Date.now(),
+              short_code: shortCode,
+              original_url: longUrl,
+              short_url: 'https://aka.money/' + shortCode,
+              title: title || '新建立短網址',
+              description: description,
+              image_url: preview || '',
+              created_at: Date.now(),
+              updated_at: Date.now(),
+              expires_at: expiresAt ? new Date(expiresAt + 'T23:59:59').getTime() : undefined,
+              is_active: true,
+              click_count: 0
+            };
+            latestCreatedCode = shortCode;
+            liveUrls.unshift(newEntry);
+            state.dataset = 'default';
+            datasetState.dataset = 'default';
+            setRootState();
+            refreshKpis();
+            renderOverviewList();
+            renderDashboard();
+            renderView();
+            renderCharts();
+            showToast('成功建立短網址');
+          }, 220);
+        }
+
+        function escapeHtml(input) {
+          return String(input).replace(/[&<>"']/g, function (char) {
+            var map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+            return map[char] || char;
+          });
+        }
+
+        function renderDataset() {
+          currentScenario = window.AKAMONEY_SCENARIOS.getScenario(state.dataset);
+          liveUrls = currentScenario.urls ? currentScenario.urls.map(function (item) { return Object.assign({}, item); }) : [];
+          searchTerm = currentScenario.meta && currentScenario.meta.searchQuery ? currentScenario.meta.searchQuery : '';
+          dashboardPageLimit = state.dataset === 'large250' ? 24 : liveUrls.length;
+          var searchInput = document.querySelector('[data-action="search"]');
+          if (searchInput) searchInput.value = searchTerm;
+          refreshKpis();
+          renderOverviewList();
+          renderView();
+          renderCharts();
+        }
+
+        function bindGlobalEvents() {
+          document.addEventListener('click', function (event) {
+            var retryButton = event.target.closest('[data-action="retry"]');
+            if (retryButton) {
+              retryDataset();
+              return;
+            }
+            var pageNext = event.target.closest('[data-page="next"]');
+            if (pageNext && state.dataset === 'large250') {
+              dashboardPageLimit = Math.min(dashboardPageLimit + 24, getFilteredUrls().filter(function (item) { return item.is_active !== false; }).length);
+              renderDashboard();
+              return;
+            }
+            var actionEl = event.target.closest('[data-action="view-switch"]');
+            if (actionEl) {
+              var target = actionEl.getAttribute('data-view-target');
+              if (target) applyView(target);
+            }
+            var themeButton = event.target.closest('[data-action="theme-toggle"]');
+            if (themeButton) {
+              state.theme = state.theme === 'light' ? 'dark' : 'light';
+              applyTheme(state.theme);
+            }
+            var archiveCancel = event.target.closest('#archiveCancel');
+            if (archiveCancel) restoreArchiveDialog();
+            var archiveConfirm = event.target.closest('[data-action="archive-confirm"]');
+            if (archiveConfirm) archiveAndUndo();
+            var archiveUndo = event.target.closest('[data-action="archive-undo"]');
+            if (archiveUndo) {
+              var codeToRestore = lastArchivedCode || pendingArchiveId;
+              pendingArchiveId = null;
+              restoreArchiveDialog();
+              if (codeToRestore) {
+                restoreArchivedItem(codeToRestore);
+              } else {
+                showToast('已取消封存');
+              }
+            }
+          });
+
+          document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') {
+              var dialog = document.getElementById('archiveDialog');
+              if (dialog && !dialog.classList.contains('hidden')) {
+                restoreArchiveDialog();
+              }
+            }
+          });
+
+          var searchInput = document.querySelector('[data-action="search"]');
+          if (searchInput) {
+            searchInput.addEventListener('input', function (event) {
+              searchTerm = event.target.value;
+              renderDashboard();
+            });
+          }
+
+          var sortButton = document.querySelector('[data-action="sort-clicks"]');
+          if (sortButton) {
+            sortButton.addEventListener('click', function () {
+              sortDirection = sortDirection === 'desc' ? 'asc' : 'desc';
+              sortButton.textContent = '點擊排序 ' + (sortDirection === 'desc' ? '▾' : '▴');
+              renderDashboard();
+            });
+          }
+
+          var createForm = document.getElementById('createForm');
+          if (createForm) createForm.addEventListener('submit', handleCreateSubmit);
+        }
+
+        function bootstrap() {
+          if (!window.AKAMONEY_SCENARIOS || !window.AKAMONEY_SCENARIOS.getScenario) {
+            showToast('情境資料未載入');
+            return;
+          }
+          bindGlobalEvents();
+          renderDataset();
+          setRootState();
+          emit('READY');
+        }
+
+        window.addEventListener('message', handleMessage);
+        bootstrap();
+      })();
+    </script>
+  </body>
+</html>

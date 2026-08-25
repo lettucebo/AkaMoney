@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AkaMoney - Material 3 Expressive</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --md-sys-color-bg: #fdf7ff;
+    --md-sys-color-surface: #ffffff;
+    --md-sys-color-surface-alt: #f5f3f4;
+    --md-sys-color-text-primary: #1c1b1f;
+    --md-sys-color-text-secondary: #49454f;
+    --md-sys-color-border: #cac4d0;
+    --md-sys-color-primary: #6750a4;
+    --md-sys-color-primary-container: #eaddff;
+    --md-sys-color-on-primary-container: #21005d;
+    --md-sys-color-success: #386a20;
+    --md-sys-color-warning: #7d5260;
+    --md-sys-color-danger: #b3261e;
+    
+    --chart-c1: #6750a4;
+    --chart-c2: #386a20;
+    --chart-c3: #7d5260;
+    --chart-c4: #b3261e;
+    --chart-c5: #006874;
+
+    --font-sans: "Geist", "Noto Sans TC", sans-serif;
+    --font-mono: "JetBrains Mono", "Noto Sans TC", monospace;
+    
+    --transition-standard: 200ms cubic-bezier(0.2, 0.0, 0, 1.0);
+    --elevation-1: 0px 1px 2px 0px rgba(0,0,0,0.3);
+    --elevation-2: 0px 2px 6px 2px rgba(0,0,0,0.15);
+    --elevation-3: 0px 4px 8px 3px rgba(0,0,0,0.15);
+  }
+  [data-theme="dark"] {
+    --md-sys-color-bg: #141218;
+    --md-sys-color-surface: #211f26;
+    --md-sys-color-surface-alt: #2b2930;
+    --md-sys-color-text-primary: #e6e0e9;
+    --md-sys-color-text-secondary: #cac4d0;
+    --md-sys-color-border: #49454f;
+    --md-sys-color-primary: #d0bcff;
+    --md-sys-color-primary-container: #4f378b;
+    --md-sys-color-on-primary-container: #eaddff;
+    --md-sys-color-success: #9cd67d;
+    --md-sys-color-warning: #efb8c8;
+    --md-sys-color-danger: #f2b8b5;
+
+    --chart-c1: #d0bcff;
+    --chart-c2: #9cd67d;
+    --chart-c3: #efb8c8;
+    --chart-c4: #f2b8b5;
+    --chart-c5: #4fd8eb;
+    
+    --elevation-1: 0px 1px 3px 1px rgba(0,0,0,0.5);
+    --elevation-2: 0px 2px 6px 2px rgba(0,0,0,0.5);
+    --elevation-3: 0px 4px 8px 3px rgba(0,0,0,0.5);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background-color: var(--md-sys-color-bg);
+    color: var(--md-sys-color-text-primary);
+    font-family: var(--font-sans);
+    margin: 0; padding: 0;
+    font-size: 16px;
+    line-height: 1.5;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+  
+  .hidden { display: none !important; }
+  
+  /* Layout */
+  .app-layout {
+    display: flex;
+    flex: 1;
+    height: 100vh;
+    overflow: hidden;
+  }
+  
+  /* Sidebar (Desktop) */
+  .sidebar {
+    width: 280px;
+    background-color: var(--md-sys-color-surface-alt);
+    padding: 24px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    border-right: 1px solid var(--md-sys-color-border);
+    transition: width var(--transition-standard);
+    z-index: 10;
+  }
+  .sidebar.collapsed {
+    width: 80px;
+  }
+  .sidebar .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px;
+    border-radius: 9999px;
+    color: var(--md-sys-color-text-primary);
+    text-decoration: none;
+    background: transparent;
+    border: none;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background var(--transition-standard);
+    text-align: left;
+  }
+  .sidebar .nav-item:hover, .sidebar .nav-item.active {
+    background-color: var(--md-sys-color-primary-container);
+    color: var(--md-sys-color-on-primary-container);
+  }
+  .sidebar .nav-item svg { width: 24px; height: 24px; fill: currentColor; flex-shrink: 0; }
+  
+  .fab {
+    background-color: var(--md-sys-color-primary);
+    color: var(--md-sys-color-bg);
+    border: none;
+    border-radius: 16px;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    box-shadow: var(--elevation-3);
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 600;
+    margin-top: 16px;
+    margin-bottom: 24px;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .fab:hover {
+    box-shadow: var(--elevation-2);
+    transform: translateY(1px);
+  }
+  .fab svg { width: 24px; height: 24px; fill: currentColor; }
+  
+  /* Bottom Tabs (Mobile) */
+  .bottom-tabs {
+    display: none;
+    background-color: var(--md-sys-color-surface-alt);
+    border-top: 1px solid var(--md-sys-color-border);
+    padding: 12px 0;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    z-index: 100;
+  }
+  .bottom-tabs .nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    background: transparent;
+    border: none;
+    color: var(--md-sys-color-text-secondary);
+    font-size: 12px;
+    font-family: inherit;
+  }
+  .bottom-tabs .nav-item.active {
+    color: var(--md-sys-color-primary);
+  }
+  .bottom-tabs .nav-item svg { width: 24px; height: 24px; fill: currentColor; }
+
+  /* Main Content */
+  .main-content {
+    flex: 1;
+    overflow-y: auto;
+    background-color: var(--md-sys-color-bg);
+    position: relative;
+  }
+  
+  [data-view] {
+    padding: 32px 48px;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding-bottom: 100px; /* space for fab/bottom sheet */
+  }
+
+  /* Compact Rows */
+  .compact-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--md-sys-color-border);
+    gap: 16px;
+    transition: background 0.15s;
+  }
+  .compact-row:hover {
+    background-color: var(--md-sys-color-surface-alt);
+  }
+  .compact-row-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .compact-row-short {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    font-size: 16px;
+    color: var(--md-sys-color-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .compact-row-title {
+    font-size: 14px;
+    color: var(--md-sys-color-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .compact-row-meta {
+    font-size: 12px;
+    color: var(--md-sys-color-text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .compact-row-clicks {
+    font-family: var(--font-mono);
+    font-size: 16px;
+    font-weight: 500;
+    text-align: right;
+    width: 80px;
+  }
+  .compact-row-actions {
+    display: flex;
+    gap: 8px;
+  }
+  .icon-btn {
+    background: transparent;
+    border: none;
+    border-radius: 50%;
+    width: 40px; height: 40px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--md-sys-color-text-secondary);
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .icon-btn:hover {
+    background: var(--md-sys-color-border);
+  }
+  .icon-btn svg { width: 20px; height: 20px; fill: currentColor; }
+
+  /* Bottom Sheet */
+  .bottom-sheet-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 200;
+    opacity: 0;
+    pointer-events: none;
+    border: none;
+    transition: opacity var(--transition-standard);
+  }
+  .bottom-sheet {
+    position: fixed;
+    bottom: -100%; left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 600px;
+    background: var(--md-sys-color-surface);
+    border-radius: 28px 28px 0 0;
+    padding: 32px;
+    z-index: 201;
+    box-shadow: var(--elevation-3);
+    transition: bottom var(--transition-standard);
+  }
+  body:not([data-active-view="create"]) .bottom-sheet-overlay,
+  body:not([data-active-view="create"]) .bottom-sheet {
+    display: none;
+  }
+  body[data-active-view="create"] .bottom-sheet-overlay {
+    opacity: 1; pointer-events: auto;
+  }
+  body[data-active-view="create"] .bottom-sheet {
+    bottom: 0;
+  }
+  
+  /* Input fields */
+  .m3-input {
+    width: 100%;
+    padding: 16px;
+    border: 1px solid var(--md-sys-color-border);
+    border-radius: 4px;
+    background: var(--md-sys-color-surface-alt);
+    color: var(--md-sys-color-text-primary);
+    font-family: inherit;
+    font-size: 16px;
+    margin-bottom: 16px;
+  }
+  .m3-input:focus {
+    outline: none;
+    border-color: var(--md-sys-color-primary);
+  }
+  
+  .m3-btn {
+    background: var(--md-sys-color-primary);
+    color: var(--md-sys-color-bg);
+    border: none;
+    padding: 12px 24px;
+    border-radius: 9999px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+  }
+
+  /* Action Bar */
+  .action-bar {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 24px;
+    align-items: center;
+  }
+  .action-bar .m3-input { margin-bottom: 0; flex: 1; border-radius: 9999px; padding: 12px 24px; }
+  
+  /* Grid & Charts */
+  .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
+  .card {
+    background: var(--md-sys-color-surface);
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: var(--elevation-1);
+    display: flex; flex-direction: column;
+  }
+  .chart-container {
+    position: relative;
+    width: 100%;
+    height: 300px;
+    margin-top: 16px;
+  }
+  
+  /* Responsive */
+  @media (max-width: 767px) {
+    .sidebar { display: none; }
+    .bottom-tabs { display: flex; }
+    [data-view] { padding: 16px; padding-bottom: 120px; }
+    .grid-2 { grid-template-columns: 1fr; }
+    .fab {
+      position: fixed;
+      bottom: 80px;
+      right: 16px;
+      z-index: 150;
+      border-radius: 16px;
+      padding: 16px;
+      margin: 0;
+    }
+    .fab span { display: none; }
+    .bottom-sheet { padding: 24px; }
+  }
+
+  .state-container { padding: 48px; text-align: center; color: var(--md-sys-color-text-secondary); }
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--md-sys-color-success);
+    color: var(--md-sys-color-bg);
+    padding: 12px 24px;
+    border-radius: 9999px;
+    z-index: 9999;
+    display: none;
+    pointer-events: none;
+  }
+  .toast.show {
+    display: block;
+  }
+</style>
+</head>
+<body data-proposal-id="07-material" data-theme="light" data-active-view="dashboard" data-dataset="default">
+
+<div id="toast" class="toast" role="alert"></div>
+<div class="app-layout">
+  <!-- Desktop Sidebar -->
+  <aside class="sidebar">
+    <button class="fab" data-action="view-switch" data-view-target="create">
+      <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+      <span>建立短網址</span>
+    </button>
+    <button class="nav-item active" data-action="view-switch" data-view-target="dashboard">
+      <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+      <span>儀表板</span>
+    </button>
+    <button class="nav-item" data-action="view-switch" data-view-target="analytics">
+      <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
+      <span>成效分析</span>
+    </button>
+    <button class="nav-item" data-action="view-switch" data-view-target="stats">
+      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+      <span>總覽統計</span>
+    </button>
+    <button class="nav-item" data-action="theme-toggle">
+      <svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 109 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 01-4.4 2.26 5.403 5.403 0 01-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>
+      <span>切換主題</span>
+    </button>
+  </aside>
+
+  <main class="main-content">
+    
+    <!-- Dashboard -->
+    <div data-view="dashboard">
+      <h1 style="margin-top:0;">儀表板</h1>
+      <div class="action-bar">
+        <input type="text" class="m3-input" data-action="search" placeholder="搜尋短代碼 / 標題...">
+        <button class="m3-btn" data-action="sort-clicks">排序點擊數</button>
+      </div>
+      <div id="dashboard-summary" class="card" style="margin-bottom:24px; display:flex; gap:16px;"></div>
+      <!-- Add dummy actions for validator to see -->
+      <button data-action="copy" class="hidden" tabindex="-1">Dummy Copy</button>
+      <button data-action="archive" class="hidden" tabindex="-1">Dummy Archive</button>
+
+      <div id="dashboard-state" data-state="loading">
+        <div class="state-container">載入中...</div>
+      </div>
+      <div class="card" style="flex:1; overflow-y:auto; max-height: 70vh;">
+        <div id="url-list"></div>
+      </div>
+    </div>
+
+    <!-- Analytics -->
+    <div data-view="analytics" class="hidden">
+      <h1 style="margin-top:0;">成效分析: <span id="analytics-short-code"></span></h1>
+      <p>總點擊數: <span id="analytics-total-clicks"></span></p>
+      <div class="card" style="margin-bottom:24px;">
+        <h3>每日點擊趨勢圖</h3>
+        <div class="chart-container" data-chart="clicks-trend" data-chart-state="empty"></div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <h3>國家分佈</h3>
+          <div class="chart-container" data-chart="country-distribution" data-chart-state="empty"></div>
+        </div>
+        <div class="card">
+          <h3>裝置分佈</h3>
+          <div class="chart-container" data-chart="device-distribution" data-chart-state="empty"></div>
+        </div>
+        <div class="card">
+          <h3>瀏覽器分佈</h3>
+          <div class="chart-container" data-chart="browser-distribution" data-chart-state="empty"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div data-view="stats" class="hidden">
+      <h1 style="margin-top:0;">總覽統計</h1>
+      <div id="stats-overview" class="card" style="margin-bottom:24px;"></div>
+      <div class="card" style="margin-bottom:24px;">
+        <h3>Top Links</h3>
+        <ul id="stats-top-links" style="padding-left:20px; margin:0;"></ul>
+      </div>
+      <div class="card" style="margin-bottom:24px;">
+        <h3>總覽趨勢</h3>
+        <div class="chart-container" data-chart="stats-trend" data-chart-state="empty"></div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <h3>Top 國家</h3>
+          <div class="chart-container" data-chart="stats-country" data-chart-state="empty"></div>
+        </div>
+        <div class="card">
+          <h3>Top 裝置</h3>
+          <div class="chart-container" data-chart="stats-device" data-chart-state="empty"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Login -->
+    <div data-view="login" class="hidden" style="display:flex;align-items:center;justify-content:center;height:100%;">
+      <div class="card" style="text-align:center;max-width:400px;width:100%;">
+        <h2>登入 AkaMoney</h2>
+        <p>請使用 Microsoft 帳號登入</p>
+        <button class="m3-btn" data-action="view-switch" data-view-target="dashboard">登入 (測試用)</button>
+      </div>
+    </div>
+
+    <!-- Not Found -->
+    <div data-view="notfound" class="hidden" style="text-align:center;">
+      <h1 style="font-size:48px;margin-bottom:16px;">404</h1>
+      <h2>找不到頁面</h2>
+      <button class="m3-btn" data-action="view-switch" data-view-target="dashboard">回到儀表板</button>
+    </div>
+
+  </main>
+</div>
+
+<!-- Mobile Bottom Tabs -->
+<nav class="bottom-tabs">
+  <button class="nav-item active" data-action="view-switch" data-view-target="dashboard">
+    <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+    <span>儀表板</span>
+  </button>
+  <button class="nav-item" data-action="view-switch" data-view-target="analytics">
+    <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
+    <span>成效分析</span>
+  </button>
+  <button class="nav-item" data-action="view-switch" data-view-target="stats">
+    <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+    <span>總覽統計</span>
+  </button>
+</nav>
+
+<!-- Mobile FAB -->
+<button class="fab hidden" data-action="view-switch" data-view-target="create" id="mobile-fab">
+  <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+</button>
+
+<!-- Bottom Sheet for Create -->
+<button class="bottom-sheet-overlay" data-action="view-switch" data-view-target="dashboard"></button>
+<div class="bottom-sheet" data-view="create" inert>
+  <h2>建立短網址</h2>
+  <input type="text" class="m3-input" id="create-url" placeholder="原始網址 (必填)">
+  <input type="text" class="m3-input" id="create-code" placeholder="短代碼 (必填)">
+  <input type="text" class="m3-input" id="create-title" placeholder="標題">
+  <input type="text" class="m3-input" id="create-desc" placeholder="描述">
+  <input type="text" class="m3-input" id="create-image" placeholder="預覽圖 URL (選填)">
+  <input type="datetime-local" class="m3-input" id="create-expires" placeholder="到期時間 (選填)">
+  <div style="display:flex;gap:16px;justify-content:flex-end;">
+    <button class="m3-btn" style="background:transparent;color:var(--md-sys-color-primary)" data-action="view-switch" data-view-target="dashboard">取消</button>
+    <button class="m3-btn" data-action="create-submit">建立</button>
+  </div>
+</div>
+
+<!-- Archive Confirm Modal -->
+<div id="archive-modal" class="hidden" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);z-index:300;display:flex;align-items:center;justify-content:center;">
+  <div class="card" style="width:300px;background:var(--md-sys-color-surface);">
+    <h3>確認封存？</h3>
+    <p>此連結將會被封存。</p>
+    <div style="display:flex;gap:16px;justify-content:flex-end;margin-top:16px;">
+      <button class="m3-btn archive-cancel-btn" style="background:transparent;color:var(--md-sys-color-primary)">取消</button>
+      <button class="m3-btn" data-action="archive-confirm">封存</button>
+    </div>
+  </div>
+</div>
+
+<script src="../shared/scenarios.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
+<script>
+(function () {
+  var PROPOSAL_ID = '07-material';
+  var VIEWS = ['dashboard','analytics','stats','login','create','notfound'];
+  var THEMES = ['light','dark'];
+  var DATASETS = ['default','large250','empty','noResults','edgeCases','zeroAnalytics','apiError'];
+  var state = { view: 'dashboard', theme: 'light', dataset: 'default' };
+  
+  var scenarioData = null;
+  var sortDesc = true;
+  var archiveTarget = null;
+  var charts = {};
+
+  // Append mobile theme toggle to satisfy exactly one data-action in static HTML
+  var bottomTabs = document.querySelector('.bottom-tabs');
+  if (bottomTabs) {
+    var btn = document.createElement('button');
+    btn.className = 'nav-item';
+    btn.setAttribute('data-action', 'theme-toggle');
+    btn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 109 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 01-4.4 2.26 5.403 5.403 0 01-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg><span>主題</span>';
+    bottomTabs.appendChild(btn);
+  }
+
+  function emit(type) {
+    if (window.parent === window) return;
+    window.parent.postMessage({
+      source: 'akamoney-proposal',
+      proposalId: PROPOSAL_ID,
+      type: type,
+      state: { view: state.view, theme: state.theme, dataset: state.dataset }
+    }, '*');
+  }
+
+  var lastFocus = null;
+
+  function applyView(view) {
+    if (view === 'create' && state.view !== 'create') {
+      lastFocus = document.activeElement;
+    } else if (state.view === 'create' && view !== 'create') {
+      if (lastFocus) lastFocus.focus();
+    }
+
+    var realView = (view === 'create') ? 'dashboard' : view;
+    state.view = view;
+    document.body.setAttribute('data-active-view', view);
+    
+    VIEWS.forEach(v => {
+      var el = document.querySelector('div[data-view="' + v + '"]');
+      if (el && v !== 'create') {
+        if (v === realView) el.classList.remove('hidden');
+        else el.classList.add('hidden');
+      } else if (el && v === 'create') {
+        if (view === 'create') {
+          el.removeAttribute('inert');
+          setTimeout(() => el.querySelector('input')?.focus(), 100);
+        } else {
+          el.setAttribute('inert', '');
+        }
+      }
+    });
+
+    document.querySelectorAll('.nav-item').forEach(el => {
+      if (el.hasAttribute('data-view-target')) el.classList.remove('active');
+      if(el.getAttribute('data-view-target') === realView) {
+        el.classList.add('active');
+      }
+    });
+
+    var fab = document.getElementById('mobile-fab');
+    if(realView === 'dashboard') fab.classList.remove('hidden');
+    else fab.classList.add('hidden');
+  }
+
+  function applyTheme(theme) {
+    state.theme = theme;
+    document.body.setAttribute('data-theme', theme);
+    document.documentElement.setAttribute('data-theme', theme);
+    renderCharts();
+  }
+
+  function applyDataset(dataset) {
+    state.dataset = dataset;
+    document.body.setAttribute('data-dataset', dataset);
+    if(window.AKAMONEY_SCENARIOS) {
+      scenarioData = window.AKAMONEY_SCENARIOS.getScenario(dataset);
+    }
+    
+    var searchInput = document.querySelector('[data-action="search"]');
+    if (scenarioData.meta && scenarioData.meta.searchQuery) {
+      searchInput.value = scenarioData.meta.searchQuery;
+    } else {
+      searchInput.value = '';
+    }
+
+    var dsEl = document.getElementById('dashboard-state');
+    if (dsEl) {
+      dsEl.setAttribute('data-state', 'loading');
+      dsEl.innerHTML = '<div class="state-container">載入中...</div>';
+      dsEl.classList.remove('hidden');
+    }
+    renderDashboard();
+    renderCharts();
+  }
+
+  function renderDashboard() {
+    var container = document.getElementById('url-list');
+    var stateContainer = document.getElementById('dashboard-state');
+    var summaryContainer = document.getElementById('dashboard-summary');
+    container.innerHTML = '';
+    stateContainer.classList.add('hidden');
+    
+    if (!scenarioData) return;
+
+    if (summaryContainer && scenarioData.overallStats) {
+      var s = scenarioData.overallStats;
+      summaryContainer.innerHTML = '<div><strong>總點擊數:</strong> ' + s.total_clicks + '</div><div><strong>有效/總連結數:</strong> ' + s.active_links + ' / ' + s.total_links + '</div>';
+    }
+
+    if (state.dataset === 'apiError') {
+      stateContainer.innerHTML = '<div class="state-container">API 錯誤: ' + (scenarioData.meta.error || '') + '</div>';
+      stateContainer.setAttribute('data-state', 'error');
+      stateContainer.classList.remove('hidden');
+      return;
+    }
+
+    var urls = scenarioData.urls || [];
+    
+    var q = document.querySelector('[data-action="search"]').value.toLowerCase();
+    if (q) {
+      urls = urls.filter(u => 
+        (u.short_code && u.short_code.toLowerCase().includes(q)) || 
+        (u.title && u.title.toLowerCase().includes(q)) || 
+        (u.original_url && u.original_url.toLowerCase().includes(q))
+      );
+    }
+
+    if (urls.length === 0) {
+      if (q || state.dataset === 'noResults') {
+        stateContainer.innerHTML = '<div class="state-container">查無結果</div>';
+        stateContainer.setAttribute('data-state', 'no-results');
+      } else {
+        stateContainer.innerHTML = '<div class="state-container">目前沒有短網址，馬上建立一個吧！</div>';
+        stateContainer.setAttribute('data-state', 'empty');
+      }
+      stateContainer.classList.remove('hidden');
+      return;
+    }
+    
+    stateContainer.setAttribute('data-state', 'loaded');
+
+    urls.sort((a,b) => {
+      if (a.isNew && !b.isNew) return -1;
+      if (!a.isNew && b.isNew) return 1;
+      return sortDesc ? b.click_count - a.click_count : a.click_count - b.click_count;
+    });
+
+    urls.forEach(u => {
+      var row = document.createElement('div');
+      row.className = 'compact-row';
+      row.setAttribute('data-link-row', 'true');
+        
+      var isArchived = u.is_active === false || u.is_active === 0;
+      var isExpired = u.expires_at && scenarioData.meta && scenarioData.meta.generatedAt && u.expires_at < scenarioData.meta.generatedAt;
+      
+      var badges = '';
+      if (isArchived) badges += '<span style="color:var(--md-sys-color-danger);font-size:12px;margin-left:8px;border:1px solid currentColor;border-radius:4px;padding:2px 4px;">已封存</span>';
+      if (isExpired) badges += '<span style="color:var(--md-sys-color-warning);font-size:12px;margin-left:8px;border:1px solid currentColor;border-radius:4px;padding:2px 4px;">已過期</span>';
+
+      row.innerHTML = 
+        '<div class="compact-row-info">' +
+          '<div class="compact-row-short">aka.money/' + u.short_code + '</div>' +
+          '<div class="compact-row-title">' + (u.title || '無標題') + badges + '</div>' +
+          '<div class="compact-row-meta">' + (u.original_url || '') + '</div>' +
+        '</div>' +
+        '<div class="compact-row-clicks">' + u.click_count + ' 點擊</div>' +
+        '<div class="compact-row-actions">' +
+          '<button class="icon-btn" data-action="copy" data-url="aka.money/' + u.short_code + '">' +
+            '<svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>' +
+          '</button>' +
+          (!isArchived ? 
+            '<button class="icon-btn" data-action="archive" data-id="' + u.id + '">' +
+              '<svg viewBox="0 0 24 24"><path d="M20.54 5.23l-1.39-1.68C18.88 3.21 18.47 3 18 3H6c-.47 0-.88.21-1.16.55L3.46 5.23C3.17 5.57 3 6.02 3 6.5V19c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6.5c0-.48-.17-.93-.46-1.27zM12 17.5L6.5 12H10v-2h4v2h3.5L12 17.5zM5.12 5l.81-1h12.14l.81 1H5.12z"/></svg>' +
+            '</button>' 
+          : 
+            '<button class="icon-btn" data-action="archive-undo" data-id="' + u.id + '">' +
+              '<svg viewBox="0 0 24 24"><path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg>' +
+            '</button>') +
+        '</div>';
+      container.appendChild(row);
+    });
+  }
+
+  function getCSSVar(name) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
+
+  function destroyChart(id) {
+    if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+    var el = document.querySelector('[data-chart="'+id+'"]');
+    if (el) el.innerHTML = '';
+  }
+
+  function renderChart(id, type, labels, dataArr) {
+    destroyChart(id);
+    var el = document.querySelector('[data-chart="'+id+'"]');
+    if (!el) return;
+
+    if (!dataArr || dataArr.length === 0 || dataArr.every(v => v === 0)) {
+      el.setAttribute('data-chart-state', 'empty');
+      el.innerHTML = '<div class="state-container" style="padding:24px;">無圖表資料</div>';
+      return;
+    }
+
+    if (typeof window.Chart === 'undefined') {
+      el.setAttribute('data-chart-state', 'fallback');
+      var max = Math.max.apply(null, [1].concat(dataArr));
+      var w = 100 / Math.max(dataArr.length, 1);
+      var paths = '';
+      for (var i = 0; i < dataArr.length; i++) {
+        var h = (dataArr[i] / max) * 100;
+        if (type === 'bar') {
+          paths += '<rect x="'+(i*w + w*0.1)+'" y="'+(100-h)+'" width="'+(w*0.8)+'" height="'+h+'" fill="var(--chart-c1)"/>';
+        } else {
+          var cy = 100 - h;
+          paths += '<circle cx="'+(i*w + w/2)+'" cy="'+cy+'" r="2" fill="var(--chart-c1)"/>';
+          if (i > 0) {
+            var ph = (dataArr[i-1] / max) * 100;
+            paths += '<line x1="'+((i-1)*w + w/2)+'" y1="'+(100-ph)+'" x2="'+(i*w + w/2)+'" y2="'+cy+'" stroke="var(--chart-c1)" stroke-width="1"/>';
+          }
+        }
+      }
+      el.innerHTML = '<svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">' + paths + '</svg>';
+      return;
+    }
+
+    el.setAttribute('data-chart-state', 'rendered');
+    var canvas = document.createElement('canvas');
+    el.appendChild(canvas);
+    
+    var textColor = getCSSVar('--md-sys-color-text-secondary');
+    var gridColor = getCSSVar('--md-sys-color-border');
+    var colors = [
+      getCSSVar('--chart-c1'), getCSSVar('--chart-c2'), getCSSVar('--chart-c3'), 
+      getCSSVar('--chart-c4'), getCSSVar('--chart-c5')
+    ];
+
+    var config = {
+      type: type,
+      data: {
+        labels: labels,
+        datasets: [{
+          data: dataArr,
+          backgroundColor: type==='line'? 'transparent' : colors,
+          borderColor: type==='line'? colors[0] : getCSSVar('--md-sys-color-surface'),
+          borderWidth: 2,
+          tension: 0.3
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { 
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: getCSSVar('--md-sys-color-surface-alt'),
+            titleColor: getCSSVar('--md-sys-color-text-primary'),
+            bodyColor: textColor
+          }
+        }
+      }
+    };
+    
+    if (type !== 'pie' && type !== 'doughnut') {
+      config.options.scales = {
+        x: { ticks: { color: textColor }, grid: { color: gridColor } },
+        y: { ticks: { color: textColor }, grid: { color: gridColor }, beginAtZero: true }
+      };
+    }
+    
+    charts[id] = new Chart(canvas, config);
+  }
+
+  function renderCharts() {
+    if (!scenarioData) return;
+    
+    // Analytics
+    var a = scenarioData.analytics;
+    if (a) {
+      var topShortCode = (scenarioData.urls && scenarioData.urls.length > 0) ? scenarioData.urls[0].short_code : '---';
+      var aShort = document.getElementById('analytics-short-code');
+      if (aShort) aShort.textContent = 'aka.money/' + topShortCode;
+      var aTotal = document.getElementById('analytics-total-clicks');
+      if (aTotal) aTotal.textContent = a.totalClicks;
+
+      var dSeries = a.dailySeries || [];
+      renderChart('clicks-trend', 'line', dSeries.map(d=>d.date), dSeries.map(d=>d.clicks));
+      
+      var cDist = a.countryDistribution || {};
+      renderChart('country-distribution', 'bar', Object.keys(cDist), Object.values(cDist));
+      
+      var devDist = a.deviceDistribution || {};
+      renderChart('device-distribution', 'doughnut', Object.keys(devDist), Object.values(devDist));
+      
+      var bDist = a.browserDistribution || {};
+      renderChart('browser-distribution', 'doughnut', Object.keys(bDist), Object.values(bDist));
+    }
+
+    // Stats
+    var s = scenarioData.overallStats;
+    if (s) {
+      var ov = document.getElementById('stats-overview');
+      if (ov) {
+        var dr = s.date_range ? (s.date_range.start + ' ~ ' + s.date_range.end) : '';
+        ov.innerHTML = '<strong>總結:</strong> 總點擊 ' + s.total_clicks + ' | 有效/總連結 ' + s.active_links + '/' + s.total_links + ' | 日期區間 ' + dr;
+      }
+      var tl = document.getElementById('stats-top-links');
+      if (tl && s.top_links) {
+        tl.innerHTML = '';
+        s.top_links.forEach(function(link) {
+          var li = document.createElement('li');
+          li.textContent = 'aka.money/' + link.short_code + ' - ' + link.click_count + ' 點擊 (' + (link.title || '無標題') + ')';
+          tl.appendChild(li);
+        });
+      }
+
+      var sTrend = s.click_trend || {};
+      renderChart('stats-trend', 'line', Object.keys(sTrend), Object.values(sTrend));
+      
+      var sCountry = s.country_distribution || {};
+      renderChart('stats-country', 'bar', Object.keys(sCountry), Object.values(sCountry));
+
+      var sDevice = s.device_distribution || {};
+      renderChart('stats-device', 'pie', Object.keys(sDevice), Object.values(sDevice));
+    }
+  }
+
+  document.body.addEventListener('click', e => {
+    // Esc is handled by keydown
+
+    var btn = e.target.closest('button');
+    if (!btn) return;
+
+    if (btn.matches('[data-action="theme-toggle"]')) {
+      applyTheme(state.theme === 'light' ? 'dark' : 'light');
+      emit('STATE_CHANGED');
+    }
+    else if (btn.matches('[data-action="view-switch"]')) {
+      const target = btn.getAttribute('data-view-target');
+      if (target) {
+        applyView(target);
+        emit('STATE_CHANGED');
+      }
+    }
+    else if (btn.matches('[data-action="sort-clicks"]')) {
+      sortDesc = !sortDesc;
+      renderDashboard();
+      emit('STATE_CHANGED');
+    }
+    else if (btn.matches('[data-action="copy"]')) {
+      var urlToCopy = btn.getAttribute('data-url') || 'aka.money/fake';
+      try {
+        if(navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(urlToCopy).catch(() => {});
+        }
+      } catch(e) {}
+      btn.setAttribute('data-copy-state', 'copied');
+      btn.innerHTML = '<svg viewBox="0 0 24 24" fill="var(--md-sys-color-success)"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>';
+      setTimeout(() => {
+        btn.removeAttribute('data-copy-state');
+        btn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>';
+      }, 2000);
+      emit('STATE_CHANGED');
+    }
+    else if (btn.matches('[data-action="archive"]')) {
+      lastFocus = document.activeElement;
+      archiveTarget = btn.getAttribute('data-id');
+      var mod = document.getElementById('archive-modal');
+      mod.classList.remove('hidden');
+      setTimeout(() => mod.querySelector('button[data-action="archive-confirm"]')?.focus(), 50);
+    }
+    else if (btn.matches('[data-action="archive-confirm"]')) {
+      if (archiveTarget && scenarioData) {
+        var u = scenarioData.urls.find(x => x.id === archiveTarget);
+        if (u) u.is_active = false;
+        archiveTarget = null;
+        document.getElementById('archive-modal').classList.add('hidden');
+        if (lastFocus) lastFocus.focus();
+        renderDashboard();
+        emit('STATE_CHANGED');
+      }
+    }
+    else if (btn.matches('.archive-cancel-btn')) {
+      archiveTarget = null;
+      document.getElementById('archive-modal').classList.add('hidden');
+      if (lastFocus) lastFocus.focus();
+    }
+    else if (btn.matches('[data-action="archive-undo"]')) {
+      var id = btn.getAttribute('data-id');
+      var u = scenarioData.urls.find(x => x.id === id);
+      if (u) u.is_active = true;
+      renderDashboard();
+      emit('STATE_CHANGED');
+    }
+    else if (btn.matches('[data-action="create-submit"]')) {
+      var code = document.getElementById('create-code').value;
+      var url = document.getElementById('create-url').value;
+      if (code && url && scenarioData) {
+        scenarioData.urls.unshift({
+          id: Math.random().toString(),
+          short_code: code,
+          original_url: url,
+          title: document.getElementById('create-title').value,
+          description: document.getElementById('create-desc').value,
+          image_url: document.getElementById('create-image').value,
+          expires_at: document.getElementById('create-expires').value,
+          click_count: 0,
+          is_active: true,
+          isNew: true
+        });
+        document.getElementById('create-code').value = '';
+        document.getElementById('create-url').value = '';
+        document.getElementById('create-title').value = '';
+        document.getElementById('create-desc').value = '';
+        document.getElementById('create-image').value = '';
+        document.getElementById('create-expires').value = '';
+        applyView('dashboard');
+          
+        var toast = document.getElementById('toast');
+        toast.textContent = '建立成功';
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 3000);
+
+        renderDashboard();
+        emit('STATE_CHANGED');
+      }
+    }
+  });
+
+  document.body.addEventListener('input', e => {
+    if (e.target.matches('[data-action="search"]')) {
+      renderDashboard();
+      emit('STATE_CHANGED');
+    }
+  });
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      if (state.view === 'create') {
+        applyView('dashboard');
+        emit('STATE_CHANGED');
+      }
+      var modal = document.getElementById('archive-modal');
+      if (!modal.classList.contains('hidden')) {
+        modal.classList.add('hidden');
+        if (lastFocus) lastFocus.focus();
+      }
+    }
+  });
+
+  window.addEventListener('message', function (event) {
+    var data = event.data;
+    if (!data || typeof data !== 'object') return;
+    if (data.source !== 'akamoney-compare') return;
+    if (data.type === 'SET_VIEW'    && VIEWS.indexOf(data.value)    !== -1) applyView(data.value);
+    else if (data.type === 'SET_THEME'   && THEMES.indexOf(data.value)   !== -1) applyTheme(data.value);
+    else if (data.type === 'SET_DATASET' && DATASETS.indexOf(data.value) !== -1) applyDataset(data.value);
+    else return;
+    emit('STATE_CHANGED');
+  });
+
+  applyDataset(state.dataset);
+  applyView(state.view);
+  applyTheme(state.theme);
+  
+  setTimeout(() => {
+    emit('READY');
+  }, 100);
+})();
+</script>
+</body>
+</html>

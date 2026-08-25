@@ -1,0 +1,122 @@
+{
+  "id": "01-linear",
+  "title": "Linear 式極簡專業",
+  "provider": "Anthropic",
+  "model": "claude-opus-4.8",
+  "direction": "Linear 式極簡專業",
+  "stack": "Tailwind v4",
+  "dna": {
+    "navigation": "fixed-sidebar",
+    "linkRepresentation": "dense-table",
+    "createFlow": "command-palette",
+    "analyticsModel": "exploration-workbench",
+    "mobileStrategy": "priority-column-summary-row",
+    "workMode": "scan"
+  },
+  "tokens": {
+    "colors": {
+      "light": {
+        "bg": "#ffffff",
+        "surface": "#fafafa",
+        "surfaceAlt": "#f4f4f5",
+        "textPrimary": "#18181b",
+        "textSecondary": "#71717a",
+        "border": "#e4e4e7",
+        "accent": "#5e6ad2",
+        "success": "#16a34a",
+        "warning": "#d97706",
+        "danger": "#dc2626",
+        "chartSeries": [
+          "#5e6ad2",
+          "#16a34a",
+          "#d97706",
+          "#dc2626",
+          "#0891b2"
+        ]
+      },
+      "dark": {
+        "bg": "#0d0e10",
+        "surface": "#131417",
+        "surfaceAlt": "#1a1b1f",
+        "textPrimary": "#ededf0",
+        "textSecondary": "#8a8f98",
+        "border": "#23252a",
+        "accent": "#7b85e8",
+        "success": "#4ade80",
+        "warning": "#fbbf24",
+        "danger": "#f87171",
+        "chartSeries": [
+          "#7b85e8",
+          "#4ade80",
+          "#fbbf24",
+          "#f87171",
+          "#22d3ee"
+        ]
+      }
+    },
+    "typography": {
+      "displayFamily": "\"Inter\", \"Noto Sans TC\", sans-serif",
+      "bodyFamily": "\"Inter\", \"Noto Sans TC\", sans-serif",
+      "monoFamily": "\"JetBrains Mono\", \"Noto Sans TC\", monospace",
+      "cjkSerif": "Noto Serif TC",
+      "cjkSans": "Noto Sans TC",
+      "baseSize": "14px",
+      "scale": [
+        "11px",
+        "12px",
+        "14px",
+        "16px",
+        "20px",
+        "28px"
+      ]
+    },
+    "radii": {
+      "sm": "3px",
+      "md": "5px",
+      "lg": "8px",
+      "xl": "12px",
+      "full": "9999px"
+    },
+    "spacing": {
+      "unit": "4px",
+      "xs": "4px",
+      "sm": "8px",
+      "md": "12px",
+      "lg": "16px",
+      "xl": "24px",
+      "2xl": "32px"
+    }
+  },
+  "capabilities": [
+    {
+      "feature": "每日點擊趨勢圖",
+      "class": "A",
+      "note": "使用 analytics.clicks_by_date，前端 Chart.js 折線圖直接渲染，後端無需改動"
+    },
+    {
+      "feature": "國家 / 裝置 / 瀏覽器流量分佈",
+      "class": "A",
+      "note": "使用 analytics 既有的 country/device/browser distribution，甜甜圈與長條圖呈現"
+    },
+    {
+      "feature": "總覽 KPI 與 Top Links 排行",
+      "class": "A",
+      "note": "使用 overall_stats 與 top_links，後端已彙總，前端直接顯示"
+    },
+    {
+      "feature": "短代碼／原始網址／標題關鍵字高亮",
+      "class": "B",
+      "note": "前端搜尋時以 <mark> 同時標記短代碼、原始網址與標題的命中片段，純前端字串處理"
+    },
+    {
+      "feature": "依到期時間標示連結狀態",
+      "class": "B",
+      "note": "前端以 expires_at 與 is_active 推導作用中／已過期／已封存狀態並顯示徽章，純前端計算"
+    },
+    {
+      "feature": "全域搜尋與跨頁點擊數排序",
+      "class": "C",
+      "note": "示範對 large250 全資料集搜尋／排序後再分頁；正式環境需列表 API 新增 q 與 sort 參數，現況僅支援 page／limit"
+    }
+  ]
+}

@@ -1,0 +1,1234 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AkaMoney · 短網址營運中心</title>
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap">
+  <style type="text/tailwindcss">
+    @theme {
+      --font-sans: "Inter", "Noto Sans TC", system-ui, "Microsoft JhengHei", "PingFang TC", sans-serif;
+      --font-mono: "JetBrains Mono", "Noto Sans TC", monospace;
+      --color-ak-bg: #ffffff;
+      --color-ak-surface: #f6f9fc;
+      --color-ak-ink: #0a2540;
+      --color-ak-accent: #635bff;
+    }
+  </style>
+  <style>
+    :root {
+      --bg: #ffffff; --surface: #f6f9fc; --surface-alt: #eef2f7;
+      --text: #0a2540; --muted: #425466; --faint: #6b7c93; --border: #e3e8ee;
+      --border-strong: #cfd7e3; --accent: #635bff; --accent-soft: #eeedff; --accent-fg: #ffffff;
+      --success: #0d9488; --success-soft: #e6f7f5; --warning: #c2410c; --warning-soft: #fff4ed;
+      --danger: #df1b41; --danger-soft: #fde8ec;
+      --chart-1: #635bff; --chart-2: #0ea5e9; --chart-3: #0d9488; --chart-4: #f59e0b; --chart-5: #df1b41;
+      --tooltip-bg: #0a2540; --tooltip-fg: #f6f9fc;
+      --scrim: rgba(10, 37, 64, .42);
+      --shadow-1: 0 1px 1px rgba(10, 37, 64, .04), 0 1px 2px rgba(10, 37, 64, .06);
+      --shadow-2: 0 8px 24px rgba(10, 37, 64, .10), 0 2px 6px rgba(10, 37, 64, .06);
+      --r-sm: 4px; --r-md: 6px; --r-lg: 8px; --r-xl: 12px;
+      --topbar-h: 56px; --subnav-h: 48px;
+      color-scheme: light;
+    }
+    body[data-theme="dark"] {
+      --bg: #07111f; --surface: #0c1b30; --surface-alt: #13263f;
+      --text: #e8eef6; --muted: #8ba0b8; --faint: #6d829b; --border: #1d3450;
+      --border-strong: #2a4666; --accent: #8b85ff; --accent-soft: #1b2148; --accent-fg: #07111f;
+      --success: #2dd4bf; --success-soft: #0e2c2c; --warning: #fbbf24; --warning-soft: #2d2410;
+      --danger: #fb7185; --danger-soft: #2d1520;
+      --chart-1: #8b85ff; --chart-2: #38bdf8; --chart-3: #2dd4bf; --chart-4: #fbbf24; --chart-5: #fb7185;
+      --tooltip-bg: #e8eef6; --tooltip-fg: #07111f;
+      --scrim: rgba(2, 8, 18, .62);
+      --shadow-1: 0 1px 1px rgba(0, 0, 0, .35);
+      --shadow-2: 0 12px 32px rgba(0, 0, 0, .45);
+      color-scheme: dark;
+    }
+    * { box-sizing: border-box; }
+    html, body { min-width: 0; }
+    body {
+      margin: 0; min-height: 100vh; background: var(--bg); color: var(--text);
+      font-family: "Inter", "Noto Sans TC", system-ui, "Microsoft JhengHei", "PingFang TC", sans-serif;
+      font-size: 13px; line-height: 1.5; font-weight: 400;
+      -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+      transition: background-color .16s ease, color .16s ease;
+    }
+    [data-proposal-id] h1, [data-proposal-id] h2, [data-proposal-id] h3 {
+      margin: 0; font-weight: 600; letter-spacing: -.015em; color: var(--text);
+    }
+    [data-proposal-id] h1 { font-size: 18px; }
+    [data-proposal-id] h2 { font-size: 15px; }
+    [data-proposal-id] h3 { font-size: 13px; }
+    [data-proposal-id] p { margin: 0; }
+    [data-proposal-id] button { font: inherit; color: inherit; cursor: pointer; background: transparent; border: 0; }
+    [data-proposal-id] input, [data-proposal-id] textarea, [data-proposal-id] select { font: inherit; color: inherit; }
+    [data-proposal-id] a { color: var(--accent); text-decoration: none; }
+    [data-proposal-id] canvas, [data-proposal-id] svg { max-width: 100%; }
+    [data-view][hidden], [hidden] { display: none !important; }
+    ::selection { background: var(--accent-soft); }
+
+    .topbar {
+      position: sticky; top: 0; z-index: 30; height: var(--topbar-h);
+      display: flex; align-items: center; gap: 16px; padding: 0 20px;
+      background: var(--bg); border-bottom: 1px solid var(--border); min-width: 0;
+    }
+    .brand { display: flex; align-items: center; gap: 8px; min-width: 0; flex: none; }
+    .mark {
+      width: 22px; height: 22px; border-radius: 6px; background: var(--accent); color: var(--accent-fg);
+      display: grid; place-items: center; font-weight: 700; font-size: 12px; flex: none;
+    }
+    .brand-name { font-weight: 650; letter-spacing: -.02em; font-size: 14px; }
+    .primary-nav { display: flex; align-items: center; gap: 2px; min-width: 0; overflow: auto; }
+    .mobile-nav { display: none; align-items: center; gap: 4px; width: 100%; overflow: auto; }
+    .nav-link {
+      padding: 6px 10px; border-radius: var(--r-md); color: var(--muted); font-weight: 500; white-space: nowrap;
+    }
+    .nav-link:hover { color: var(--text); background: var(--surface); }
+    .nav-link.is-active { color: var(--accent); background: var(--accent-soft); }
+    .top-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; flex: none; }
+    .user-chip {
+      display: flex; align-items: center; gap: 8px; padding: 4px 8px 4px 4px;
+      border: 1px solid var(--border); border-radius: 999px; background: var(--surface);
+    }
+    .avatar {
+      width: 22px; height: 22px; border-radius: 999px; background: #0a2540; color: #fff;
+      display: grid; place-items: center; font-size: 10px; font-weight: 700;
+    }
+    body[data-theme="dark"] .avatar { background: #8b85ff; color: #07111f; }
+    .user-name { font-size: 12px; font-weight: 500; max-width: 9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .subnav {
+      position: sticky; top: var(--topbar-h); z-index: 20; min-height: var(--subnav-h);
+      display: flex; align-items: center; gap: 10px; padding: 8px 20px; flex-wrap: wrap;
+      background: var(--surface); border-bottom: 1px solid var(--border);
+    }
+    body[data-active-view="login"] .subnav,
+    body[data-active-view="notfound"] .subnav { display: none; }
+    .crumb { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; min-width: 0; }
+    .crumb b { color: var(--text); font-weight: 600; }
+    .sep { opacity: .45; }
+    .grow { flex: 1; min-width: 8px; }
+    .search {
+      width: min(280px, 100%); min-width: 0; height: 32px; padding: 0 10px;
+      border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg);
+    }
+    .search:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+    .tabs { display: flex; gap: 2px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--r-md); padding: 2px; }
+    .tabs button { padding: 4px 8px; border-radius: 4px; color: var(--muted); font-size: 12px; font-weight: 500; }
+    .tabs button.is-active { background: var(--accent-soft); color: var(--accent); }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      height: 32px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--r-md);
+      background: var(--bg); color: var(--text); font-weight: 500; white-space: nowrap;
+    }
+    .btn:hover { border-color: var(--border-strong); background: var(--surface-alt); }
+    .btn.sm { height: 28px; padding: 0 8px; font-size: 12px; }
+    .btn.primary { background: var(--accent); border-color: transparent; color: var(--accent-fg); }
+    .btn.primary:hover { filter: brightness(1.05); }
+    .btn.danger { color: var(--danger); border-color: transparent; background: var(--danger-soft); }
+    .btn:disabled { opacity: .45; cursor: not-allowed; }
+    .btn[data-copy-state="copied"] { color: var(--success); background: var(--success-soft); border-color: transparent; }
+
+    .page { width: min(1280px, 100%); margin: 0 auto; padding: 20px; min-width: 0; }
+    .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+    .lede { color: var(--muted); font-size: 12px; margin-top: 4px; }
+
+    .kpi-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+    .kpi, .panel {
+      min-width: 0; background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--r-lg); box-shadow: var(--shadow-1);
+    }
+    .kpi { padding: 12px 14px; }
+    .kpi .k { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--faint); font-weight: 600; }
+    .kpi .v { font-family: "JetBrains Mono", "Noto Sans TC", monospace; font-size: 22px; font-weight: 600; letter-spacing: -.03em; margin-top: 4px; }
+    .kpi .d { color: var(--muted); font-size: 12px; margin-top: 2px; }
+    .panel { padding: 12px; }
+    .panel-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+    .panel-h .s { color: var(--muted); font-size: 12px; }
+
+    .table-wrap { border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; background: var(--bg); }
+    .thead, .row {
+      display: grid; grid-template-columns: minmax(11rem, 1.15fr) minmax(12rem, 2fr) 5.5rem 7rem 6.2rem 8.6rem;
+      gap: 10px; align-items: center; min-width: 0; padding: 8px 12px;
+    }
+    .thead {
+      background: var(--surface); color: var(--faint); font-size: 11px; font-weight: 650;
+      letter-spacing: .04em; text-transform: uppercase; border-bottom: 1px solid var(--border);
+    }
+    .row { border-top: 1px solid var(--border); background: var(--bg); transition: background-color .14s ease, transform .18s ease; }
+    .row:first-of-type { border-top: 0; }
+    .row:hover { background: var(--surface); }
+    .row > * { min-width: 0; }
+    .c-code { display: flex; align-items: center; gap: 8px; }
+    .dot { width: 7px; height: 7px; border-radius: 99px; background: var(--success); flex: none; }
+    .dot.off { background: var(--faint); }
+    .dot.exp { background: var(--warning); }
+    .lk { font-family: "JetBrains Mono", "Noto Sans TC", monospace; font-size: 12px; font-weight: 550; }
+    .title { display: block; color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .title.none { font-style: italic; opacity: .75; }
+    .url { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+    .num { font-family: "JetBrains Mono", "Noto Sans TC", monospace; font-variant-numeric: tabular-nums; text-align: right; }
+    .c-actions { display: flex; justify-content: flex-end; gap: 6px; }
+    .badge {
+      display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: 999px;
+      font-size: 11px; font-weight: 600; background: var(--success-soft); color: var(--success);
+    }
+    .badge.off { background: var(--surface-alt); color: var(--muted); }
+    .badge.exp { background: var(--warning-soft); color: var(--warning); }
+    mark { background: var(--accent-soft); color: var(--text); border-radius: 2px; padding: 0 1px; }
+
+    .state, .empty-cta {
+      display: flex; align-items: center; gap: 10px; margin: 10px 0; padding: 12px 14px;
+      border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface);
+    }
+    .empty-cta { flex-direction: column; align-items: flex-start; padding: 28px 20px; }
+    .empty-cta .big { font-size: 16px; font-weight: 650; }
+    .si { width: 18px; height: 18px; flex: none; }
+    .spin { animation: spin .8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .sk-bar { display: block; height: 8px; border-radius: 99px; background: var(--surface-alt); }
+    .row.skeleton { pointer-events: none; }
+
+    .charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .charts .wide { grid-column: 1 / -1; }
+    [data-chart] {
+      min-width: 0; min-height: 196px; padding: 10px 10px 6px;
+      border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface);
+    }
+    [data-chart] canvas { width: 100% !important; height: 150px !important; }
+    .chart-empty {
+      min-height: 150px; display: grid; place-items: center; gap: 6px; color: var(--muted); text-align: center; font-size: 13px;
+    }
+    .ce-ic { width: 28px; height: 28px; opacity: .7; }
+
+    .cmp { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
+    .cmp-card { padding: 12px; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--bg); min-width: 0; }
+    .cmp-card .pair { display: flex; justify-content: space-between; gap: 8px; margin-top: 8px; }
+    .cmp-card .pair span { color: var(--muted); }
+    .cmp-card .pair b { font-family: "JetBrains Mono", "Noto Sans TC", monospace; }
+    .seg { display: flex; gap: 2px; border: 1px solid var(--border); border-radius: var(--r-md); padding: 2px; background: var(--bg); }
+    .seg button { padding: 4px 8px; border-radius: 4px; color: var(--muted); font-size: 12px; }
+    .seg button.is-active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+
+    .tl-row { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 7px 0; }
+    .rank { color: var(--faint); font-family: "JetBrains Mono", "Noto Sans TC", monospace; font-size: 11px; }
+    .tl-code { font-family: "JetBrains Mono", "Noto Sans TC", monospace; font-size: 12px; }
+    .tl-sub { color: var(--muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tl-bar { height: 3px; margin-top: 5px; border-radius: 99px; background: var(--accent); opacity: .75; }
+    .tl-n { font-family: "JetBrains Mono", "Noto Sans TC", monospace; font-size: 12px; }
+    .tl-pct { color: var(--muted); margin-left: 6px; font-size: 11px; }
+
+    .login-wrap { min-height: calc(100vh - var(--topbar-h)); display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); }
+    .login-hero {
+      padding: 48px 40px; background: #0a2540; color: #e8eef6; display: flex; flex-direction: column; justify-content: center;
+    }
+    body[data-theme="dark"] .login-hero { background: #05101c; }
+    .login-hero h1 { color: #fff; font-size: 28px; line-height: 1.25; max-width: 16ch; }
+    .login-hero p { margin-top: 12px; color: #9db0c6; max-width: 36ch; }
+    .login-panel { display: grid; place-items: center; padding: 32px 20px; }
+    .login-card { width: min(380px, 100%); display: grid; gap: 12px; }
+    .login-card h2 { font-size: 20px; }
+    .hint { font-size: 12px; color: var(--muted); padding: 10px 12px; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--border); }
+
+    .nf { min-height: calc(100vh - var(--topbar-h)); display: grid; place-items: center; padding: 32px 20px; text-align: center; }
+    .nf .code { font-family: "JetBrains Mono", "Noto Sans TC", monospace; font-size: 42px; letter-spacing: -.04em; color: var(--accent); }
+
+    .drawer-scrim {
+      position: fixed; inset: 0; background: var(--scrim); z-index: 40;
+    }
+    [data-view="create"] {
+      position: fixed; top: 0; right: 0; bottom: 0; width: min(440px, 100vw); z-index: 50;
+      background: var(--bg); border-left: 1px solid var(--border); box-shadow: var(--shadow-2);
+      display: flex; flex-direction: column; min-width: 0;
+      transform: translateX(0); transition: transform .2s ease;
+    }
+    [data-view="create"][hidden] { display: none !important; }
+    .drawer-h { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 18px 18px 10px; }
+    .drawer-b { padding: 0 18px 18px; overflow: auto; min-height: 0; flex: 1; }
+    form { display: grid; gap: 12px; }
+    label { display: grid; gap: 4px; font-size: 12px; font-weight: 600; color: var(--muted); }
+    input, textarea {
+      width: 100%; min-width: 0; border: 1px solid var(--border); border-radius: var(--r-md);
+      padding: 8px 10px; background: var(--surface); color: var(--text);
+    }
+    textarea { min-height: 72px; resize: vertical; }
+    input:focus, textarea:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+    .prefix { display: flex; align-items: center; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); overflow: hidden; }
+    .prefix span { padding: 0 8px; color: var(--muted); font-family: "JetBrains Mono", "Noto Sans TC", monospace; font-size: 12px; background: var(--surface-alt); border-right: 1px solid var(--border); height: 36px; display: grid; place-items: center; }
+    .prefix input { border: 0; background: transparent; }
+
+    dialog {
+      width: min(28rem, calc(100vw - 2rem)); color: var(--text); border: 1px solid var(--border);
+      border-radius: var(--r-xl); background: var(--bg); box-shadow: var(--shadow-2); padding: 18px;
+    }
+    dialog::backdrop { background: var(--scrim); }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+
+    .toast {
+      position: fixed; right: 16px; bottom: 16px; z-index: 60; display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; border-radius: var(--r-lg); background: var(--text); color: var(--bg); box-shadow: var(--shadow-2);
+    }
+    .pagination { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; color: var(--muted); }
+
+    @media (max-width: 960px) {
+      .kpi-row, .cmp, .charts { grid-template-columns: 1fr 1fr; }
+      .login-wrap { grid-template-columns: 1fr; }
+      .login-hero { padding: 28px 20px; min-height: 180px; }
+      .user-name { display: none; }
+    }
+    @media (max-width: 720px) {
+      .topbar, .subnav, .page { padding-left: 12px; padding-right: 12px; }
+      .primary-nav { display: none; }
+      .mobile-nav { display: flex; }
+      .kpi-row, .cmp, .charts { grid-template-columns: 1fr; }
+      .thead { display: none; }
+      .row {
+        grid-template-columns: minmax(0, 1fr) auto auto;
+        grid-template-areas:
+          "code clicks status"
+          "url url url"
+          "meta meta actions";
+        gap: 6px 10px; padding: 10px 12px;
+      }
+      .c-code { grid-area: code; }
+      .num { grid-area: clicks; }
+      .c-status { grid-area: status; justify-self: end; }
+      .url { grid-area: url; white-space: nowrap; }
+      .c-created { grid-area: meta; font-size: 11px; color: var(--muted); }
+      .c-actions { grid-area: actions; }
+      .page-head h1 { font-size: 16px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+  <script>
+    window.onChartFailure = function () { window.__chartCdnFailed = true; };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.3/dist/index.global.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js" onerror="window.onChartFailure()"></script>
+</head>
+<body data-proposal-id="10-stripe" data-theme="light" data-active-view="dashboard" data-dataset="default">
+  <header class="topbar">
+    <div class="brand">
+      <span class="mark">あ</span>
+      <span class="brand-name">AkaMoney</span>
+    </div>
+    <nav class="primary-nav" aria-label="主要導覽">
+      <button type="button" class="nav-link" data-action="view-switch" data-view-target="dashboard" data-nav="dashboard">儀表板</button>
+      <button type="button" class="nav-link" data-action="view-switch" data-view-target="analytics" data-nav="analytics">成效分析</button>
+      <button type="button" class="nav-link" data-action="view-switch" data-view-target="stats" data-nav="stats">總覽統計</button>
+    </nav>
+    <div class="top-actions">
+      <button type="button" class="btn sm" data-action="theme-toggle" aria-label="切換布景">切換布景</button>
+      <div class="user-chip">
+        <span class="avatar">設</span>
+        <span class="user-name" id="user-name">設計評審小組</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="subnav">
+    <div class="crumb">
+      <span>營運</span><span class="sep">/</span><b id="crumb-view">儀表板</b>
+    </div>
+    <div class="mobile-nav" aria-label="行動導覽">
+      <button type="button" class="nav-link" data-action="view-switch" data-view-target="dashboard" data-nav="dashboard">儀表板</button>
+      <button type="button" class="nav-link" data-action="view-switch" data-view-target="analytics" data-nav="analytics">成效分析</button>
+      <button type="button" class="nav-link" data-action="view-switch" data-view-target="stats" data-nav="stats">總覽統計</button>
+    </div>
+    <div class="grow"></div>
+    <input class="search" data-action="search" aria-label="搜尋" placeholder="搜尋短代碼、原始網址或標題">
+    <div class="tabs" role="tablist" aria-label="狀態篩選">
+      <button type="button" data-filter="all" class="is-active">全部 <span data-count="all">0</span></button>
+      <button type="button" data-filter="active">作用中 <span data-count="active">0</span></button>
+      <button type="button" data-filter="archived">已封存 <span data-count="archived">0</span></button>
+    </div>
+    <button type="button" class="btn sm" data-action="sort-clicks"><span data-sort-label>點擊數 高→低</span></button>
+    <button type="button" class="btn primary sm" data-action="view-switch" data-view-target="create">建立</button>
+  </div>
+
+  <section data-view="dashboard">
+    <div class="page">
+      <div class="page-head">
+        <div>
+          <h1>儀表板</h1>
+          <p class="lede">掃描全部短網址的點擊數、狀態與轉換出口。</p>
+        </div>
+      </div>
+      <div class="kpi-row" id="dash-kpis"></div>
+      <div class="panel" style="margin-bottom:14px">
+        <div class="panel-h"><h2>近 30 日點擊</h2><span class="s">來自共用情境資料</span></div>
+        <div data-chart="dashboard-sparkline" data-chart-state="empty"></div>
+      </div>
+      <div id="dashboard-state"></div>
+      <div class="table-wrap">
+        <div class="thead" aria-hidden="true">
+          <span>短代碼 / 標題</span><span>原始網址</span><span class="num">點擊數</span><span>建立時間</span><span>狀態</span><span></span>
+        </div>
+        <div id="url-list">
+          <article class="row" data-link-row data-url-id="initial">
+            <span class="c-code"><span class="dot"></span><span class="lk">aka.money/initial</span></span>
+            <span class="url">https://example.com</span>
+            <span class="num">1</span>
+            <span class="c-created">—</span>
+            <span class="c-status"><span class="badge">作用中</span></span>
+            <span class="c-actions">
+              <button type="button" data-action="copy" data-copy-state="idle">複製</button>
+              <button type="button" data-action="archive">封存</button>
+            </span>
+          </article>
+        </div>
+      </div>
+      <div id="dataset-browse" class="pagination"></div>
+    </div>
+  </section>
+
+  <section data-view="analytics" hidden>
+    <div class="page">
+      <div class="page-head">
+        <div>
+          <h1>成效分析</h1>
+          <p class="lede" id="analytics-subject">單一短網址與全帳號的比較檢視。</p>
+        </div>
+        <div class="seg" aria-label="比較維度">
+          <button type="button" data-dim="country" class="is-active">國家</button>
+          <button type="button" data-dim="device">裝置</button>
+          <button type="button" data-dim="browser">瀏覽器</button>
+        </div>
+      </div>
+      <div class="cmp" id="analytics-compare"></div>
+      <div class="charts">
+        <div class="wide" data-chart="clicks-trend" data-chart-state="empty"></div>
+        <div data-chart="country-distribution" data-chart-state="empty"></div>
+        <div data-chart="device-distribution" data-chart-state="empty"></div>
+        <div class="wide" data-chart="browser-distribution" data-chart-state="empty"></div>
+      </div>
+      <div class="panel" style="margin-top:12px" id="analytics-breakdown"></div>
+    </div>
+  </section>
+
+  <section data-view="stats" hidden>
+    <div class="page">
+      <div class="page-head">
+        <div>
+          <h1>總覽統計</h1>
+          <p class="lede" id="stats-daterange">全帳號期間彙總。</p>
+        </div>
+      </div>
+      <div class="kpi-row" id="stats-kpis"></div>
+      <div class="charts">
+        <div class="wide" data-chart="stats-trend" data-chart-state="empty"></div>
+        <div data-chart="stats-country" data-chart-state="empty"></div>
+        <div data-chart="stats-device" data-chart-state="empty"></div>
+      </div>
+      <div class="panel" style="margin-top:12px">
+        <div class="panel-h"><h2>Top Links</h2><span class="s">依點擊數</span></div>
+        <div id="stats-toplinks"></div>
+      </div>
+    </div>
+  </section>
+
+  <section data-view="login" hidden>
+    <div class="login-wrap">
+      <div class="login-hero">
+        <p style="letter-spacing:.14em;text-transform:uppercase;font-size:11px;color:#8b85ff;font-weight:700">AkaMoney</p>
+        <h1>用清楚的數字管理每一次轉址</h1>
+        <p>把長網址收成可追蹤的短代碼，並以資料表與比較圖表讀懂點擊從哪裡來。</p>
+      </div>
+      <div class="login-panel">
+        <div class="login-card">
+          <h2>登入</h2>
+          <p class="lede">使用公司 Microsoft 帳號進入管理台。這是唯一登入方式。</p>
+          <button type="button" class="btn primary" id="ms-login" style="height:40px">使用 Microsoft 帳號登入</button>
+          <p class="hint">開發模式提示：本比稿為前端記憶體資料，不會向真實身分提供者送出請求。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section data-view="notfound" hidden>
+    <div class="nf">
+      <div>
+        <div class="code">404</div>
+        <h1>找不到頁面</h1>
+        <p class="lede" style="margin:8px 0 16px">這個短代碼或路由不存在，或已經被封存後移除。</p>
+        <button type="button" class="btn primary" data-action="view-switch" data-view-target="dashboard">回到儀表板</button>
+      </div>
+    </div>
+  </section>
+
+  <section data-view="create" hidden>
+    <div class="drawer-h">
+      <div>
+        <h1>建立短網址</h1>
+        <p class="lede">從右側抽屜完成一筆可追蹤的轉址。</p>
+      </div>
+      <button type="button" class="btn sm" id="create-close">關閉</button>
+    </div>
+    <div class="drawer-b">
+      <form id="create-form">
+        <label>原始網址（必填）
+          <input type="url" name="original_url" required placeholder="https://">
+        </label>
+        <label>短代碼（必填）
+          <span class="prefix">
+            <span>aka.money/</span>
+            <input name="short_code" required minlength="3" maxlength="20" pattern="[a-zA-Z0-9_\-]+" placeholder="summer-sale">
+          </span>
+        </label>
+        <label>標題（選填）<input name="title" placeholder="活動主視覺"></label>
+        <label>描述（選填）<textarea name="description" placeholder="給內部辨識用的備註"></textarea></label>
+        <label>預覽圖（選填）
+          <input type="url" name="image_url" id="image-url" placeholder="https:// 或改上傳檔案">
+        </label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button type="button" class="btn sm" id="image-upload-btn">上傳預覽圖</button>
+          <input type="file" id="image-file" accept="image/*" hidden>
+          <span id="image-preview" hidden class="lede">已選擇預覽圖</span>
+        </div>
+        <label>到期時間（選填，留空＝永不過期）
+          <input type="datetime-local" name="expires_at">
+        </label>
+        <button type="submit" class="btn primary" data-action="create-submit">建立</button>
+      </form>
+    </div>
+  </section>
+
+  <div class="drawer-scrim" id="drawer-scrim" hidden></div>
+
+  <dialog id="archive-dialog" aria-labelledby="archive-title">
+    <h2 id="archive-title">確認封存短網址？</h2>
+    <p class="lede" style="margin-top:8px">封存後不會再對外轉址，仍可立即還原。</p>
+    <div class="dialog-actions">
+      <button type="button" class="btn" id="archive-cancel">取消</button>
+      <button type="button" class="btn danger" data-action="archive-confirm">確認封存</button>
+    </div>
+  </dialog>
+
+  <button type="button" class="toast" data-action="archive-undo" hidden role="status">還原剛才封存的短網址</button>
+  <div class="toast" id="create-success" hidden data-state="success" role="status">短網址建立成功</div>
+
+  <script src="../shared/scenarios.js"></script>
+  <script>
+    (function () {
+      var root = document.querySelector('[data-proposal-id]');
+      var VIEWS = ['dashboard', 'analytics', 'stats', 'login', 'create', 'notfound'];
+      var THEMES = ['light', 'dark'];
+      var DATASETS = ['default', 'large250', 'empty', 'noResults', 'edgeCases', 'zeroAnalytics', 'apiError'];
+      var VIEW_LABELS = { dashboard: '儀表板', analytics: '成效分析', stats: '總覽統計', login: '登入', create: '建立短網址', notfound: '找不到頁面' };
+      var DIM_LABEL = { country: '國家', device: '裝置', browser: '瀏覽器' };
+      var DIM_MAP = { country: 'countryDistribution', device: 'deviceDistribution', browser: 'browserDistribution' };
+      var STAT_DIM_MAP = { country: 'country_distribution', device: 'device_distribution' };
+
+      var state = { view: 'dashboard', theme: 'light', dataset: 'default' };
+      var scenario = window.AKAMONEY_SCENARIOS.getScenario('default');
+      var urls = scenario.urls.slice();
+      var sortDirection = 'desc';
+      var listFilter = 'all';
+      var query = '';
+      var archiveTarget = null;
+      var archiveTrigger = null;
+      var lastArchived = null;
+      var latestCreatedId = null;
+      var pageIndex = 0;
+      var pageSize = 25;
+      var charts = [];
+      var drawerTrigger = null;
+      var drawerReturnView = 'dashboard';
+      var analyticsDimension = 'country';
+      var uploadedImage = null;
+      var datasetToken = 0;
+
+      function referenceNow() {
+        var generated = (scenario.meta && scenario.meta.generatedAt) || 0;
+        return Math.max(Date.now(), generated);
+      }
+      function linkStatus(url) {
+        if (!url || !url.is_active) return 'archived';
+        if (url.expires_at != null && url.expires_at < referenceNow()) return 'expired';
+        return 'active';
+      }
+      function fmt(value) { return Number(value || 0).toLocaleString('en-US'); }
+      function fmtDate(ms) {
+        if (!ms) return '—';
+        var date = new Date(ms);
+        if (isNaN(date.getTime())) return '—';
+        return date.toISOString().slice(0, 10);
+      }
+      function escapeHtml(value) {
+        return String(value == null ? '' : value).replace(/[&<>"']/g, function (character) {
+          return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character];
+        });
+      }
+      function highlight(text, needle) {
+        var value = String(text == null ? '' : text);
+        if (!needle) return escapeHtml(value);
+        var position = value.toLocaleLowerCase('zh-TW').indexOf(needle);
+        if (position < 0) return escapeHtml(value);
+        return escapeHtml(value.slice(0, position)) +
+          '<mark>' + escapeHtml(value.slice(position, position + needle.length)) + '</mark>' +
+          escapeHtml(value.slice(position + needle.length));
+      }
+      function k0(entry) { return entry[0]; }
+      function k1(entry) { return entry[1]; }
+
+      function emit(type) {
+        if (window.parent === window) return;
+        window.parent.postMessage({
+          source: 'akamoney-proposal', proposalId: '10-stripe', type: type,
+          state: { view: state.view, theme: state.theme, dataset: state.dataset }
+        }, '*');
+      }
+
+      function setScrim(open) {
+        var scrim = document.getElementById('drawer-scrim');
+        if (scrim) scrim.hidden = !open;
+      }
+
+      function applyView(view, shouldEmit, trigger) {
+        var previous = state.view;
+        state.view = view;
+        root.dataset.activeView = view;
+        document.querySelectorAll('[data-view]').forEach(function (element) {
+          var name = element.dataset.view;
+          var show = view === 'create' ? (name === 'create' || name === 'dashboard') : name === view;
+          element.hidden = !show;
+          if (show) element.removeAttribute('inert');
+          else element.setAttribute('inert', '');
+        });
+        document.querySelectorAll('[data-nav]').forEach(function (item) {
+          var active = item.dataset.nav === (view === 'create' ? 'dashboard' : view);
+          item.classList.toggle('is-active', active);
+        });
+        var crumb = document.getElementById('crumb-view');
+        if (crumb) crumb.textContent = VIEW_LABELS[view] || view;
+        setScrim(view === 'create');
+        if (view === 'create') {
+          if (previous !== 'create') {
+            var active = document.activeElement;
+            drawerTrigger = trigger || (active && active !== document.body ? active : null);
+            drawerReturnView = (previous && previous !== 'create') ? previous : 'dashboard';
+          }
+          var first = document.querySelector('#create-form input');
+          if (first) { try { first.focus(); } catch (error) {} }
+        } else if (previous === 'create') {
+          var restore = drawerTrigger;
+          drawerTrigger = null;
+          if (restore && restore.isConnected) { try { restore.focus(); } catch (error) {} }
+        }
+        if (shouldEmit !== false) emit('STATE_CHANGED');
+      }
+
+      function chartColors() {
+        var style = getComputedStyle(root);
+        return ['--chart-1', '--chart-2', '--chart-3', '--chart-4', '--chart-5']
+          .map(function (name) { return style.getPropertyValue(name).trim(); });
+      }
+      function chartTheme() {
+        var style = getComputedStyle(root);
+        return {
+          series: chartColors(),
+          text: style.getPropertyValue('--text').trim(),
+          muted: style.getPropertyValue('--muted').trim(),
+          grid: style.getPropertyValue('--border').trim(),
+          surface: style.getPropertyValue('--surface').trim(),
+          tooltipBg: style.getPropertyValue('--tooltip-bg').trim(),
+          tooltipFg: style.getPropertyValue('--tooltip-fg').trim()
+        };
+      }
+      function fallbackChart(container, values) {
+        var safe = values.length ? values : [0];
+        var max = Math.max.apply(Math, safe.concat([1]));
+        var points = safe.map(function (value, index) {
+          var x = safe.length === 1 ? 150 : (index / (safe.length - 1)) * 300;
+          var y = 145 - (Number(value) / max) * 120;
+          return x.toFixed(1) + ',' + y.toFixed(1);
+        }).join(' ');
+        container.innerHTML =
+          '<svg viewBox="0 0 300 160" role="img" aria-label="圖表資料預覽">' +
+          '<line x1="0" y1="145" x2="300" y2="145" stroke="currentColor" opacity=".25"/>' +
+          '<polyline fill="none" stroke="' + chartColors()[0] + '" stroke-width="3" points="' + points + '"/></svg>';
+        container.dataset.chartState = 'fallback';
+      }
+      function renderChart(container, labels, values, type) {
+        if (!container) return;
+        var nums = values.map(Number);
+        if (!nums.length || nums.every(function (value) { return value === 0; })) {
+          container.innerHTML =
+            '<div class="chart-empty"><svg class="ce-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">' +
+            '<path d="M3 3v18h18"/><path d="M7 14l3-3 3 2 4-5"/></svg><span>此區間尚無點擊資料</span></div>';
+          container.dataset.chartState = 'empty';
+          return;
+        }
+        if (window.__chartCdnFailed || typeof window.Chart === 'undefined') {
+          fallbackChart(container, nums);
+          return;
+        }
+        container.innerHTML = '<canvas></canvas>';
+        var theme = chartTheme();
+        var series = theme.series;
+        var isDoughnut = type === 'doughnut';
+        var dataset;
+        if (isDoughnut) {
+          dataset = { data: nums, backgroundColor: series, borderColor: theme.surface, borderWidth: 2, hoverOffset: 3 };
+        } else if (type === 'bar') {
+          dataset = { label: '點擊數', data: nums, backgroundColor: series, borderColor: series[0], borderWidth: 0, borderRadius: 3, maxBarThickness: 36 };
+        } else {
+          dataset = {
+            label: '點擊數', data: nums, borderColor: series[0], backgroundColor: series[0] + '22',
+            borderWidth: 2, fill: true, tension: 0.28, pointRadius: 0, pointHoverRadius: 3
+          };
+        }
+        var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        var chart = new window.Chart(container.querySelector('canvas'), {
+          type: type || 'line',
+          data: { labels: labels, datasets: [dataset] },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            animation: reduceMotion ? false : { duration: 220 },
+            cutout: isDoughnut ? '64%' : undefined,
+            plugins: {
+              legend: { display: isDoughnut, position: 'bottom', labels: { color: theme.text, boxWidth: 8, boxHeight: 8, padding: 10, font: { size: 11 } } },
+              tooltip: {
+                backgroundColor: theme.tooltipBg, titleColor: theme.tooltipFg, bodyColor: theme.tooltipFg,
+                footerColor: theme.tooltipFg, borderColor: theme.grid, borderWidth: 1, padding: 8, cornerRadius: 6,
+                displayColors: !isDoughnut
+              }
+            },
+            scales: isDoughnut ? {} : {
+              x: { ticks: { color: theme.muted, font: { size: 10 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 7 }, grid: { color: theme.grid, drawTicks: false }, border: { color: theme.grid } },
+              y: { beginAtZero: true, ticks: { color: theme.muted, font: { size: 10 }, maxTicksLimit: 5 }, grid: { color: theme.grid, drawTicks: false }, border: { color: theme.grid } }
+            }
+          }
+        });
+        charts.push(chart);
+        container.dataset.chartState = 'rendered';
+      }
+      function renderCharts() {
+        charts.forEach(function (chart) { try { chart.destroy(); } catch (error) {} });
+        charts = [];
+        var analytics = scenario.analytics || {};
+        var overall = scenario.overallStats || {};
+        var daily = analytics.dailySeries || [];
+        var country = Object.entries(analytics.countryDistribution || {});
+        var device = Object.entries(analytics.deviceDistribution || {});
+        var browser = Object.entries(analytics.browserDistribution || {});
+        var trend = Object.entries(overall.click_trend || {});
+        var statsCountry = Object.entries(overall.country_distribution || {});
+        var statsDevice = Object.entries(overall.device_distribution || {});
+        renderChart(document.querySelector('[data-chart="dashboard-sparkline"]'), daily.map(function (p) { return p.date; }), daily.map(function (p) { return p.clicks; }), 'line');
+        renderChart(document.querySelector('[data-chart="clicks-trend"]'), daily.map(function (p) { return p.date; }), daily.map(function (p) { return p.clicks; }), 'line');
+        renderChart(document.querySelector('[data-chart="country-distribution"]'), country.map(k0), country.map(k1), 'doughnut');
+        renderChart(document.querySelector('[data-chart="device-distribution"]'), device.map(k0), device.map(k1), 'doughnut');
+        renderChart(document.querySelector('[data-chart="browser-distribution"]'), browser.map(k0), browser.map(k1), 'bar');
+        renderChart(document.querySelector('[data-chart="stats-trend"]'), trend.map(k0), trend.map(k1), 'line');
+        renderChart(document.querySelector('[data-chart="stats-country"]'), statsCountry.map(k0), statsCountry.map(k1), 'doughnut');
+        renderChart(document.querySelector('[data-chart="stats-device"]'), statsDevice.map(k0), statsDevice.map(k1), 'doughnut');
+      }
+
+      function applyTheme(theme, shouldEmit) {
+        state.theme = theme;
+        root.dataset.theme = theme;
+        renderCharts();
+        if (shouldEmit !== false) emit('STATE_CHANGED');
+      }
+
+      function filteredUrls() {
+        var normalized = query.trim().toLocaleLowerCase('zh-TW');
+        return urls.filter(function (url) {
+          if (!normalized) return true;
+          return [url.short_code, url.original_url, url.title].some(function (value) {
+            return String(value || '').toLocaleLowerCase('zh-TW').includes(normalized);
+          });
+        }).sort(function (left, right) {
+          if (left.id === latestCreatedId) return -1;
+          if (right.id === latestCreatedId) return 1;
+          return sortDirection === 'desc' ? right.click_count - left.click_count : left.click_count - right.click_count;
+        });
+      }
+
+      function syncControls() {
+        var label = document.querySelector('[data-sort-label]');
+        if (label) label.textContent = sortDirection === 'desc' ? '點擊數 高→低' : '點擊數 低→高';
+        var search = document.querySelector('[data-action="search"]');
+        if (search) search.value = query;
+        document.querySelectorAll('.tabs [data-filter]').forEach(function (tab) {
+          tab.classList.toggle('is-active', tab.dataset.filter === listFilter);
+        });
+        var undo = document.querySelector('[data-action="archive-undo"]');
+        if (undo) undo.hidden = true;
+        var success = document.getElementById('create-success');
+        if (success) success.hidden = true;
+      }
+
+      function setCount(name, value) {
+        var element = document.querySelector('[data-count="' + name + '"]');
+        if (element) element.textContent = value;
+      }
+
+      function renderDashKpis() {
+        var el = document.getElementById('dash-kpis');
+        if (!el) return;
+        var overall = scenario.overallStats || {};
+        el.innerHTML = [
+          ['總點擊數', fmt(overall.total_clicks), '全帳號累計'],
+          ['作用中連結', fmt(overall.active_links), '目前可轉址'],
+          ['連結總數', fmt(overall.total_links), fmt(overall.archived_links || 0) + ' 已封存'],
+          ['平均點擊', fmt(overall.average_clicks_per_link), '每條短網址']
+        ].map(function (item) {
+          return '<div class="kpi"><div class="k">' + item[0] + '</div><div class="v">' + item[1] + '</div><div class="d">' + item[2] + '</div></div>';
+        }).join('');
+      }
+
+      function renderDashboard() {
+        var stateContainer = document.getElementById('dashboard-state');
+        var list = document.getElementById('url-list');
+        var browse = document.getElementById('dataset-browse');
+        var needle = query.trim().toLocaleLowerCase('zh-TW');
+        var matches = filteredUrls();
+        setCount('all', matches.length);
+        setCount('active', matches.filter(function (url) { return url.is_active; }).length);
+        setCount('archived', matches.filter(function (url) { return !url.is_active; }).length);
+        renderDashKpis();
+
+        var rows = listFilter === 'all' ? matches : matches.filter(function (url) {
+          return listFilter === 'archived' ? !url.is_active : url.is_active;
+        });
+        var pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
+        pageIndex = Math.min(Math.max(0, pageIndex), pageCount - 1);
+        var visibleRows = state.dataset === 'large250'
+          ? rows.slice(pageIndex * pageSize, (pageIndex + 1) * pageSize)
+          : rows;
+
+        stateContainer.innerHTML = '';
+        if (scenario.meta && scenario.meta.error) {
+          stateContainer.innerHTML =
+            '<div class="state" data-state="error" role="alert"><svg class="si" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16.5h.01"/></svg>' +
+            '<span><b>載入失敗</b> ' + escapeHtml(scenario.meta.error) + '</span>' +
+            '<button type="button" class="btn sm" id="retry" style="margin-left:auto">重試</button></div>';
+        } else if (urls.length === 0) {
+          stateContainer.innerHTML =
+            '<div class="empty-cta" data-state="empty"><span class="big">還沒有任何短網址</span>' +
+            '<span class="lede">建立第一筆連結，開始比較點擊來源與裝置。</span>' +
+            '<button type="button" class="btn primary" data-action="view-switch" data-view-target="create">建立短網址</button></div>';
+        } else if (matches.length === 0) {
+          stateContainer.innerHTML =
+            '<div class="state" data-state="no-results"><svg class="si" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg>' +
+            '<span><b>找不到符合的短網址</b>試試其他關鍵字，或清除搜尋條件。</span>' +
+            '<button type="button" class="btn sm" id="clear-search" style="margin-left:auto">清除搜尋</button></div>';
+        }
+
+        list.innerHTML = visibleRows.map(function (url) {
+          var active = !!url.is_active;
+          var status = linkStatus(url);
+          var dotClass = status === 'archived' ? ' off' : (status === 'expired' ? ' exp' : '');
+          var badge = status === 'archived'
+            ? '<span class="badge off">已封存</span>'
+            : (status === 'expired' ? '<span class="badge exp">已過期</span>' : '<span class="badge">作用中</span>');
+          var hasTitle = url.title != null && String(url.title).trim() !== '';
+          var titleHtml = hasTitle
+            ? '<span class="title" title="' + escapeHtml(url.title) + '">' + highlight(url.title, needle) + '</span>'
+            : '<span class="title none">未命名連結</span>';
+          var tail = active
+            ? '<button type="button" class="btn sm danger" data-action="archive" data-id="' + escapeHtml(url.id) + '">封存</button>'
+            : '<button type="button" class="btn sm" data-action="archive-undo" data-id="' + escapeHtml(url.id) + '">還原</button>';
+          return '<article class="row" data-link-row data-url-id="' + escapeHtml(url.id) + '">' +
+            '<span class="c-code"><span class="dot' + dotClass + '"></span><span><span class="lk">aka.money/' + highlight(url.short_code, needle) + '</span>' + titleHtml + '</span></span>' +
+            '<span class="url" title="' + escapeHtml(url.original_url) + '">' + highlight(url.original_url, needle) + '</span>' +
+            '<span class="num">' + fmt(url.click_count) + '</span>' +
+            '<span class="c-created">' + fmtDate(url.created_at) + '</span>' +
+            '<span class="c-status">' + badge + '</span>' +
+            '<span class="c-actions"><button type="button" class="btn sm" data-action="copy" data-copy-state="idle" data-code="' + escapeHtml(url.short_code) + '">複製</button>' + tail + '</span>' +
+            '</article>';
+        }).join('');
+
+        browse.innerHTML = state.dataset === 'large250'
+          ? '<span class="pinfo" role="status">共 ' + fmt(urls.length) + ' 筆 · 第 ' + (pageIndex + 1) + ' / ' + pageCount + ' 頁</span>' +
+            '<span class="grow"></span>' +
+            '<button type="button" class="btn sm" data-page="previous" aria-label="上一頁"' + (pageIndex === 0 ? ' disabled' : '') + '>上一頁</button>' +
+            '<button type="button" class="btn sm" data-page="next" aria-label="下一頁"' + (pageIndex >= pageCount - 1 ? ' disabled' : '') + '>下一頁</button>'
+          : '';
+      }
+
+      function analyticsSubject() {
+        var overall = scenario.overallStats || {};
+        var top = overall.top_links || [];
+        return top[0] || urls[0] || null;
+      }
+      function topShare(map) {
+        var entries = Object.entries(map || {}).sort(function (a, b) { return b[1] - a[1]; });
+        var total = entries.reduce(function (sum, entry) { return sum + entry[1]; }, 0);
+        if (!entries.length || !total) return { label: '—', share: 0, value: 0 };
+        return { label: entries[0][0], share: Math.round(entries[0][1] / total * 100), value: entries[0][1] };
+      }
+      function renderAnalytics() {
+        var subject = analyticsSubject();
+        var subjectEl = document.getElementById('analytics-subject');
+        if (subjectEl) {
+          if (!subject) subjectEl.textContent = '目前沒有可分析的連結。';
+          else {
+            var title = subject.title && String(subject.title).trim() ? subject.title : '未命名連結';
+            subjectEl.innerHTML = '分析對象 <b>aka.money/' + escapeHtml(subject.short_code) + '</b> · ' + escapeHtml(title);
+          }
+        }
+        var analytics = scenario.analytics || {};
+        var overall = scenario.overallStats || {};
+        var dim = analyticsDimension;
+        var linkMap = analytics[DIM_MAP[dim]] || {};
+        var acctMap = dim === 'browser' ? {} : (overall[STAT_DIM_MAP[dim]] || {});
+        var linkTop = topShare(linkMap);
+        var acctTop = topShare(acctMap);
+        var compare = document.getElementById('analytics-compare');
+        if (compare) {
+          compare.innerHTML = [
+            ['總點擊數', fmt(analytics.totalClicks || 0), fmt(overall.total_clicks || 0), '此連結', '全帳號'],
+            [DIM_LABEL[dim] + '主來源', linkTop.label + ' ' + linkTop.share + '%', acctTop.label === '—' ? '瀏覽器僅單連結層級' : (acctTop.label + ' ' + acctTop.share + '%'), '此連結', '全帳號'],
+            ['資料點', fmt(Object.keys(linkMap).length), fmt(Object.keys(acctMap).length || (analytics.dailySeries || []).length), DIM_LABEL[dim] + '分項', dim === 'browser' ? '趨勢天數' : '帳號分項']
+          ].map(function (row) {
+            return '<div class="cmp-card"><div class="k" style="font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--faint);font-weight:700">' + escapeHtml(row[0]) + '</div>' +
+              '<div class="pair"><span>' + escapeHtml(row[3]) + '</span><b>' + escapeHtml(row[1]) + '</b></div>' +
+              '<div class="pair"><span>' + escapeHtml(row[4]) + '</span><b>' + escapeHtml(row[2]) + '</b></div></div>';
+          }).join('');
+        }
+        var breakdown = document.getElementById('analytics-breakdown');
+        if (breakdown) {
+          var entries = Object.entries(linkMap).sort(function (a, b) { return b[1] - a[1]; });
+          var total = entries.reduce(function (sum, entry) { return sum + entry[1]; }, 0) || 1;
+          breakdown.innerHTML = '<div class="panel-h"><h2>' + escapeHtml(DIM_LABEL[dim]) + '分佈比較</h2><span class="s">依點擊數</span></div>' +
+            (entries.length ? entries.map(function (entry, index) {
+              var pct = Math.round(entry[1] / total * 100);
+              return '<div class="tl-row"><span class="rank">' + (index + 1) + '</span><div><div class="tl-code">' + escapeHtml(entry[0]) + '</div><div class="tl-bar" style="width:' + Math.max(6, pct) + '%"></div></div><span class="tl-n">' + fmt(entry[1]) + '<span class="tl-pct">' + pct + '%</span></span></div>';
+            }).join('') : '<div class="lede" style="padding:12px">此區間尚無可比較的分佈資料。</div>');
+        }
+      }
+
+      function renderStats() {
+        var overall = scenario.overallStats || {};
+        var range = overall.date_range || {};
+        var rangeEl = document.getElementById('stats-daterange');
+        if (rangeEl) {
+          rangeEl.textContent = (range.start && range.end)
+            ? ('統計期間 ' + range.start + ' ～ ' + range.end)
+            : '尚無可用的統計區間';
+        }
+        var kpis = document.getElementById('stats-kpis');
+        if (kpis) {
+          kpis.innerHTML = [
+            ['總點擊數', fmt(overall.total_clicks), '所有連結累計'],
+            ['作用中連結', fmt(overall.active_links), '目前正在轉址'],
+            ['連結總數', fmt(overall.total_links), fmt(overall.archived_links || 0) + ' 個已封存'],
+            ['平均每連結', fmt(overall.average_clicks_per_link), '點擊 ÷ 連結數']
+          ].map(function (item) {
+            return '<div class="kpi"><div class="k">' + item[0] + '</div><div class="v">' + item[1] + '</div><div class="d">' + item[2] + '</div></div>';
+          }).join('');
+        }
+        var toplinks = document.getElementById('stats-toplinks');
+        if (toplinks) {
+          var top = overall.top_links || [];
+          var max = top.reduce(function (value, link) { return Math.max(value, link.click_count); }, 1);
+          toplinks.innerHTML = top.length
+            ? top.map(function (link, index) {
+              return '<div class="tl-row"><span class="rank">' + (index + 1) + '</span>' +
+                '<div><div class="tl-code">aka.money/' + escapeHtml(link.short_code) + '</div>' +
+                '<div class="tl-sub">' + escapeHtml(link.title || link.original_url) + '</div>' +
+                '<div class="tl-bar" style="width:' + Math.max(6, Math.round(link.click_count / max * 100)) + '%"></div></div>' +
+                '<span class="tl-n">' + fmt(link.click_count) + '</span></div>';
+            }).join('')
+            : '<div class="lede" style="padding:12px">目前沒有可排行的連結。</div>';
+        }
+      }
+
+      function showToast(id) {
+        var toast = document.getElementById(id);
+        if (!toast) return;
+        toast.hidden = false;
+        window.clearTimeout(toast.__timer);
+        toast.__timer = window.setTimeout(function () { toast.hidden = true; }, 5000);
+      }
+
+      function datasetLabel(dataset) {
+        return ({
+          default: '預設', large250: '大量資料', empty: '空狀態', noResults: '無搜尋結果',
+          edgeCases: '邊界案例', zeroAnalytics: '零分析', apiError: 'API 錯誤'
+        })[dataset] || dataset;
+      }
+
+      function showDashboardLoading(dataset) {
+        var stateContainer = document.getElementById('dashboard-state');
+        var list = document.getElementById('url-list');
+        if (stateContainer) {
+          stateContainer.innerHTML =
+            '<div class="state" data-state="loading" role="status" aria-live="polite">' +
+            '<svg class="si spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3a9 9 0 1 0 9 9" stroke-linecap="round"/></svg>' +
+            '<span><b>載入資料中…</b>正在套用「' + escapeHtml(datasetLabel(dataset)) + '」情境資料。</span></div>';
+        }
+        if (list) {
+          var skeleton = '';
+          for (var i = 0; i < 6; i += 1) {
+            skeleton += '<article class="row skeleton" aria-hidden="true"><span class="c-code"><span class="dot"></span><span class="sk-bar" style="width:48%"></span></span><span class="url"><span class="sk-bar" style="width:72%"></span></span><span class="num"><span class="sk-bar" style="width:36px"></span></span><span></span><span></span><span></span></article>';
+          }
+          list.innerHTML = skeleton;
+        }
+      }
+
+      function applyDataset(dataset, shouldEmit) {
+        state.dataset = dataset;
+        root.dataset.dataset = dataset;
+        scenario = window.AKAMONEY_SCENARIOS.getScenario(dataset);
+        urls = scenario.urls.slice();
+        latestCreatedId = null;
+        pageIndex = 0;
+        sortDirection = 'desc';
+        listFilter = 'all';
+        query = (scenario.meta && scenario.meta.searchQuery) || '';
+        var userName = document.getElementById('user-name');
+        if (userName && scenario.user && scenario.user.name) userName.textContent = scenario.user.name;
+        syncControls();
+        renderStats();
+        renderAnalytics();
+        renderCharts();
+        showDashboardLoading(dataset);
+        var token = ++datasetToken;
+        var done = false;
+        function finishDataset() {
+          if (done || token !== datasetToken) return;
+          done = true;
+          renderDashboard();
+        }
+        requestAnimationFrame(function () { requestAnimationFrame(finishDataset); });
+        window.setTimeout(finishDataset, 140);
+        if (shouldEmit !== false) emit('STATE_CHANGED');
+      }
+
+      document.addEventListener('click', function (event) {
+        var pageControl = event.target.closest('[data-page]');
+        if (pageControl) {
+          if (pageControl.hasAttribute('disabled')) return;
+          pageIndex += pageControl.dataset.page === 'next' ? 1 : -1;
+          renderDashboard();
+          return;
+        }
+        if (event.target.closest('#retry')) { applyDataset(state.dataset); return; }
+        if (event.target.closest('#clear-search')) {
+          query = '';
+          var search = document.querySelector('[data-action="search"]');
+          if (search) search.value = '';
+          pageIndex = 0;
+          renderDashboard();
+          return;
+        }
+        if (event.target.closest('#create-close') || event.target.closest('#drawer-scrim')) {
+          applyView(drawerReturnView || 'dashboard');
+          return;
+        }
+        if (event.target.closest('#ms-login')) {
+          applyView('dashboard');
+          return;
+        }
+        var filterTab = event.target.closest('[data-filter]');
+        if (filterTab) {
+          listFilter = filterTab.dataset.filter;
+          pageIndex = 0;
+          document.querySelectorAll('.tabs [data-filter]').forEach(function (tab) {
+            tab.classList.toggle('is-active', tab === filterTab);
+          });
+          renderDashboard();
+          return;
+        }
+        var dimButton = event.target.closest('[data-dim]');
+        if (dimButton) {
+          analyticsDimension = dimButton.dataset.dim;
+          document.querySelectorAll('[data-dim]').forEach(function (button) {
+            button.classList.toggle('is-active', button === dimButton);
+          });
+          renderAnalytics();
+          return;
+        }
+
+        var actionElement = event.target.closest('[data-action]');
+        if (!actionElement) return;
+        var action = actionElement.dataset.action;
+        if (action === 'view-switch') {
+          applyView(actionElement.dataset.viewTarget, undefined, actionElement);
+        } else if (action === 'theme-toggle') {
+          applyTheme(state.theme === 'light' ? 'dark' : 'light');
+        } else if (action === 'sort-clicks') {
+          sortDirection = sortDirection === 'desc' ? 'asc' : 'desc';
+          pageIndex = 0;
+          var label = actionElement.querySelector('[data-sort-label]') || document.querySelector('[data-sort-label]');
+          if (label) label.textContent = sortDirection === 'desc' ? '點擊數 高→低' : '點擊數 低→高';
+          renderDashboard();
+        } else if (action === 'copy') {
+          var code = actionElement.dataset.code || '';
+          actionElement.dataset.copyState = 'copied';
+          actionElement.textContent = '已複製';
+          try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText('https://aka.money/' + code).catch(function () {});
+            }
+          } catch (error) {}
+          var button = actionElement;
+          window.clearTimeout(button.__copyTimer);
+          button.__copyTimer = window.setTimeout(function () {
+            button.dataset.copyState = 'idle';
+            button.textContent = '複製';
+          }, 1400);
+        } else if (action === 'archive') {
+          archiveTarget = actionElement.dataset.id;
+          archiveTrigger = actionElement;
+          document.getElementById('archive-dialog').showModal();
+          var confirmButton = document.querySelector('[data-action="archive-confirm"]');
+          if (confirmButton) confirmButton.focus();
+        } else if (action === 'archive-confirm') {
+          var target = urls.find(function (url) { return url.id === archiveTarget; });
+          if (target) { target.is_active = false; lastArchived = target.id; }
+          document.getElementById('archive-dialog').close();
+          var undo = document.querySelector('[data-action="archive-undo"]:not([data-id])');
+          if (undo) {
+            undo.hidden = false;
+            window.clearTimeout(undo.__timer);
+            undo.__timer = window.setTimeout(function () { undo.hidden = true; }, 6000);
+          }
+          renderDashboard();
+        } else if (action === 'archive-undo') {
+          var restoreId = actionElement.dataset.id || lastArchived;
+          var archived = urls.find(function (url) { return url.id === restoreId; });
+          if (archived) archived.is_active = true;
+          if (!actionElement.dataset.id) { actionElement.hidden = true; window.clearTimeout(actionElement.__timer); }
+          renderDashboard();
+        }
+      });
+
+      var searchInput = document.querySelector('[data-action="search"]');
+      if (searchInput) {
+        searchInput.addEventListener('input', function (event) {
+          query = event.target.value;
+          pageIndex = 0;
+          renderDashboard();
+        });
+      }
+
+      var archiveCancel = document.getElementById('archive-cancel');
+      if (archiveCancel) archiveCancel.addEventListener('click', function () {
+        document.getElementById('archive-dialog').close();
+      });
+      document.getElementById('archive-dialog').addEventListener('close', function () {
+        if (archiveTrigger && archiveTrigger.isConnected) { try { archiveTrigger.focus(); } catch (error) {} }
+      });
+
+      document.addEventListener('keydown', function (event) {
+        if (event.key !== 'Escape' && event.key !== 'Esc') return;
+        var dialog = document.getElementById('archive-dialog');
+        if (dialog && dialog.open) return;
+        if (state.view !== 'create') return;
+        event.preventDefault();
+        applyView(drawerReturnView || 'dashboard');
+      });
+
+      var codeField = document.querySelector('#create-form input[name="short_code"]');
+      if (codeField) {
+        codeField.addEventListener('input', function () {
+          var value = codeField.value;
+          var message = '';
+          if (value && (value.length < 3 || value.length > 20)) message = '短代碼長度需為 3 到 20 個字元。';
+          else if (value && !/^[A-Za-z0-9_\-]+$/.test(value)) message = '短代碼僅能包含英文字母、數字、底線與連字號。';
+          codeField.setCustomValidity(message);
+        });
+      }
+
+      var imageUrlInput = document.getElementById('image-url');
+      var imageFileInput = document.getElementById('image-file');
+      var imageUploadBtn = document.getElementById('image-upload-btn');
+      var imagePreview = document.getElementById('image-preview');
+      if (imageUploadBtn && imageFileInput) {
+        imageUploadBtn.addEventListener('click', function () { imageFileInput.click(); });
+        imageFileInput.addEventListener('change', function () {
+          var file = imageFileInput.files && imageFileInput.files[0];
+          if (!file) return;
+          uploadedImage = 'uploaded:' + file.name;
+          if (imageUrlInput) imageUrlInput.value = '';
+          if (imagePreview) { imagePreview.hidden = false; imagePreview.textContent = '已選擇 ' + file.name; }
+        });
+      }
+      if (imageUrlInput) {
+        imageUrlInput.addEventListener('input', function () {
+          uploadedImage = null;
+          if (imagePreview) imagePreview.hidden = !imageUrlInput.value.trim();
+        });
+      }
+
+      document.getElementById('create-form').addEventListener('submit', function (event) {
+        event.preventDefault();
+        var form = event.currentTarget;
+        if (!form.reportValidity()) return;
+        var submitButton = form.querySelector('[data-action="create-submit"]');
+        if (submitButton && submitButton.dataset.busy === '1') return;
+        var data = new FormData(form);
+        var code = String(data.get('short_code') || '').trim();
+        var original = String(data.get('original_url') || '').trim();
+        if (!code || !original) return;
+        var expiresRaw = String(data.get('expires_at') || '').trim();
+        var expiresAt = expiresRaw ? new Date(expiresRaw).getTime() : undefined;
+        if (expiresAt !== undefined && isNaN(expiresAt)) expiresAt = undefined;
+        var imageUrl = uploadedImage || String(data.get('image_url') || '').trim() || undefined;
+        var previousLabel = submitButton ? submitButton.textContent : '';
+        if (submitButton) {
+          submitButton.dataset.busy = '1';
+          submitButton.disabled = true;
+          submitButton.textContent = '建立中…';
+        }
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () {
+            latestCreatedId = 'created-' + Date.now();
+            urls.unshift({
+              id: latestCreatedId, short_code: code, original_url: original,
+              short_url: 'https://aka.money/' + code, title: String(data.get('title') || ''),
+              description: String(data.get('description') || ''), image_url: imageUrl,
+              expires_at: expiresAt, click_count: 0, is_active: true,
+              created_at: Date.now(), updated_at: Date.now()
+            });
+            form.reset();
+            uploadedImage = null;
+            if (imageFileInput) imageFileInput.value = '';
+            if (imagePreview) imagePreview.hidden = true;
+            if (codeField) codeField.setCustomValidity('');
+            if (submitButton) {
+              submitButton.dataset.busy = '0';
+              submitButton.disabled = false;
+              submitButton.textContent = previousLabel || '建立';
+            }
+            renderDashboard();
+            showToast('create-success');
+            applyView('dashboard');
+          });
+        });
+      });
+
+      window.addEventListener('message', function (event) {
+        var data = event.data;
+        if (!data || typeof data !== 'object' || data.source !== 'akamoney-compare') return;
+        if (data.type === 'SET_VIEW' && VIEWS.indexOf(data.value) !== -1) applyView(data.value);
+        else if (data.type === 'SET_THEME' && THEMES.indexOf(data.value) !== -1) applyTheme(data.value);
+        else if (data.type === 'SET_DATASET' && DATASETS.indexOf(data.value) !== -1) applyDataset(data.value);
+      });
+
+      applyDataset('default', false);
+      applyTheme('light', false);
+      applyView('dashboard', false);
+      emit('READY');
+    })();
+  </script>
+</body>
+</html>

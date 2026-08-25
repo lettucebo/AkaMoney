@@ -1,0 +1,137 @@
+{
+  "id": "03-swiss",
+  "title": "瑞士國際主義網格控制台",
+  "provider": "Anthropic",
+  "model": "claude-opus-5",
+  "direction": "Swiss 國際主義排版",
+  "stack": "手寫 CSS",
+  "dna": {
+    "navigation": "top-bar",
+    "linkRepresentation": "compact-rows",
+    "createFlow": "inline-quick-create",
+    "analyticsModel": "comparative",
+    "mobileStrategy": "horizontal-scroll-table",
+    "workMode": "edit"
+  },
+  "tokens": {
+    "colors": {
+      "light": {
+        "bg": "#ffffff",
+        "surface": "#f2f2f0",
+        "surfaceAlt": "#e6e6e3",
+        "textPrimary": "#0a0a0a",
+        "textSecondary": "#5c5c5c",
+        "border": "#0a0a0a",
+        "accent": "#e2231a",
+        "success": "#0b7a3b",
+        "warning": "#a85800",
+        "danger": "#c8102e",
+        "chartSeries": [
+          "#e2231a",
+          "#0a0a0a",
+          "#5c5c5c",
+          "#0b7a3b",
+          "#0047ab"
+        ]
+      },
+      "dark": {
+        "bg": "#000000",
+        "surface": "#0f0f0f",
+        "surfaceAlt": "#1b1b1b",
+        "textPrimary": "#f2f0ed",
+        "textSecondary": "#9d9d99",
+        "border": "#f2f0ed",
+        "accent": "#ff3b2f",
+        "success": "#3ddc84",
+        "warning": "#f0a53d",
+        "danger": "#ff6b5e",
+        "chartSeries": [
+          "#ff3b2f",
+          "#f2f0ed",
+          "#9d9d99",
+          "#3ddc84",
+          "#6fa8ff"
+        ]
+      }
+    },
+    "typography": {
+      "displayFamily": "\"Inter\", \"Noto Sans TC\", system-ui, sans-serif",
+      "bodyFamily": "\"Inter\", \"Noto Sans TC\", system-ui, sans-serif",
+      "monoFamily": "\"JetBrains Mono\", \"Noto Sans TC\", monospace",
+      "cjkSerif": "Noto Serif TC",
+      "cjkSans": "Noto Sans TC",
+      "baseSize": "14px",
+      "scale": [
+        "11px",
+        "12px",
+        "14px",
+        "18px",
+        "28px",
+        "56px"
+      ]
+    },
+    "radii": {
+      "sm": "0px",
+      "md": "0px",
+      "lg": "0px",
+      "xl": "2px",
+      "full": "2px"
+    },
+    "spacing": {
+      "unit": "8px",
+      "xs": "4px",
+      "sm": "8px",
+      "md": "16px",
+      "lg": "24px",
+      "xl": "40px",
+      "2xl": "64px"
+    }
+  },
+  "capabilities": [
+    {
+      "feature": "單一短網址每日點擊趨勢圖",
+      "class": "A",
+      "note": "直接使用 AnalyticsResponse.clicks_by_date，折線圖逐點對應日期"
+    },
+    {
+      "feature": "國家／裝置／瀏覽器分佈圖",
+      "class": "A",
+      "note": "直接使用 clicks_by_country / clicks_by_device / clicks_by_browser"
+    },
+    {
+      "feature": "總覽 KPI 與期間趨勢",
+      "class": "A",
+      "note": "使用 OverallStatsResponse 的 total_clicks、active_links、total_links、click_trend、date_range"
+    },
+    {
+      "feature": "Top Links 排行榜與對照條",
+      "class": "A",
+      "note": "使用 OverallStatsResponse.top_links，長條寬度以最高值正規化"
+    },
+    {
+      "feature": "作用中／已封存／已過期狀態分頁籤",
+      "class": "B",
+      "note": "由 is_active 與 expires_at 於前端推導狀態徽章與分頁籤，不需新欄位"
+    },
+    {
+      "feature": "比較分析：前後 15 天期間差異與帳號平均基準線",
+      "class": "B",
+      "note": "前端以 clicks_by_date 與 OverallStatsResponse 既有欄位計算差值與平均，不需後端聚合"
+    },
+    {
+      "feature": "跨全部分頁的全域搜尋",
+      "class": "C",
+      "note": "示範對 large250 全資料集搜尋；列表 API 目前僅支援 page / limit，需新增 q 查詢參數與後端過濾"
+    },
+    {
+      "feature": "跨全資料集的點擊數排序",
+      "class": "C",
+      "note": "示範對 large250 全資料集排序後再分頁；需列表 API 支援 sort / order 參數，於資料庫層排序後分頁"
+    },
+    {
+      "feature": "封存後的 undo 還原佇列",
+      "class": "C",
+      "note": "需後端提供 PATCH is_active 的還原端點與短時間內的操作紀錄，才能跨裝置一致"
+    }
+  ]
+}
