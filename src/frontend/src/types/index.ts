@@ -25,10 +25,14 @@ export interface CreateUrlRequest {
 
 export interface UpdateUrlRequest {
   original_url?: string;
-  title?: string;
-  description?: string;
-  image_url?: string;
-  expires_at?: number;
+  /** `null` clears the field; omitting it leaves the stored value untouched. */
+  title?: string | null;
+  /** `null` clears the field; omitting it leaves the stored value untouched. */
+  description?: string | null;
+  /** `null` clears the field; omitting it leaves the stored value untouched. */
+  image_url?: string | null;
+  /** `null` clears the expiry: the API treats any defined value as an explicit write. */
+  expires_at?: number | null;
   is_active?: boolean;
 }
 

@@ -1,5 +1,6 @@
 import authService, { isAuthSkipped } from './auth';
 import axios, { AxiosInstance, AxiosError } from 'axios';
+import { applyMockUrlUpdate } from './mockUrlUpdate';
 import type {
   UrlResponse,
   CreateUrlRequest,
@@ -33,7 +34,7 @@ const getInitialMockUrls = (): UrlResponse[] => [
     id: 'mock-url-1',
     short_code: 'demo1',
     original_url: 'https://example.com/very-long-url-that-needs-shortening',
-    short_url: 'http://localhost:8787/demo1',
+    short_url: 'https://aka.money/demo1',
     title: 'Example Website',
     description: 'A demo shortened URL for testing',
     image_url: 'https://picsum.photos/seed/demo1/1200/630',
@@ -46,7 +47,7 @@ const getInitialMockUrls = (): UrlResponse[] => [
     id: 'mock-url-2',
     short_code: 'github',
     original_url: 'https://github.com/AkaMoney/AkaMoney',
-    short_url: 'http://localhost:8787/github',
+    short_url: 'https://aka.money/github',
     title: 'AkaMoney Repository',
     description: 'Project GitHub repository',
     created_at: Date.now() - 172800000,
@@ -58,7 +59,7 @@ const getInitialMockUrls = (): UrlResponse[] => [
     id: 'mock-url-3',
     short_code: 'docs',
     original_url: 'https://docs.example.com/getting-started/introduction',
-    short_url: 'http://localhost:8787/docs',
+    short_url: 'https://aka.money/docs',
     title: 'Documentation',
     description: 'Getting started guide',
     image_url: 'https://picsum.photos/seed/docs/1200/630',
@@ -71,7 +72,7 @@ const getInitialMockUrls = (): UrlResponse[] => [
     id: 'mock-url-4',
     short_code: 'archived',
     original_url: 'https://example.com/archived-content',
-    short_url: 'http://localhost:8787/archived',
+    short_url: 'https://aka.money/archived',
     title: 'Archived Link',
     description: 'This is an archived URL example',
     created_at: Date.now() - 345600000,
@@ -167,7 +168,7 @@ class ApiService {
         id: `mock-url-${Date.now()}`,
         short_code: data.short_code || `short${Date.now()}`,
         original_url: data.original_url,
-        short_url: `http://localhost:8787/${data.short_code || `short${Date.now()}`}`,
+        short_url: `https://aka.money/${data.short_code || `short${Date.now()}`}`,
         title: data.title,
         description: data.description,
         image_url: data.image_url,
@@ -224,7 +225,7 @@ class ApiService {
     if (isAuthSkipped()) {
       const index = mockUrls.findIndex(u => u.id === id);
       if (index !== -1) {
-        mockUrls[index] = { ...mockUrls[index], ...data, updated_at: Date.now() };
+        mockUrls[index] = applyMockUrlUpdate(mockUrls[index], data);
         return mockUrls[index];
       }
       throw createMockApiError('URL not found', 404);

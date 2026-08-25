@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 
 export type Theme = 'light' | 'dark';
+export type ThemeToggleIcon = 'sun' | 'moon';
 
 interface ThemeState {
   theme: Theme;
@@ -45,13 +46,13 @@ const storeTheme = (theme: Theme): void => {
 };
 
 /**
- * Applies the theme to the document by setting the data-bs-theme attribute.
- * This leverages Bootstrap 5's built-in dark mode support.
+ * Applies the theme to the document by setting the data-theme attribute.
+ * Design tokens in assets/css/main.css react to :root[data-theme="dark"].
  * @param theme - The theme to apply.
  */
 const applyThemeToDocument = (theme: Theme): void => {
   if (typeof document !== 'undefined') {
-    document.documentElement.setAttribute('data-bs-theme', theme);
+    document.documentElement.setAttribute('data-theme', theme);
   }
 };
 
@@ -68,11 +69,11 @@ export const useThemeStore = defineStore('theme', {
     isDark: (state): boolean => state.theme === 'dark',
 
     /**
-     * Returns the icon class for the theme toggle button.
+     * Returns the icon name for the theme toggle button.
      * Shows sun icon when in dark mode (click to switch to light).
      * Shows moon icon when in light mode (click to switch to dark).
      */
-    toggleIcon: (state): string => state.theme === 'dark' ? 'bi-sun-fill' : 'bi-moon-fill'
+    toggleIcon: (state): ThemeToggleIcon => state.theme === 'dark' ? 'sun' : 'moon'
   },
 
   actions: {

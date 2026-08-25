@@ -78,12 +78,19 @@ export interface CreateUrlRequest {
   expires_at?: number;
 }
 
+/**
+ * Partial URL update.
+ *
+ * `updateUrl` writes every field whose value is not `undefined`, so a defined
+ * `null` is an explicit "clear this column" instruction and an omitted key is a
+ * no-op. The nullable types below document that existing behaviour.
+ */
 export interface UpdateUrlRequest {
   original_url?: string;
-  title?: string;
-  description?: string;
-  image_url?: string;
-  expires_at?: number;
+  title?: string | null;
+  description?: string | null;
+  image_url?: string | null;
+  expires_at?: number | null;
   is_active?: boolean;
 }
 

@@ -80,14 +80,14 @@ describe('Theme Store', () => {
       const store = useThemeStore();
       store.theme = 'dark';
       
-      expect(store.toggleIcon).toBe('bi-sun-fill');
+      expect(store.toggleIcon).toBe('sun');
     });
 
     it('should return moon icon when in light mode', () => {
       const store = useThemeStore();
       store.theme = 'light';
       
-      expect(store.toggleIcon).toBe('bi-moon-fill');
+      expect(store.toggleIcon).toBe('moon');
     });
   });
 
@@ -100,7 +100,7 @@ describe('Theme Store', () => {
       
       expect(store.theme).toBe('dark');
       expect(store.initialized).toBe(true);
-      expect(setAttributeMock).toHaveBeenCalledWith('data-bs-theme', 'dark');
+      expect(setAttributeMock).toHaveBeenCalledWith('data-theme', 'dark');
     });
 
     it('should use OS preference when no stored theme', () => {
@@ -145,7 +145,7 @@ describe('Theme Store', () => {
       
       expect(store.theme).toBe('dark');
       expect(localStorageMock.setItem).toHaveBeenCalledWith('akamoney-theme', 'dark');
-      expect(setAttributeMock).toHaveBeenCalledWith('data-bs-theme', 'dark');
+      expect(setAttributeMock).toHaveBeenCalledWith('data-theme', 'dark');
     });
 
     it('should set theme without persisting when persist is false', () => {
@@ -154,7 +154,7 @@ describe('Theme Store', () => {
       
       expect(store.theme).toBe('dark');
       expect(localStorageMock.setItem).not.toHaveBeenCalled();
-      expect(setAttributeMock).toHaveBeenCalledWith('data-bs-theme', 'dark');
+      expect(setAttributeMock).toHaveBeenCalledWith('data-theme', 'dark');
     });
   });
 
