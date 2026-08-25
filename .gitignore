@@ -173,3 +173,7 @@ build/
 # Temporary files
 tmp/
 temp/
+
+# Generated test artifacts
+test-results/
+playwright-report/

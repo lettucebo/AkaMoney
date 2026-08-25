@@ -1,0 +1,127 @@
+{
+  "id": "07-material",
+  "title": "Material 3 Expressive",
+  "provider": "Google",
+  "model": "gemini-3.1-pro-preview",
+  "direction": "Material 3 Expressive",
+  "stack": "手寫 CSS",
+  "dna": {
+    "navigation": "collapsible-sidebar-fab",
+    "linkRepresentation": "compact-rows",
+    "createFlow": "bottom-sheet",
+    "analyticsModel": "live-monitor",
+    "mobileStrategy": "bottom-tabs",
+    "workMode": "edit"
+  },
+  "tokens": {
+    "colors": {
+      "light": {
+        "bg": "#fdf7ff",
+        "surface": "#ffffff",
+        "surfaceAlt": "#f5f3f4",
+        "textPrimary": "#1c1b1f",
+        "textSecondary": "#49454f",
+        "border": "#cac4d0",
+        "accent": "#6750a4",
+        "success": "#386a20",
+        "warning": "#7d5260",
+        "danger": "#b3261e",
+        "chartSeries": [
+          "#6750a4",
+          "#386a20",
+          "#7d5260",
+          "#b3261e",
+          "#006874"
+        ]
+      },
+      "dark": {
+        "bg": "#141218",
+        "surface": "#211f26",
+        "surfaceAlt": "#2b2930",
+        "textPrimary": "#e6e0e9",
+        "textSecondary": "#cac4d0",
+        "border": "#49454f",
+        "accent": "#d0bcff",
+        "success": "#9cd67d",
+        "warning": "#efb8c8",
+        "danger": "#f2b8b5",
+        "chartSeries": [
+          "#d0bcff",
+          "#9cd67d",
+          "#efb8c8",
+          "#f2b8b5",
+          "#4fd8eb"
+        ]
+      }
+    },
+    "typography": {
+      "displayFamily": "\"Geist\", \"Noto Sans TC\", sans-serif",
+      "bodyFamily": "\"Geist\", \"Noto Sans TC\", sans-serif",
+      "monoFamily": "\"JetBrains Mono\", \"Noto Sans TC\", monospace",
+      "cjkSerif": "Noto Serif TC",
+      "cjkSans": "Noto Sans TC",
+      "baseSize": "16px",
+      "scale": [
+        "12px",
+        "14px",
+        "16px",
+        "20px",
+        "24px",
+        "32px"
+      ]
+    },
+    "radii": {
+      "sm": "8px",
+      "md": "12px",
+      "lg": "16px",
+      "xl": "28px",
+      "full": "9999px"
+    },
+    "spacing": {
+      "unit": "4px",
+      "xs": "4px",
+      "sm": "8px",
+      "md": "16px",
+      "lg": "24px",
+      "xl": "32px",
+      "2xl": "48px"
+    }
+  },
+  "capabilities": [
+    {
+      "feature": "每日點擊趨勢圖",
+      "class": "A",
+      "note": "使用 clicks_by_date"
+    },
+    {
+      "feature": "國家分佈",
+      "class": "A",
+      "note": "clicks_by_country"
+    },
+    {
+      "feature": "裝置分佈",
+      "class": "A",
+      "note": "clicks_by_device"
+    },
+    {
+      "feature": "瀏覽器分佈",
+      "class": "A",
+      "note": "clicks_by_browser"
+    },
+    {
+      "feature": "依標題／描述關鍵字高亮",
+      "class": "B",
+      "note": "前端推導"
+    },
+    {
+      "feature": "全域搜尋",
+      "class": "C",
+      "note": "示範對 large250 全資料集搜尋；需後端在列表 API 加入 q 參數"
+    },
+    {
+      "feature": "跨頁點擊數排序",
+      "class": "C",
+      "note": "示範對 large250 全資料集排序；需列表 API 支援 sort／order，現況僅支援 page／limit"
+    }
+  ]
+}

@@ -1,0 +1,132 @@
+{
+  "id": "04-bento",
+  "title": "Bento 即時監控牆",
+  "provider": "Anthropic",
+  "model": "claude-opus-5",
+  "direction": "Bento Grid（Apple 式）",
+  "stack": "Tailwind v4",
+  "dna": {
+    "navigation": "collapsible-sidebar",
+    "linkRepresentation": "bento-tiles",
+    "createFlow": "right-drawer",
+    "analyticsModel": "live-monitor",
+    "mobileStrategy": "progressive-drilldown",
+    "workMode": "monitor"
+  },
+  "tokens": {
+    "colors": {
+      "light": {
+        "bg": "#eeeef2",
+        "surface": "#ffffff",
+        "surfaceAlt": "#f6f6f9",
+        "textPrimary": "#1c1c1e",
+        "textSecondary": "#6c6c76",
+        "border": "#e1e1e8",
+        "accent": "#0b5cd5",
+        "success": "#0f9d76",
+        "warning": "#d97706",
+        "danger": "#dc2626",
+        "chartSeries": [
+          "#0b5cd5",
+          "#0f9d76",
+          "#d97706",
+          "#c026d3",
+          "#0891b2"
+        ]
+      },
+      "dark": {
+        "bg": "#08080b",
+        "surface": "#17171c",
+        "surfaceAlt": "#1f1f27",
+        "textPrimary": "#f5f5f7",
+        "textSecondary": "#9a9aa6",
+        "border": "#2a2a33",
+        "accent": "#5aa9ff",
+        "success": "#34d399",
+        "warning": "#fbbf24",
+        "danger": "#f87171",
+        "chartSeries": [
+          "#5aa9ff",
+          "#34d399",
+          "#fbbf24",
+          "#e879f9",
+          "#22d3ee"
+        ]
+      }
+    },
+    "typography": {
+      "displayFamily": "\"Inter\", \"Noto Sans TC\", system-ui, sans-serif",
+      "bodyFamily": "\"Inter\", \"Noto Sans TC\", system-ui, sans-serif",
+      "monoFamily": "\"JetBrains Mono\", \"Noto Sans TC\", monospace",
+      "cjkSerif": "Noto Serif TC",
+      "cjkSans": "Noto Sans TC",
+      "baseSize": "15px",
+      "scale": [
+        "12px",
+        "13px",
+        "15px",
+        "17px",
+        "22px",
+        "34px"
+      ]
+    },
+    "radii": {
+      "sm": "8px",
+      "md": "12px",
+      "lg": "18px",
+      "xl": "26px",
+      "full": "9999px"
+    },
+    "spacing": {
+      "unit": "4px",
+      "xs": "4px",
+      "sm": "8px",
+      "md": "12px",
+      "lg": "16px",
+      "xl": "24px",
+      "2xl": "32px"
+    }
+  },
+  "capabilities": [
+    {
+      "feature": "單一短網址每日點擊趨勢磚",
+      "class": "A",
+      "note": "直接取 AnalyticsResponse.clicks_by_date（情境資料 analytics.dailySeries）"
+    },
+    {
+      "feature": "國家／裝置／瀏覽器分佈磚",
+      "class": "A",
+      "note": "直接取 clicks_by_country / clicks_by_device / clicks_by_browser"
+    },
+    {
+      "feature": "總覽 KPI 磚（總點擊／作用中／全部連結）",
+      "class": "A",
+      "note": "直接取 OverallStatsResponse 既有欄位"
+    },
+    {
+      "feature": "Top Links 排行磚",
+      "class": "A",
+      "note": "直接取 OverallStatsResponse.top_links"
+    },
+    {
+      "feature": "依 is_active／expires_at 推導狀態徽章",
+      "class": "B",
+      "note": "前端由既有欄位推導作用中／已封存／已過期，不需後端變更"
+    },
+    {
+      "feature": "即時監控磚的分鐘級自動更新",
+      "class": "C",
+      "note": "需後端新增輪詢或串流用的增量點擊聚合 API（現有 API 僅提供整段統計）"
+    },
+    {
+      "feature": "跨全部分頁的全域搜尋與跨頁排序",
+      "class": "C",
+      "note": "示範對 large250 全資料集搜尋／排序後再分頁；正式環境需列表 API 新增 q 與 sort 參數，現況僅支援 page／limit"
+    },
+    {
+      "feature": "來源（referrer）分佈磚",
+      "class": "C",
+      "note": "AnalyticsResponse 無 referrer 聚合欄位，需後端新增聚合"
+    }
+  ]
+}

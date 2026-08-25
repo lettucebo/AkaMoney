@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Proposal protocol harness</title>
+  <style>
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+    #proposal-frame {
+      display: block;
+      width: 100%;
+      height: 100%;
+      border: 0;
+    }
+  </style>
+</head>
+<body>
+  <iframe id="proposal-frame" title="Proposal under validation"></iframe>
+  <script>
+    (function () {
+      var frame = document.getElementById('proposal-frame');
+      var messages = [];
+      var requestedTarget = new URLSearchParams(window.location.search).get('target');
+      var target = new URL(requestedTarget || '', window.location.href);
+      var allowedPath =
+        target.pathname.indexOf('/validation/fixtures/') === 0 ||
+        target.pathname.indexOf('/proposals/') === 0;
+
+      if (target.origin !== window.location.origin || !allowedPath) {
+        throw new Error('Harness target must be a local proposal or validation fixture');
+      }
+
+      window.validationHarness = {
+        messages: messages,
+        post: function (message) {
+          frame.contentWindow.postMessage(message, '*');
+        }
+      };
+
+      window.addEventListener('message', function (event) {
+        if (event.source === frame.contentWindow) messages.push(event.data);
+      });
+
+      frame.src = target.pathname + target.search + target.hash;
+    })();
+  </script>
+</body>
+</html>

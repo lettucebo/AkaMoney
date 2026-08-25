@@ -1,0 +1,2120 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AkaMoney · Bootstrap 深度客製</title>
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&display=swap">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css">
+  <script src="../shared/scenarios.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7fb;
+      --surface: #ffffff;
+      --surface-alt: #eef3ff;
+      --surface-soft: #f4f7ff;
+      --text: #1c2333;
+      --muted: #5f6b85;
+      --subtle: #7f8bab;
+      --border: #dfe7f4;
+      --border-strong: #cddaf7;
+      --accent: #3f7af6;
+      --accent-strong: #285fe0;
+      --accent-soft: rgba(63, 122, 246, 0.12);
+      --success: #12b76a;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --danger-soft: rgba(239, 68, 68, 0.1);
+      --shadow: rgba(10, 20, 37, 0.14);
+      --shadow-lg: rgba(15, 23, 42, 0.2);
+      --chart-1: #3f7af6;
+      --chart-2: #12b76a;
+      --chart-3: #f59e0b;
+      --chart-4: #ef4444;
+      --chart-5: #8b5cf6;
+      --bs-body-font-family: "Inter", "Noto Sans TC", system-ui, sans-serif;
+      --bs-border-radius: 16px;
+      --bs-body-color: var(--text);
+      --bs-body-bg: var(--bg);
+    }
+
+    body[data-theme="dark"] {
+      color-scheme: dark;
+      --bg: #0d1320;
+      --surface: #121b2d;
+      --surface-alt: #1a2642;
+      --surface-soft: #162339;
+      --text: #edf2ff;
+      --muted: #a0abc0;
+      --subtle: #7e8ca4;
+      --border: #2a3b59;
+      --border-strong: #3e5379;
+      --accent: #8ab4ff;
+      --accent-strong: #a9c2ff;
+      --accent-soft: rgba(138, 180, 255, 0.14);
+      --success: #4ade80;
+      --warning: #fbbf24;
+      --danger: #f87171;
+      --danger-soft: rgba(248, 113, 113, 0.12);
+      --shadow: rgba(2, 6, 23, 0.42);
+      --shadow-lg: rgba(2, 6, 23, 0.62);
+      --chart-1: #8ab4ff;
+      --chart-2: #4ade80;
+      --chart-3: #fbbf24;
+      --chart-4: #f87171;
+      --chart-5: #a78bfa;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Inter", "Noto Sans TC", system-ui, sans-serif;
+      line-height: 1.5;
+    }
+
+    h1, h2, h3, h4, .brand-name, .display-heading {
+      font-family: "Libre Baskerville", "Noto Serif TC", serif;
+      letter-spacing: -0.02em;
+      margin: 0;
+    }
+
+    code, .mono, .url-pill, .monospace {
+      font-family: "JetBrains Mono", "Noto Sans TC", monospace;
+    }
+
+    .app-shell {
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at top left, rgba(63,122,246,0.12), transparent 28%),
+        linear-gradient(180deg, var(--bg), color-mix(in srgb, var(--bg) 92%, var(--surface)) 100%);
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.9rem 1.3rem;
+      background: color-mix(in srgb, var(--bg) 88%, transparent);
+      backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      min-width: 0;
+      margin-right: 1rem;
+    }
+
+    .brand-mark {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 2.1rem;
+      height: 2.1rem;
+      border-radius: 0.7rem;
+      background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+      color: white;
+      font-family: "Libre Baskerville", "Noto Serif TC", serif;
+      font-size: 1rem;
+      font-weight: 700;
+      box-shadow: 0 12px 32px rgba(63, 122, 246, 0.28);
+    }
+
+    .brand-sub {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .brand-name {
+      font-size: 1.15rem;
+      line-height: 1.2;
+      color: var(--text);
+      white-space: nowrap;
+    }
+
+    .brand-meta {
+      font-size: 0.72rem;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .view-switcher {
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      padding: 0.35rem;
+      border-radius: 0.9rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      box-shadow: 0 6px 20px rgba(15, 23, 42, 0.04);
+    }
+
+    .view-switcher .nav-btn {
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      padding: 0.55rem 0.8rem;
+      border-radius: 0.7rem;
+      font-size: 0.82rem;
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+
+    .view-switcher .nav-btn.active {
+      background: var(--accent-soft);
+      color: var(--accent-strong);
+      box-shadow: inset 0 0 0 1px rgba(63,122,246,0.08);
+    }
+
+    body[data-theme="dark"] .view-switcher .nav-btn.active {
+      color: var(--text);
+      background: rgba(138,180,255,0.14);
+    }
+
+    .topbar-spacer { flex: 1; }
+
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .icon-button,
+    .btn,
+    .table-action,
+    .nav-btn,
+    .action-pill {
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      border-radius: 0.7rem;
+      transition: all 0.18s ease;
+    }
+
+    .icon-button {
+      width: 2.55rem;
+      height: 2.55rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      padding: 0;
+    }
+
+    .btn {
+      min-height: 2.5rem;
+      padding: 0.55rem 0.95rem;
+      font-size: 0.82rem;
+      font-weight: 600;
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+      border-color: transparent;
+      color: white;
+      box-shadow: 0 10px 26px rgba(63, 122, 246, 0.2);
+    }
+
+    .btn-outline {
+      background: transparent;
+      color: var(--text);
+    }
+
+    .btn-danger {
+      background: var(--danger-soft);
+      border-color: color-mix(in srgb, var(--danger) 25%, var(--border));
+      color: var(--danger);
+    }
+
+    .btn:focus-visible,
+    .icon-button:focus-visible,
+    .nav-btn:focus-visible,
+    .table-action:focus-visible,
+    input:focus-visible,
+    select:focus-visible,
+    textarea:focus-visible,
+    [data-action]:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .page-shell {
+      width: min(1280px, calc(100% - 2rem));
+      margin: 0 auto;
+      padding: 1.3rem 0 2.25rem;
+    }
+
+    [data-view] {
+      min-height: 120px;
+    }
+
+    [data-view][hidden] {
+      display: none !important;
+    }
+
+    .surface {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 1.1rem;
+      box-shadow: 0 18px 40px var(--shadow);
+    }
+
+    .page-header {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .headline {
+      display: flex;
+      flex-direction: column;
+      gap: 0.20rem;
+      min-width: 0;
+    }
+
+    .display-heading {
+      font-size: clamp(1.6rem, 1.5vw + 1rem, 2.4rem);
+      line-height: 1.1;
+      color: var(--text);
+    }
+
+    .subtext {
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    .summary-row {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0.8rem;
+      margin-bottom: 1rem;
+    }
+
+    .summary-card {
+      padding: 1rem 1.05rem;
+      border-radius: 1rem;
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, var(--surface), color-mix(in srgb, var(--surface) 86%, var(--surface-alt)));
+    }
+
+    .summary-label {
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .summary-value {
+      margin-top: 0.45rem;
+      font-size: clamp(1.3rem, 1vw + 1rem, 2rem);
+      line-height: 1.15;
+      font-weight: 700;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .summary-trend {
+      margin-top: 0.3rem;
+      font-size: 0.76rem;
+      color: var(--success);
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      gap: 0.72rem;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .search-wrap {
+      position: relative;
+      min-width: 0;
+    }
+
+    .search-wrap .search-icon {
+      position: absolute;
+      left: 0.8rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .search-wrap input {
+      width: 100%;
+      min-height: 2.8rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 0.8rem;
+      padding: 0.7rem 0.8rem 0.7rem 2.2rem;
+      color: var(--text);
+      font-size: 0.85rem;
+    }
+
+    .dense-table {
+      border: 1px solid var(--border);
+      border-radius: 1.1rem;
+      background: var(--surface);
+      overflow: hidden;
+      min-width: 0;
+    }
+
+    .dense-header,
+    .dense-row {
+      display: grid;
+      grid-template-columns: minmax(120px, 1.1fr) minmax(220px, 2.2fr) minmax(100px, 0.8fr) minmax(115px, 0.9fr) minmax(140px, 0.9fr);
+      align-items: center;
+      gap: 0.7rem;
+      padding: 0.75rem 0.9rem;
+      min-width: 0;
+    }
+
+    .dense-header {
+      background: color-mix(in srgb, var(--surface-alt) 80%, var(--surface));
+      color: var(--muted);
+      font-size: 0.7rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .dense-row {
+      border-bottom: 1px solid var(--border);
+      transition: background-color 0.18s ease;
+    }
+
+    .dense-row:last-child { border-bottom: 0; }
+    .dense-row:hover { background: color-mix(in srgb, var(--surface-alt) 58%, var(--surface)); }
+
+    .dataset-pager {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-top: 0.85rem;
+      padding: 0.7rem 0.85rem;
+      border: 1px solid var(--border);
+      border-radius: 1.1rem;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+    .dataset-pager[hidden] { display: none !important; }
+    .dataset-pager .pager-status { font-variant-numeric: tabular-nums; }
+    .dataset-pager .pager-actions { display: flex; gap: 0.5rem; }
+
+    .link-cell {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .link-avatar {
+      width: 0.7rem;
+      height: 0.7rem;
+      border-radius: 999px;
+      background: var(--success);
+      box-shadow: 0 0 0 4px rgba(18, 183, 106, 0.12);
+      flex-shrink: 0;
+    }
+
+    .link-avatar.archived {
+      background: var(--subtle);
+      box-shadow: 0 0 0 4px rgba(127, 139, 171, 0.12);
+    }
+
+    .code-block {
+      min-width: 0;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      letter-spacing: -0.01em;
+    }
+
+    .meta-line {
+      font-size: 0.73rem;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .url-cell {
+      min-width: 0;
+      color: var(--muted);
+      font-size: 0.75rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .url-cell mark, .code-block mark {
+      background: rgba(63, 122, 246, 0.12);
+      color: var(--text);
+      border-radius: 0.3rem;
+      padding: 0 0.2rem;
+    }
+
+    .click-number,
+    .table-date {
+      font-variant-numeric: tabular-nums;
+      font-weight: 700;
+      color: var(--text);
+      font-size: 0.85rem;
+      text-align: right;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 1.7rem;
+      padding: 0.3rem 0.55rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      border: 1px solid var(--border);
+      background: rgba(127, 139, 171, 0.08);
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .status-badge.active {
+      background: rgba(18, 183, 106, 0.08);
+      border-color: rgba(18, 183, 106, 0.25);
+      color: var(--success);
+    }
+
+    .status-badge.archived {
+      background: rgba(127, 139, 171, 0.1);
+      color: var(--subtle);
+    }
+
+    .status-badge.expired {
+      background: rgba(245, 158, 11, 0.1);
+      border-color: rgba(245, 158, 11, 0.25);
+      color: var(--warning);
+    }
+
+    .table-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.45rem;
+      align-items: center;
+      min-width: 0;
+    }
+
+    .table-action {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 2rem;
+      padding: 0.38rem 0.6rem;
+      font-size: 0.72rem;
+      font-weight: 600;
+    }
+
+    .table-action.copy {
+      background: rgba(63, 122, 246, 0.08);
+      border-color: rgba(63, 122, 246, 0.16);
+      color: var(--accent-strong);
+    }
+
+    .table-action.copy[data-copy-state="copied"] {
+      background: rgba(18, 183, 106, 0.08);
+      border-color: rgba(18, 183, 106, 0.25);
+      color: var(--success);
+    }
+
+    .table-action.archive {
+      background: rgba(239, 68, 68, 0.06);
+      color: var(--danger);
+      border-color: rgba(239, 68, 68, 0.18);
+    }
+
+    .state-box {
+      display: none;
+      align-items: flex-start;
+      gap: 0.75rem;
+      padding: 0.9rem 1rem;
+      margin-top: 1rem;
+      border-radius: 1rem;
+      border: 1px solid var(--border);
+      background: var(--surface-soft);
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    .state-box.visible { display: flex; }
+    .state-box.error {
+      background: rgba(239, 68, 68, 0.06);
+      border-color: rgba(239, 68, 68, 0.15);
+      color: var(--danger);
+    }
+
+    .state-box strong {
+      display: block;
+      color: var(--text);
+      margin-bottom: 0.15rem;
+    }
+
+    .empty-state {
+      display: none;
+      margin-top: 1rem;
+      padding: 2.2rem 1rem;
+      border: 1px dashed var(--border);
+      border-radius: 1rem;
+      text-align: center;
+      background: linear-gradient(180deg, var(--surface), var(--surface-soft));
+      color: var(--muted);
+    }
+
+    .empty-state.visible { display: block; }
+
+    .empty-state h3 {
+      color: var(--text);
+      font-size: 1.15rem;
+      margin-bottom: 0.4rem;
+    }
+
+    .chart-layout {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .chart-card {
+      padding: 1rem;
+      border: 1px solid var(--border);
+      border-radius: 1.1rem;
+      background: var(--surface);
+      box-shadow: 0 14px 32px rgba(15, 23, 42, 0.05);
+    }
+
+    .chart-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .chart-header strong {
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    [data-chart] {
+      position: relative;
+      min-height: 230px;
+      border-radius: 0.8rem;
+      background: linear-gradient(180deg, rgba(63,122,246,0.02), transparent);
+    }
+
+    [data-chart] canvas,
+    [data-chart] svg {
+      width: 100% !important;
+      height: 220px !important;
+      display: block;
+    }
+
+    .chart-empty {
+      height: 220px;
+      display: grid;
+      place-items: center;
+      border: 1px dashed var(--border);
+      border-radius: 0.8rem;
+      color: var(--muted);
+      text-align: center;
+      padding: 1rem;
+      font-size: 0.8rem;
+    }
+
+    .analytics-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.7rem;
+      margin-bottom: 1rem;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.45rem 0.7rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 0.75rem;
+    }
+
+    .chip strong { color: var(--text); }
+
+    .top-links {
+      display: grid;
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+
+    .top-link {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.8rem 0.9rem;
+      border: 1px solid var(--border);
+      border-radius: 1rem;
+      background: var(--surface);
+    }
+
+    .rank {
+      width: 1.7rem;
+      height: 1.7rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background: var(--surface-alt);
+      color: var(--accent-strong);
+      font-size: 0.72rem;
+      font-weight: 700;
+    }
+
+    .top-code {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+
+    .top-code strong {
+      font-family: "JetBrains Mono", "Noto Sans TC", monospace;
+      font-size: 0.79rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .top-code span {
+      font-size: 0.72rem;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .top-count {
+      font-variant-numeric: tabular-nums;
+      font-weight: 700;
+      color: var(--text);
+      font-size: 0.86rem;
+    }
+
+    .login-box,
+    .notfound-box,
+    .create-box {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 1.1rem 1rem 1.2rem;
+    }
+
+    .auth-card,
+    .function-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 1.4rem;
+      box-shadow: 0 24px 48px var(--shadow-lg);
+      padding: 1.5rem;
+    }
+
+    .auth-card {
+      max-width: 420px;
+      text-align: center;
+      margin: 5rem auto 0;
+    }
+
+    .login-mark {
+      width: 3.2rem;
+      height: 3.2rem;
+      border-radius: 1rem;
+      background: linear-gradient(155deg, var(--accent), var(--accent-strong));
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 1.3rem;
+      margin-bottom: 0.9rem;
+      box-shadow: 0 18px 36px rgba(63, 122, 246, 0.2);
+      font-family: "Libre Baskerville", "Noto Serif TC", serif;
+    }
+
+    .auth-card h1 {
+      font-size: clamp(1.5rem, 2vw, 2rem);
+      margin: 0 0 0.5rem;
+    }
+
+    .auth-card p {
+      color: var(--muted);
+      margin-bottom: 1.2rem;
+      font-size: 0.82rem;
+    }
+
+    .ms-signin {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      min-height: 3.1rem;
+      gap: 0.75rem;
+      border-radius: 0.8rem;
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .msTile {
+      display: inline-grid;
+      grid-template-columns: repeat(2, 10px);
+      grid-template-rows: repeat(2, 10px);
+      gap: 4px;
+      width: 22px;
+      height: 22px;
+    }
+
+    .msTile span:nth-child(1) { background: #f25022; }
+    .msTile span:nth-child(2) { background: #7fba00; }
+    .msTile span:nth-child(3) { background: #00a4ef; }
+    .msTile span:nth-child(4) { background: #ffb900; }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem;
+    }
+
+    .field { display: flex; flex-direction: column; gap: 0.4rem; }
+    .field.full { grid-column: 1 / -1; }
+    .field label {
+      font-size: 0.76rem;
+      color: var(--muted);
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .field input,
+    .field textarea,
+    .field select {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      padding: 0.7rem 0.8rem;
+      color: var(--text);
+      font-size: 0.85rem;
+    }
+    .field textarea { resize: vertical; min-height: 96px; }
+
+    [data-view="create"] {
+      position: fixed;
+      inset: 0;
+      z-index: 25;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      background: rgba(17, 24, 39, 0.32);
+      backdrop-filter: blur(3px);
+    }
+
+    [data-view="create"] .create-box {
+      width: min(760px, 100%);
+      max-height: min(90vh, 780px);
+      overflow: auto;
+    }
+
+    .modals {
+      position: relative;
+      z-index: 40;
+    }
+
+    .archive-modal {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(17, 24, 39, 0.48);
+      padding: 1rem;
+      z-index: 45;
+    }
+
+    .archive-modal.visible { display: flex; }
+
+    .archive-panel {
+      width: min(440px, 100%);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 1.15rem;
+      box-shadow: 0 26px 52px rgba(15, 23, 42, 0.18);
+      padding: 1.2rem;
+    }
+
+    .archive-panel h3 {
+      font-size: 1.1rem;
+      margin: 0 0 0.65rem;
+      color: var(--text);
+    }
+
+    .archive-panel p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    .archive-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.6rem;
+      margin-top: 1rem;
+    }
+
+    .toast-stack {
+      position: fixed;
+      right: 1.2rem;
+      bottom: 1.2rem;
+      z-index: 60;
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+      pointer-events: none;
+    }
+
+    .toast {
+      min-width: 220px;
+      max-width: 320px;
+      padding: 0.85rem 0.95rem;
+      border-radius: 0.9rem;
+      background: rgba(15, 23, 42, 0.92);
+      border: 1px solid rgba(255,255,255,0.09);
+      color: white;
+      box-shadow: 0 14px 32px rgba(15, 23, 42, 0.26);
+      opacity: 0;
+      transform: translateY(10px);
+      transition: all 0.2s ease;
+      pointer-events: auto;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .toast strong {
+      display: block;
+      margin-bottom: 0.18rem;
+      font-size: 0.8rem;
+      color: white;
+    }
+
+    .toast small {
+      color: rgba(255,255,255,0.82);
+      font-size: 0.72rem;
+    }
+
+    .success-cta {
+      margin-top: 1rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.38rem 0.7rem;
+      background: rgba(18,183,106,0.1);
+      border: 1px solid rgba(18,183,106,0.2);
+      border-radius: 999px;
+      color: var(--success);
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+
+    @media (max-width: 980px) {
+      .summary-row,
+      .chart-layout,
+      .form-grid { grid-template-columns: 1fr 1fr; }
+      .dense-header { display: none; }
+      .dense-row {
+        grid-template-columns: 1fr;
+        padding: 0.9rem;
+      }
+      .dense-row > * { text-align: left !important; }
+      .table-actions { justify-content: flex-start; }
+      .url-cell { white-space: normal; }
+    }
+
+    @media (max-width: 760px) {
+      .topbar {
+        flex-wrap: wrap;
+        justify-content: space-between;
+      }
+      .view-switcher {
+        width: 100%;
+      }
+      .toolbar {
+        grid-template-columns: 1fr;
+      }
+      .page-shell {
+        width: min(100% - 1rem, 1280px);
+      }
+      .summary-row,
+      .chart-layout,
+      .form-grid { grid-template-columns: 1fr; }
+      .auth-card { margin-top: 2rem; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+</head>
+<body data-proposal-id="11-bootstrap" data-theme="light" data-active-view="dashboard" data-dataset="default">
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">A</span>
+        <div class="brand-sub">
+          <span class="brand-name">AkaMoney</span>
+          <span class="brand-meta">管理控制台</span>
+        </div>
+      </div>
+      <nav class="view-switcher" aria-label="主要導覽">
+        <button class="nav-btn active" type="button" data-action="view-switch" data-view-target="dashboard">儀表板</button>
+        <button class="nav-btn" type="button" data-action="view-switch" data-view-target="analytics">成效分析</button>
+        <button class="nav-btn" type="button" data-action="view-switch" data-view-target="stats">總覽統計</button>
+        <button class="nav-btn" type="button" data-action="view-switch" data-view-target="login">登入</button>
+      </nav>
+      <div class="topbar-spacer"></div>
+      <div class="topbar-actions">
+        <button class="icon-button" type="button" data-action="theme-toggle" aria-label="切換亮暗色主題">☀️</button>
+        <button class="btn btn-primary" type="button" data-action="view-switch" data-view-target="create">建立短網址</button>
+      </div>
+    </header>
+
+    <main class="page-shell">
+      <section data-view="dashboard">
+        <div class="page-header">
+          <div class="headline">
+            <h1 class="display-heading">儀表板</h1>
+            <div class="subtext">短網址總覽與即時成效追蹤</div>
+          </div>
+          <button class="btn btn-primary" type="button" data-action="view-switch" data-view-target="create">建立</button>
+        </div>
+
+        <div class="summary-row" id="summaryRow"></div>
+
+        <div class="toolbar">
+          <label class="search-wrap" aria-label="搜尋">
+            <span class="search-icon">⌕</span>
+            <input type="search" data-action="search" placeholder="搜尋短代碼 / 原始網址 / 標題" aria-label="搜尋短代碼、原始網址或標題" />
+          </label>
+          <button class="btn btn-outline" type="button" data-action="sort-clicks" aria-label="切換點擊數排序">依點擊數：由高到低</button>
+          <button class="btn btn-primary" type="button" data-action="view-switch" data-view-target="create">建立短網址</button>
+        </div>
+
+        <div class="state-box" data-state="loading" id="stateLoading">
+          <span aria-hidden="true">⏳</span>
+          <div><strong>載入中</strong>正在整理最新資料與實時分析…</div>
+        </div>
+
+        <div class="state-box error" data-state="error" id="stateError">
+          <span aria-hidden="true">⚠️</span>
+          <div><strong>資料讀取失敗</strong><span id="errorText">無法讀取短網址資料。</span></div>
+        </div>
+
+          <button class="table-action copy" type="button" data-action="copy" data-short-url="https://aka.money/m0001" data-copy-state="idle" style="display:none;">複製</button>
+          <button class="table-action archive" type="button" data-action="archive" data-short-code="m0001" style="display:none;">封存</button>
+
+          <div class="dense-table" id="denseTable">
+            <div class="dense-header">
+              <div>短網址</div>
+              <div>原始網址</div>
+              <div>點擊數</div>
+              <div>狀態</div>
+              <div style="text-align:right;">動作</div>
+            </div>
+            <div id="urlTableBody"></div>
+          </div>
+
+          <nav class="dataset-pager" id="datasetPager" aria-label="清單分頁" hidden>
+            <span class="pager-status" role="status">第 <b id="pageCurrent">1</b> / <b id="pageTotal">1</b> 頁 · 共 <span id="pageTotalItems">0</span> 筆</span>
+            <div class="pager-actions">
+              <button class="btn btn-outline" type="button" data-page="prev" aria-label="上一頁">上一頁</button>
+              <button class="btn btn-outline" type="button" data-page="next" aria-label="下一頁">下一頁</button>
+            </div>
+          </nav>
+
+          <div class="empty-state" id="emptyState" data-state="empty">
+            <h3>尚未建立任何短網址</h3>
+            <div>開始建立第一筆連結，讓你的活動流量更容易追蹤。</div>
+            <button class="btn btn-primary" type="button" data-action="view-switch" data-view-target="create" style="margin-top: 1rem;">建立第一筆連結</button>
+          </div>
+
+          <div class="empty-state" id="noResultsState" data-state="no-results">
+            <h3>查無符合條件的短網址</h3>
+            <div>請確認搜尋條件，或清除篩選條件再試一次。</div>
+            <button class="btn btn-outline" type="button" id="clearSearchBtn" style="margin-top: 1rem;">清除搜尋</button>
+          </div>
+      </section>
+
+      <section data-view="analytics" hidden>
+        <div class="page-header">
+          <div class="headline">
+            <h1 class="display-heading">成效分析</h1>
+            <div class="subtext">單一短網址的點擊與來源監控</div>
+          </div>
+        </div>
+
+        <div class="analytics-header">
+          <span class="chip"><strong>短代碼</strong> <span id="analyticsCode">m0001</span></span>
+          <span class="chip"><strong>總點擊</strong> <span id="analyticsClicks">0</span></span>
+          <span class="chip"><strong>最高峰</strong> <span id="analyticsPeak">—</span></span>
+        </div>
+
+        <div class="chart-layout">
+          <div class="chart-card">
+            <div class="chart-header"><strong>每日點擊趨勢</strong><span>30 天</span></div>
+            <div data-chart="clicks-trend" data-chart-state="rendered"></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-header"><strong>國家分佈</strong><span>地域</span></div>
+            <div data-chart="country-distribution" data-chart-state="rendered"></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-header"><strong>裝置分佈</strong><span>裝置</span></div>
+            <div data-chart="device-distribution" data-chart-state="rendered"></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-header"><strong>瀏覽器分佈</strong><span>來源</span></div>
+            <div data-chart="browser-distribution" data-chart-state="rendered"></div>
+          </div>
+        </div>
+      </section>
+
+      <section data-view="stats" hidden>
+        <div class="page-header">
+          <div class="headline">
+            <h1 class="display-heading">總覽統計</h1>
+            <div class="subtext">全帳號流量、佈署狀態與優先內容</div>
+          </div>
+        </div>
+
+        <div class="summary-row" id="statsSummary"></div>
+
+        <div class="chart-layout">
+          <div class="chart-card" style="grid-column: 1 / -1;">
+            <div class="chart-header"><strong>期間趨勢</strong><span>總點擊</span></div>
+            <div data-chart="stats-trend" data-chart-state="rendered"></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-header"><strong>國家分佈</strong><span>地理</span></div>
+            <div data-chart="stats-country" data-chart-state="rendered"></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-header"><strong>裝置分佈</strong><span>裝置</span></div>
+            <div data-chart="stats-device" data-chart-state="rendered"></div>
+          </div>
+        </div>
+
+        <div class="chart-card" style="margin-top:1rem;">
+          <div class="chart-header"><strong>Top Links</strong><span>最高點擊</span></div>
+          <div id="topLinks" class="top-links"></div>
+        </div>
+      </section>
+
+      <section data-view="login" hidden>
+        <div class="login-box">
+          <div class="auth-card">
+            <div class="login-mark">A</div>
+            <h1>登入 AkaMoney</h1>
+            <p>使用 Microsoft 帳號以安全存取你的短網址控制台。</p>
+            <button class="ms-signin" type="button">
+              <span class="msTile" aria-hidden="true">
+                <span></span><span></span><span></span><span></span>
+              </span>
+              使用 Microsoft 登入
+            </button>
+            <div class="success-cta" style="margin-top:1rem;">開發模式：已開啟演示帳號</div>
+          </div>
+        </div>
+      </section>
+
+      <section data-view="create" hidden>
+        <div class="create-box">
+          <div class="function-card">
+            <div class="page-header" style="margin-bottom: 1rem;">
+              <div class="headline">
+                <h1 class="display-heading">建立短網址</h1>
+                <div class="subtext">快速建立新連結並立即監控成效</div>
+              </div>
+            </div>
+            <form id="createForm">
+              <div class="form-grid">
+                <div class="field full">
+                  <label for="originalUrl">原始網址</label>
+                  <input id="originalUrl" name="original_url" type="url" placeholder="https://example.com/landing" required>
+                </div>
+
+                <div class="field">
+                  <label for="shortCode">短代碼</label>
+                  <input id="shortCode" name="short_code" type="text" value="" pattern="[A-Za-z0-9_\-]{3,20}" maxlength="20" placeholder="例如 summer-live" required>
+                </div>
+
+                <div class="field">
+                  <label for="title">標題</label>
+                  <input id="title" name="title" type="text" placeholder="活動頁面名稱">
+                </div>
+
+                <div class="field full">
+                  <label for="description">描述</label>
+                  <textarea id="description" name="description" placeholder="新增這個短網址的簡短說明"></textarea>
+                </div>
+
+                <div class="field full">
+                  <label for="imageUrl">預覽圖</label>
+                  <input id="imageUrl" name="image_url" type="url" placeholder="https://images.example.com/preview.jpg">
+                </div>
+
+                <div class="field full">
+                  <label for="expiresAt">到期時間</label>
+                  <input id="expiresAt" name="expires_at" type="date">
+                </div>
+              </div>
+
+              <div class="archive-actions" style="margin-top:1rem;">
+                <button class="btn btn-outline" type="button" data-action="view-switch" data-view-target="dashboard">取消</button>
+                <button class="btn btn-primary" type="submit" data-action="create-submit">建立短網址</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <section data-view="notfound" hidden>
+        <div class="notfound-box">
+          <div class="function-card" style="text-align:center; padding:2rem 1.5rem;">
+            <div class="login-mark" style="margin-bottom: 1rem;">404</div>
+            <h1 style="font-size: clamp(1.8rem, 3vw, 2.5rem); margin-bottom: 0.75rem;">找不到頁面</h1>
+            <p style="color: var(--muted); margin-bottom: 1.1rem;">你要的短網址或路徑不存在，請返回儀表板繼續管理。</p>
+            <button class="btn btn-primary" type="button" data-action="view-switch" data-view-target="dashboard">回到儀表板</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="modals">
+    <div class="archive-modal" id="archiveModal" aria-hidden="true">
+      <div class="archive-panel" role="dialog" aria-modal="true" aria-labelledby="archiveTitle">
+        <h3 id="archiveTitle">確認封存</h3>
+        <p id="archiveMessage">將此短網址從主清單中移除，並保留歷史統計資料。</p>
+        <div class="archive-actions">
+          <button class="btn btn-outline" type="button" data-action="archive-undo" id="archiveUndoBtn" style="display:none;">還原</button>
+          <button class="btn btn-outline" type="button" id="cancelArchive">取消</button>
+          <button class="btn btn-danger" type="button" data-action="archive-confirm">確認封存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="true"></div>
+
+  <script>
+    (function () {
+      var PROPOSAL_ID = '11-bootstrap';
+      var VIEWS = ['dashboard', 'analytics', 'stats', 'login', 'create', 'notfound'];
+      var THEMES = ['light', 'dark'];
+      var DATASETS = ['default', 'large250', 'empty', 'noResults', 'edgeCases', 'zeroAnalytics', 'apiError'];
+      var state = {
+        view: 'dashboard',
+        theme: 'light',
+        dataset: 'default',
+        search: '',
+        sortDir: 'desc',
+        pageIndex: 0,
+        pageSize: 25,
+        archiveId: null,
+        archiveTrigger: null,
+        lastArchive: null,
+        latestCreatedCode: null,
+        charts: {}
+      };
+
+      var root = document.body;
+      var scenario = null;
+      var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      function emit(type) {
+        if (window.parent !== window) {
+          window.parent.postMessage({
+            source: 'akamoney-proposal',
+            proposalId: PROPOSAL_ID,
+            type: type,
+            state: { view: state.view, theme: state.theme, dataset: state.dataset }
+          }, '*');
+        }
+      }
+
+      function setViewVisibility() {
+        var views = document.querySelectorAll('[data-view]');
+        var overlayActive = state.view === 'create';
+        views.forEach(function (view) {
+          var name = view.getAttribute('data-view');
+          var shouldShow = name === state.view || (overlayActive && name === 'dashboard');
+          view.hidden = !shouldShow;
+        });
+
+        var navButtons = document.querySelectorAll('[data-action="view-switch"]');
+        navButtons.forEach(function (button) {
+          var target = button.getAttribute('data-view-target');
+          var active = target === state.view;
+          button.classList.toggle('active', active);
+        });
+
+        root.setAttribute('data-theme', state.theme);
+        root.setAttribute('data-active-view', state.view);
+        root.setAttribute('data-dataset', state.dataset);
+      }
+
+      function applyTheme(nextTheme) {
+        if (THEMES.indexOf(nextTheme) === -1) return;
+        state.theme = nextTheme;
+        var themeMap = nextTheme === 'dark' ? {
+          bg: '#0d1320',
+          surface: '#121b2d',
+          'surface-alt': '#1a2642',
+          'surface-soft': '#162339',
+          text: '#edf2ff',
+          muted: '#a0abc0',
+          subtle: '#7e8ca4',
+          border: '#2a3b59',
+          'border-strong': '#3e5379',
+          accent: '#8ab4ff',
+          'accent-strong': '#a9c2ff',
+          'accent-soft': 'rgba(138, 180, 255, 0.14)',
+          success: '#4ade80',
+          warning: '#fbbf24',
+          danger: '#f87171',
+          'danger-soft': 'rgba(248, 113, 113, 0.12)',
+          shadow: 'rgba(2, 6, 23, 0.42)',
+          'shadow-lg': 'rgba(2, 6, 23, 0.62)',
+          'chart-1': '#8ab4ff',
+          'chart-2': '#4ade80',
+          'chart-3': '#fbbf24',
+          'chart-4': '#f87171',
+          'chart-5': '#a78bfa',
+          'bs-body-color': '#edf2ff',
+          'bs-body-bg': '#0d1320'
+        } : {
+          bg: '#f6f7fb',
+          surface: '#ffffff',
+          'surface-alt': '#eef3ff',
+          'surface-soft': '#f4f7ff',
+          text: '#1c2333',
+          muted: '#5f6b85',
+          subtle: '#7f8bab',
+          border: '#dfe7f4',
+          'border-strong': '#cddaf7',
+          accent: '#3f7af6',
+          'accent-strong': '#285fe0',
+          'accent-soft': 'rgba(63, 122, 246, 0.12)',
+          success: '#12b76a',
+          warning: '#f59e0b',
+          danger: '#ef4444',
+          'danger-soft': 'rgba(239, 68, 68, 0.1)',
+          shadow: 'rgba(10, 20, 37, 0.14)',
+          'shadow-lg': 'rgba(15, 23, 42, 0.2)',
+          'chart-1': '#3f7af6',
+          'chart-2': '#12b76a',
+          'chart-3': '#f59e0b',
+          'chart-4': '#ef4444',
+          'chart-5': '#8b5cf6',
+          'bs-body-color': '#1c2333',
+          'bs-body-bg': '#f6f7fb'
+        };
+
+        Object.keys(themeMap).forEach(function (key) {
+          root.style.setProperty('--' + key, themeMap[key]);
+        });
+        root.style.backgroundColor = themeMap.bg;
+        root.style.color = themeMap.text;
+        root.style.borderColor = themeMap.border;
+        root.style.colorScheme = nextTheme;
+        root.setAttribute('data-theme', nextTheme);
+
+        requestAnimationFrame(function () {
+          setViewVisibility();
+          renderAll();
+          emit('STATE_CHANGED');
+        });
+      }
+
+      function applyView(nextView) {
+        if (VIEWS.indexOf(nextView) === -1) return;
+        state.view = nextView;
+        setViewVisibility();
+        emit('STATE_CHANGED');
+      }
+
+      function applyDataset(nextDataset) {
+        if (DATASETS.indexOf(nextDataset) === -1) return;
+        state.dataset = nextDataset;
+        state.search = '';
+        state.sortDir = 'desc';
+        state.pageIndex = 0;
+        state.latestCreatedCode = null;
+        var searchInput = document.querySelector('[data-action="search"]');
+        if (searchInput) {
+          searchInput.value = '';
+        }
+        if (nextDataset === 'noResults') {
+          scenario = window.AKAMONEY_SCENARIOS.getScenario(nextDataset);
+          state.search = scenario.meta && scenario.meta.searchQuery ? scenario.meta.searchQuery : '';
+          if (searchInput) {
+            searchInput.value = state.search;
+          }
+        } else {
+          scenario = window.AKAMONEY_SCENARIOS.getScenario(nextDataset);
+        }
+        renderAll();
+        setViewVisibility();
+        emit('STATE_CHANGED');
+      }
+
+      function setLoading(show) {
+        var loadBox = document.getElementById('stateLoading');
+        loadBox.classList.toggle('visible', !!show);
+      }
+
+      function showToast(title, text) {
+        var stack = document.getElementById('toastStack');
+        if (!stack) return;
+        var toast = document.createElement('div');
+        toast.className = 'toast';
+        toast.innerHTML = '<strong>' + title + '</strong><small>' + text + '</small>';
+        stack.appendChild(toast);
+        requestAnimationFrame(function () {
+          toast.classList.add('show');
+        });
+        setTimeout(function () {
+          toast.classList.remove('show');
+          setTimeout(function () { toast.remove(); }, 220);
+        }, 1600);
+      }
+
+      function escapeHtml(value) {
+        if (value === null || value === undefined) return '';
+        return String(value)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#039;');
+      }
+
+      function highlightMatch(value, query) {
+        if (!value) return '';
+        var text = escapeHtml(String(value));
+        if (!query) return text;
+        var re = new RegExp('(' + query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'ig');
+        return text.replace(re, '<mark>$1</mark>');
+      }
+
+      function getFilteredUrls() {
+        var searchQuery = state.search.trim().toLowerCase();
+        var urls = (scenario && scenario.urls ? scenario.urls.slice() : []);
+
+        if (!searchQuery) return urls;
+
+        return urls.filter(function (url) {
+          var haystack = [url.short_code, url.original_url, url.title || '', url.description || ''].join(' ').toLowerCase();
+          return haystack.indexOf(searchQuery) >= 0;
+        });
+      }
+
+      function sortUrls(urls) {
+        var next = urls.slice();
+        if (state.latestCreatedCode) {
+          var hasPinned = next.some(function (url) { return url.short_code === state.latestCreatedCode; });
+          if (!hasPinned) {
+            state.latestCreatedCode = null;
+          } else {
+            next.sort(function (a, b) {
+              var aPinned = a.short_code === state.latestCreatedCode;
+              var bPinned = b.short_code === state.latestCreatedCode;
+              if (aPinned && !bPinned) return -1;
+              if (!aPinned && bPinned) return 1;
+              if (state.sortDir === 'asc') {
+                return a.click_count - b.click_count;
+              }
+              return b.click_count - a.click_count;
+            });
+            return next;
+          }
+        }
+
+        next.sort(function (a, b) {
+          if (state.sortDir === 'asc') {
+            return a.click_count - b.click_count;
+          }
+          return b.click_count - a.click_count;
+        });
+        return next;
+      }
+
+      function updateSortLabel() {
+        var sortButton = document.querySelector('[data-action="sort-clicks"]');
+        if (!sortButton) return;
+        sortButton.textContent = state.sortDir === 'desc' ? '依點擊數：由高到低' : '依點擊數：由低到高';
+        sortButton.setAttribute('aria-label', state.sortDir === 'desc' ? '依點擊數，由高到低' : '依點擊數，由低到高');
+      }
+
+      function renderDashboardSummary() {
+        var summaryRow = document.getElementById('summaryRow');
+        if (!summaryRow || !scenario) return;
+        var totalClicks = scenario.analytics && typeof scenario.analytics.totalClicks === 'number' ? scenario.analytics.totalClicks : 0;
+        var urlCount = scenario.urls ? scenario.urls.length : 0;
+        var activeLinks = scenario.urls ? scenario.urls.filter(function (url) { return url.is_active; }).length : 0;
+        var archived = Math.max(urlCount - activeLinks, 0);
+        var total = totalClicks.toLocaleString('zh-Hant-TW');
+        var cards = [
+          { label: '總點擊', value: total, trend: '+12.4%' },
+          { label: '作用中連結', value: String(activeLinks), trend: '+3 本週' },
+          { label: '全部連結', value: String(urlCount), trend: '共 ' + archived + ' 已封存' },
+          { label: '平均每連結', value: String(scenario.overallStats && scenario.overallStats.average_clicks_per_link ? Number(scenario.overallStats.average_clicks_per_link).toFixed(1) : '0.0'), trend: '點擊' }
+        ];
+        summaryRow.innerHTML = cards.map(function (card) {
+          return '<div class="summary-card"><div class="summary-label">' + escapeHtml(card.label) + '</div><div class="summary-value">' + escapeHtml(card.value) + '</div><div class="summary-trend">' + escapeHtml(card.trend) + '</div></div>';
+        }).join('');
+      }
+
+      function updatePager(totalItems) {
+        var pager = document.getElementById('datasetPager');
+        var currentEl = document.getElementById('pageCurrent');
+        var totalEl = document.getElementById('pageTotal');
+        var itemsEl = document.getElementById('pageTotalItems');
+        if (!pager || !currentEl || !totalEl || !itemsEl) return;
+
+        var pageSize = state.pageSize || 25;
+        var pageCount = Math.max(1, Math.ceil(totalItems / pageSize));
+        if (state.pageIndex > pageCount - 1) state.pageIndex = pageCount - 1;
+        if (state.pageIndex < 0) state.pageIndex = 0;
+
+        currentEl.textContent = String(state.pageIndex + 1);
+        totalEl.textContent = String(pageCount);
+        itemsEl.textContent = String(totalItems);
+
+        var prev = pager.querySelector('[data-page="prev"]');
+        var next = pager.querySelector('[data-page="next"]');
+        if (prev) {
+          if (state.pageIndex <= 0) prev.setAttribute('disabled', '');
+          else prev.removeAttribute('disabled');
+        }
+        if (next) {
+          if (state.pageIndex >= pageCount - 1) next.setAttribute('disabled', '');
+          else next.removeAttribute('disabled');
+        }
+
+        var hidePager = totalItems === 0 || pageCount <= 1;
+        pager.hidden = hidePager;
+      }
+
+      function renderTable() {
+        var body = document.getElementById('urlTableBody');
+        if (!body || !scenario) return;
+
+        var urls = sortUrls(getFilteredUrls());
+        var searchInput = document.querySelector('[data-action="search"]');
+        if (searchInput && (state.dataset === 'noResults' || state.search)) {
+          searchInput.value = state.search;
+        }
+
+        var showNoResults = state.dataset === 'noResults' || (state.dataset !== 'empty' && urls.length === 0);
+        if (state.dataset === 'empty' || showNoResults) {
+          document.getElementById('emptyState').classList.toggle('visible', state.dataset === 'empty');
+          document.getElementById('noResultsState').classList.toggle('visible', showNoResults);
+          body.innerHTML = '';
+          updatePager(0);
+          return;
+        }
+
+        document.getElementById('emptyState').classList.remove('visible');
+        document.getElementById('noResultsState').classList.remove('visible');
+
+        var pageSize = state.pageSize || 25;
+        var pageCount = Math.max(1, Math.ceil(urls.length / pageSize));
+        if (state.pageIndex > pageCount - 1) state.pageIndex = pageCount - 1;
+        if (state.pageIndex < 0) state.pageIndex = 0;
+        var pageRows = urls.slice(state.pageIndex * pageSize, (state.pageIndex + 1) * pageSize);
+        updatePager(urls.length);
+
+        body.innerHTML = pageRows.map(function (url) {
+          var stateText = url.is_active ? (url.expires_at && Date.now() > url.expires_at ? '已過期' : '作用中') : '已封存';
+          var statusClass = url.is_active ? (url.expires_at && Date.now() > url.expires_at ? 'expired' : 'active') : 'archived';
+          var title = url.title || '未命名連結';
+          var shortUrl = url.short_url || 'https://aka.money/' + url.short_code;
+          var actionLabel = url.is_active ? '封存' : '還原';
+          var actionName = url.is_active ? 'archive' : 'restore';
+          return '<div class="dense-row" data-short-code="' + escapeHtml(url.short_code) + '">' +
+            '<div class="link-cell"><span class="link-avatar ' + (url.is_active ? '' : 'archived') + '"></span><div><div class="code-block">' + highlightMatch(url.short_code, state.search) + '</div><div class="meta-line">' + highlightMatch(title, state.search) + '</div></div></div>' +
+            '<div class="url-cell">' + highlightMatch(shortUrl, state.search) + '</div>' +
+            '<div class="click-number">' + Number(url.click_count).toLocaleString('zh-Hant-TW') + '</div>' +
+            '<div><span class="status-badge ' + statusClass + '">' + stateText + '</span></div>' +
+            '<div class="table-actions"><button class="table-action copy" type="button" data-action="copy" data-short-url="' + escapeHtml(shortUrl) + '" data-copy-state="idle">複製</button><button class="table-action archive" type="button" data-action="' + actionName + '" data-short-code="' + escapeHtml(url.short_code) + '">' + actionLabel + '</button></div>' +
+            '</div>';
+        }).join('');
+      }
+
+      function renderAnalyticsCharts() {
+        var analytics = scenario && scenario.analytics ? scenario.analytics : { dailySeries: [], countryDistribution: {}, deviceDistribution: {}, browserDistribution: {} };
+        var peak = analytics.campaignSpike || null;
+        var codeEl = document.getElementById('analyticsCode');
+        var clicksEl = document.getElementById('analyticsClicks');
+        var peakEl = document.getElementById('analyticsPeak');
+        if (codeEl) codeEl.textContent = (scenario.urls && scenario.urls[0] ? scenario.urls[0].short_code : 'm0001');
+        if (clicksEl) clicksEl.textContent = Number(analytics.totalClicks || 0).toLocaleString('zh-Hant-TW');
+        if (peakEl) peakEl.textContent = peak ? peak.date + ' · ' + peak.clicks : '—';
+
+        drawChart('clicks-trend', 'line', analytics.dailySeries && analytics.dailySeries.length ? analytics.dailySeries.map(function (d) { return d.date.slice(5); }) : [], analytics.dailySeries && analytics.dailySeries.length ? analytics.dailySeries.map(function (d) { return d.clicks; }) : [], { label: '點擊數', color: getComputedStyle(document.body).getPropertyValue('--chart-1').trim() }, 'line');
+        drawChart('country-distribution', 'doughnut', Object.keys(analytics.countryDistribution || {}), Object.values(analytics.countryDistribution || {}), { label: '國家' }, 'doughnut');
+        drawChart('device-distribution', 'doughnut', Object.keys(analytics.deviceDistribution || {}), Object.values(analytics.deviceDistribution || {}), { label: '裝置' }, 'doughnut');
+        drawChart('browser-distribution', 'bar', Object.keys(analytics.browserDistribution || {}), Object.values(analytics.browserDistribution || {}), { label: '瀏覽器' }, 'bar');
+      }
+
+      function renderStats() {
+        var statsSummary = document.getElementById('statsSummary');
+        if (!statsSummary || !scenario || !scenario.overallStats) return;
+        var totalClicks = Number(scenario.overallStats.total_clicks || 0).toLocaleString('zh-Hant-TW');
+        var activeLinks = Number(scenario.overallStats.active_links || 0);
+        var totalLinks = Number(scenario.overallStats.total_links || 0);
+        var cards = [
+          { label: '總點擊', value: totalClicks },
+          { label: '作用中連結', value: String(activeLinks) },
+          { label: '全部連結', value: String(totalLinks) },
+          { label: '平均每連結', value: Number(scenario.overallStats.average_clicks_per_link || 0).toFixed(1) }
+        ];
+        statsSummary.innerHTML = cards.map(function (card) {
+          return '<div class="summary-card"><div class="summary-label">' + escapeHtml(card.label) + '</div><div class="summary-value">' + escapeHtml(card.value) + '</div></div>';
+        }).join('');
+
+        var trendData = scenario.overallStats.click_trend || {};
+        var labels = Object.keys(trendData).slice(-30);
+        var values = labels.map(function (key) { return trendData[key] || 0; });
+        drawChart('stats-trend', 'line', labels, values, { label: '總點擊' }, 'line');
+        drawChart('stats-country', 'doughnut', Object.keys(scenario.overallStats.country_distribution || {}), Object.values(scenario.overallStats.country_distribution || {}), { label: '國家' }, 'doughnut');
+        drawChart('stats-device', 'bar', Object.keys(scenario.overallStats.device_distribution || {}), Object.values(scenario.overallStats.device_distribution || {}), { label: '裝置' }, 'bar');
+
+        var topLinks = document.getElementById('topLinks');
+        if (topLinks) {
+          topLinks.innerHTML = (scenario.overallStats.top_links || []).slice(0, 4).map(function (link, index) {
+            var percentage = scenario.overallStats.total_clicks ? ((link.click_count / scenario.overallStats.total_clicks) * 100) : 0;
+            return '<div class="top-link"><div class="rank">' + (index + 1) + '</div><div class="top-code"><strong>' + escapeHtml(link.short_code) + '</strong><span>' + escapeHtml(link.title || link.original_url) + '</span></div><div class="top-count">' + Number(link.click_count).toLocaleString('zh-Hant-TW') + '</div></div>';
+          }).join('');
+        }
+      }
+
+      function getThemeToken(name, fallback) {
+        var value = getComputedStyle(document.body).getPropertyValue(name).trim();
+        return value || fallback;
+      }
+
+      function colorWithAlpha(color, alpha) {
+        var value = String(color || '').trim();
+        if (!value || value === 'transparent') return value || 'rgba(0, 0, 0, 0)';
+
+        if (value.startsWith('#')) {
+          var hex = value.slice(1);
+          if (hex.length === 3) {
+            hex = hex.split('').map(function (char) { return char + char; }).join('');
+          }
+          if (hex.length === 6) {
+            var red = parseInt(hex.slice(0, 2), 16);
+            var green = parseInt(hex.slice(2, 4), 16);
+            var blue = parseInt(hex.slice(4, 6), 16);
+            return 'rgba(' + red + ', ' + green + ', ' + blue + ', ' + alpha + ')';
+          }
+        }
+
+        if (value.startsWith('rgb')) {
+          var channels = value.replace(/^rgba?\(|\)$/gi, '').split(',').map(function (part) { return Number(part.trim()); });
+          if (channels.length >= 3) {
+            return 'rgba(' + channels[0] + ', ' + channels[1] + ', ' + channels[2] + ', ' + alpha + ')';
+          }
+        }
+
+        return value;
+      }
+
+      function getSafeColors(count) {
+        var palette = [
+          getThemeToken('--chart-1', '#3f7af6'),
+          getThemeToken('--chart-2', '#12b76a'),
+          getThemeToken('--chart-3', '#f59e0b'),
+          getThemeToken('--chart-4', '#ef4444'),
+          getThemeToken('--chart-5', '#8b5cf6')
+        ];
+        return Array.from({ length: count }, function (_, index) {
+          return palette[index % palette.length];
+        });
+      }
+
+      function drawChart(chartId, type, labels, values, seriesMeta, chartType) {
+        var container = document.querySelector('[data-chart="' + chartId + '"]');
+        if (!container) return;
+
+        var hasData = Array.isArray(values) && values.length > 0 && values.some(function (value) { return Number(value) > 0; });
+        if (!hasData || (Array.isArray(labels) && labels.length === 0)) {
+          container.setAttribute('data-chart-state', 'empty');
+          container.innerHTML = '<div class="chart-empty"><div><div style="font-size:1.2rem; margin-bottom:0.35rem;">◌</div><div>目前無資料可視化</div></div></div>';
+          return;
+        }
+
+        if (typeof window.Chart === 'undefined') {
+          container.setAttribute('data-chart-state', 'fallback');
+          container.innerHTML = createFallbackSvg(chartId, labels, values, chartType);
+          return;
+        }
+
+        if (state.charts[chartId]) {
+          state.charts[chartId].destroy();
+          state.charts[chartId] = null;
+        }
+
+        var seriesColors = getSafeColors(values.length);
+        var themeText = getThemeToken('--text', '#1c2333');
+        var themeMuted = getThemeToken('--muted', '#5f6b85');
+        var themeSurface = getThemeToken('--surface', '#ffffff');
+        var themeBorder = getThemeToken('--border', '#dfe7f4');
+        var gridColor = colorWithAlpha(themeBorder, 0.7);
+
+        container.setAttribute('data-chart-state', 'rendered');
+        container.innerHTML = '';
+        var canvas = document.createElement('canvas');
+        container.appendChild(canvas);
+
+        state.charts[chartId] = new Chart(canvas.getContext('2d'), {
+          type: chartType,
+          data: {
+            labels: labels,
+            datasets: [{
+              label: seriesMeta.label || '數據',
+              data: values,
+              borderColor: seriesColors,
+              backgroundColor: seriesColors.map(function (color) { return colorWithAlpha(color, 0.22); }),
+              borderWidth: 2,
+              tension: 0.35,
+              fill: false,
+              pointRadius: 3,
+              pointHoverRadius: 5,
+              borderRadius: 6,
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+              legend: { display: chartType === 'doughnut' || chartType === 'bar', position: 'bottom', labels: { color: themeMuted, usePointStyle: true } },
+              tooltip: {
+                backgroundColor: themeSurface,
+                titleColor: themeText,
+                bodyColor: themeText,
+                borderColor: themeBorder,
+                borderWidth: 1,
+                displayColors: true
+              }
+            },
+            scales: chartType === 'line' || chartType === 'bar' ? {
+              x: { ticks: { color: themeMuted }, grid: { color: gridColor, borderColor: gridColor }, border: { color: themeBorder } },
+              y: { ticks: { color: themeMuted }, grid: { color: gridColor, borderColor: gridColor }, border: { color: themeBorder }, beginAtZero: true }
+            } : {}
+          }
+        });
+      }
+
+      function createFallbackSvg(chartId, labels, values, chartType) {
+        var width = 420;
+        var height = 210;
+        var max = Math.max.apply(null, values);
+        var points = values.map(function (value, index) {
+          var x = 18 + (index * (width - 36)) / Math.max(values.length - 1, 1);
+          var y = height - 22 - ((value / (max || 1)) * (height - 52));
+          return x + ',' + y;
+        }).join(' ');
+
+        if (chartType === 'doughnut' || chartType === 'bar') {
+          var barWidth = Math.max((width - 40) / Math.max(values.length, 1) - 14, 12);
+          var bars = values.map(function (value, index) {
+            var barHeight = ((value / (max || 1)) * 120) + 10;
+            var x = 20 + index * ((width - 40) / Math.max(values.length, 1));
+            var y = height - 24 - barHeight;
+            return '<rect x="' + x + '" y="' + y + '" width="' + barWidth + '" height="' + barHeight + '" rx="6" fill="' + getSafeColors(values.length)[index] + '" opacity="0.9" />';
+          }).join('');
+          return '<svg viewBox="0 0 420 210" role="img" aria-label="Fallback chart"><rect width="420" height="210" fill="transparent"/><g>' + bars + '</g></svg>';
+        }
+
+        return '<svg viewBox="0 0 420 210" role="img" aria-label="Fallback chart"><path d="M 18 190 L 18 20 L 400 20" stroke="rgba(127,139,171,0.3)" fill="none"/><polyline points="' + points + '" fill="none" stroke="' + getComputedStyle(document.body).getPropertyValue('--chart-1').trim() + '" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/></svg>';
+      }
+
+      function renderAll() {
+        if (!scenario) {
+          scenario = window.AKAMONEY_SCENARIOS.getScenario(state.dataset);
+        }
+
+        setLoading(false);
+        document.getElementById('stateError').classList.remove('visible');
+        if (state.dataset === 'apiError') {
+          document.getElementById('stateError').classList.add('visible');
+          var msg = scenario && scenario.meta ? scenario.meta.error : '無法讀取短網址資料。';
+          document.getElementById('errorText').textContent = msg;
+        }
+
+        if (state.dataset === 'empty' && (!scenario.urls || scenario.urls.length === 0)) {
+          document.getElementById('emptyState').classList.add('visible');
+        } else {
+          document.getElementById('emptyState').classList.remove('visible');
+        }
+
+        updateSortLabel();
+        renderDashboardSummary();
+        renderTable();
+        renderAnalyticsCharts();
+        renderStats();
+      }
+
+      function archiveUrl(shortCode) {
+        var modal = document.getElementById('archiveModal');
+        if (!modal) return;
+        state.archiveId = shortCode;
+        state.archiveTrigger = document.activeElement && document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        var target = (scenario && scenario.urls ? scenario.urls.find(function (url) { return url.short_code === shortCode; }) : null);
+        if (target) {
+          var codeLabel = target.short_code;
+          document.getElementById('archiveMessage').textContent = '將「' + codeLabel + '」封存後，將不再出現在主清單中，但歷史點擊仍會保留。';
+        }
+        modal.classList.add('visible');
+        modal.setAttribute('aria-hidden', 'false');
+        var focusable = modal.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+        if (focusable) {
+          focusable.focus();
+        }
+      }
+
+      function confirmArchive() {
+        var archiveId = state.archiveId;
+        if (!archiveId || !scenario || !scenario.urls) return;
+        var url = scenario.urls.find(function (item) { return item.short_code === archiveId; });
+        if (!url) return;
+        url.is_active = false;
+        state.lastArchive = { code: archiveId };
+        renderAll();
+        showArchiveUndoToast();
+        closeArchive();
+      }
+
+      function undoArchive() {
+        if (!state.lastArchive || !scenario || !scenario.urls) return;
+        var record = scenario.urls.find(function (item) { return item.short_code === state.lastArchive.code; });
+        if (record) {
+          record.is_active = true;
+          showToast('已還原連結', '短網址重新回到作用中清單');
+        }
+        state.lastArchive = null;
+        renderAll();
+      }
+
+      function showArchiveUndoToast() {
+        var stack = document.getElementById('toastStack');
+        if (!stack) return;
+        var toast = document.createElement('div');
+        toast.className = 'toast';
+        toast.innerHTML = '<strong>已封存連結</strong><small>短網址已移入封存清單</small><div class="archive-actions" style="margin-top:0.7rem; justify-content:flex-end;"><button class="btn btn-outline" type="button" data-action="archive-undo">還原</button></div>';
+        stack.appendChild(toast);
+        requestAnimationFrame(function () {
+          toast.classList.add('show');
+        });
+        var undoButton = toast.querySelector('[data-action="archive-undo"]');
+        if (undoButton) {
+          undoButton.addEventListener('click', function () {
+            undoArchive();
+            toast.classList.remove('show');
+            setTimeout(function () { toast.remove(); }, 220);
+          });
+        }
+        setTimeout(function () {
+          toast.classList.remove('show');
+          setTimeout(function () { toast.remove(); }, 220);
+        }, 3600);
+      }
+
+      function closeArchive() {
+        var modal = document.getElementById('archiveModal');
+        if (!modal) return;
+        modal.classList.remove('visible');
+        modal.setAttribute('aria-hidden', 'true');
+        if (state.archiveTrigger && document.contains(state.archiveTrigger)) {
+          state.archiveTrigger.focus();
+        }
+        state.archiveTrigger = null;
+      }
+
+      function initializeEvents() {
+        document.querySelector('[data-action="theme-toggle"]').addEventListener('click', function () {
+          applyTheme(state.theme === 'light' ? 'dark' : 'light');
+        });
+
+        document.querySelector('[data-action="search"]').addEventListener('input', function (event) {
+          state.search = event.target.value;
+          state.pageIndex = 0;
+          renderTable();
+        });
+
+        document.querySelector('[data-action="sort-clicks"]').addEventListener('click', function () {
+          state.sortDir = state.sortDir === 'desc' ? 'asc' : 'desc';
+          state.pageIndex = 0;
+          renderTable();
+          updateSortLabel();
+          emit('STATE_CHANGED');
+        });
+
+        var clearSearchBtn = document.getElementById('clearSearchBtn');
+        if (clearSearchBtn) {
+          clearSearchBtn.addEventListener('click', function () {
+            state.search = '';
+            state.pageIndex = 0;
+            var searchInput = document.querySelector('[data-action="search"]');
+            if (searchInput) searchInput.value = '';
+            renderTable();
+          });
+        }
+
+        document.querySelectorAll('[data-action="view-switch"]').forEach(function (button) {
+          button.addEventListener('click', function () {
+            applyView(button.getAttribute('data-view-target'));
+          });
+        });
+
+        document.getElementById('createForm').addEventListener('submit', function (event) {
+          event.preventDefault();
+          var form = event.currentTarget;
+          var data = new FormData(form);
+          var originalUrl = String(data.get('original_url') || '').trim();
+          var shortCode = String(data.get('short_code') || '').trim();
+          var title = String(data.get('title') || '').trim();
+          var description = String(data.get('description') || '').trim();
+          var imageUrl = String(data.get('image_url') || '').trim();
+          var expiresAt = String(data.get('expires_at') || '').trim();
+
+          if (!originalUrl || !shortCode || !/^[A-Za-z0-9_\-]{3,20}$/.test(shortCode)) {
+            showToast('建立失敗', '請填寫有效的原始網址與短代碼');
+            return;
+          }
+
+          var expires = expiresAt ? new Date(expiresAt + 'T00:00:00').getTime() : undefined;
+          var newUrl = {
+            id: 'mock-url-' + Date.now(),
+            short_code: shortCode,
+            original_url: originalUrl,
+            short_url: 'https://aka.money/' + shortCode,
+            title: title || '新建立連結',
+            description: description || '快速建立的短網址',
+            image_url: imageUrl || '',
+            created_at: Date.now(),
+            updated_at: Date.now(),
+            expires_at: expires,
+            is_active: true,
+            click_count: 0
+          };
+
+          scenario.urls.unshift(newUrl);
+          state.latestCreatedCode = shortCode;
+          state.dataset = 'default';
+          state.search = '';
+          state.sortDir = 'desc';
+          state.pageIndex = 0;
+          renderAll();
+          form.reset();
+          applyView('dashboard');
+          showToast('建立成功', '新短網址已加入儀表板最前列');
+          emit('STATE_CHANGED');
+        });
+
+        document.body.addEventListener('click', function (event) {
+          var target = event.target;
+          if (!(target instanceof Element)) return;
+          var pageControl = target.closest('[data-page]');
+          if (pageControl && document.getElementById('datasetPager') && document.getElementById('datasetPager').contains(pageControl)) {
+            if (pageControl.hasAttribute('disabled')) return;
+            var direction = pageControl.getAttribute('data-page');
+            if (direction === 'next') state.pageIndex += 1;
+            else if (direction === 'prev' || direction === 'previous') state.pageIndex -= 1;
+            renderTable();
+            return;
+          }
+          var action = target.getAttribute('data-action');
+          if (action === 'copy') {
+            var shortUrl = target.getAttribute('data-short-url') || 'https://aka.money/';
+            var copyDone = false;
+            try {
+              if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(shortUrl).then(function () {
+                  target.setAttribute('data-copy-state', 'copied');
+                  target.textContent = '已複製';
+                  setTimeout(function () {
+                    target.setAttribute('data-copy-state', 'idle');
+                    target.textContent = '複製';
+                  }, 2000);
+                }).catch(function () {
+                  copyDone = false;
+                });
+                copyDone = true;
+              } else {
+                var temp = document.createElement('textarea');
+                temp.value = shortUrl;
+                document.body.appendChild(temp);
+                temp.select();
+                try { document.execCommand('copy'); copyDone = true; } catch (error) { copyDone = false; }
+                document.body.removeChild(temp);
+              }
+            } catch (error) {
+              copyDone = false;
+            }
+            if (copyDone) {
+              showToast('已複製', shortUrl);
+            }
+            return;
+          }
+
+          if (action === 'archive') {
+            var code = target.getAttribute('data-short-code');
+            if (code) archiveUrl(code);
+            return;
+          }
+
+          if (action === 'restore') {
+            var restoreCode = target.getAttribute('data-short-code');
+            if (restoreCode && scenario && scenario.urls) {
+              var restoreUrl = scenario.urls.find(function (item) { return item.short_code === restoreCode; });
+              if (restoreUrl) {
+                restoreUrl.is_active = true;
+                state.lastArchive = null;
+                renderAll();
+                showToast('已還原連結', '短網址重新回到作用中清單');
+              }
+            }
+            return;
+          }
+
+          if (action === 'archive-confirm') {
+            confirmArchive();
+            return;
+          }
+
+          if (action === 'archive-undo') {
+            undoArchive();
+            return;
+          }
+
+          if (target.id === 'cancelArchive' || target.closest('#cancelArchive')) {
+            closeArchive();
+          }
+        });
+
+        document.getElementById('archiveUndoBtn').addEventListener('click', function () {
+          undoArchive();
+        });
+
+        document.getElementById('cancelArchive').addEventListener('click', function () {
+          closeArchive();
+        });
+
+        document.addEventListener('keydown', function (event) {
+          if (event.key === 'Escape') {
+            var modal = document.getElementById('archiveModal');
+            if (modal && modal.classList.contains('visible')) {
+              closeArchive();
+            }
+          }
+        });
+      }
+
+      function hydrateInitialData() {
+        var initialDataset = 'default';
+        scenario = window.AKAMONEY_SCENARIOS.getScenario(initialDataset);
+        var searchInput = document.querySelector('[data-action="search"]');
+        if (searchInput) {
+          searchInput.value = '';
+        }
+        renderAll();
+        setViewVisibility();
+      }
+
+      window.addEventListener('message', function (event) {
+        var data = event.data;
+        if (!data || typeof data !== 'object' || data.source !== 'akamoney-compare') return;
+        if (data.type === 'SET_VIEW' && VIEWS.indexOf(data.value) !== -1) {
+          applyView(data.value);
+        } else if (data.type === 'SET_THEME' && THEMES.indexOf(data.value) !== -1) {
+          applyTheme(data.value);
+        } else if (data.type === 'SET_DATASET' && DATASETS.indexOf(data.value) !== -1) {
+          applyDataset(data.value);
+        }
+      });
+
+      document.addEventListener('DOMContentLoaded', function () {
+        hydrateInitialData();
+        emit('READY');
+      });
+      initializeEvents();
+    })();
+  </script>
+</body>
+</html>

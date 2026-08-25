@@ -1,0 +1,491 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>黑白網址工作台</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.3/dist/index.global.js"></script>
+  <script src="../shared/scenarios.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js" onerror="window.__chartFailed=true"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --font-sans: "Geist", "Noto Sans TC", system-ui, "Microsoft JhengHei", "PingFang TC", sans-serif;
+      --color-brand: #0070f3;
+    }
+  </style>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg:#fff;--surface:#fff;--soft:#f5f5f5;--text:#000;--muted:#666;--faint:#8a8a8a;
+      --line:#e5e5e5;--line-strong:#c7c7c7;--accent:#0070f3;--accent-soft:#eaf4ff;
+      --success:#087a35;--success-soft:#eaf8ef;--warning:#9a5600;--danger:#d70015;--danger-soft:#fff0f1;
+      --shadow:0 1px 2px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.04);
+    }
+    [data-theme="dark"] {
+      color-scheme:dark;
+      --bg:#000;--surface:#0a0a0a;--soft:#171717;--text:#fff;--muted:#a1a1a1;--faint:#777;
+      --line:#2e2e2e;--line-strong:#555;--accent:#3291ff;--accent-soft:#071d32;
+      --success:#46d36f;--success-soft:#0a2814;--warning:#f5a623;--danger:#ff6166;--danger-soft:#310d10;
+      --shadow:0 0 0 1px rgba(255,255,255,.02),0 14px 36px rgba(0,0,0,.5);
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;min-height:100%;max-width:100%;overflow-x:hidden}
+    body{background-color:var(--bg)!important;color:var(--text)!important;font:14px/1.55 "Geist","Noto Sans TC",system-ui,"Microsoft JhengHei","PingFang TC",sans-serif}
+    button,input,textarea,select{font:inherit}
+    button,a{ -webkit-tap-highlight-color:transparent}
+    button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+    [hidden]{display:none!important}
+    .shell{min-height:100vh}
+    .topbar{height:64px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 max(20px,calc((100vw - 1200px)/2));position:sticky;top:0;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(12px);z-index:20}
+    .brand{display:flex;align-items:center;gap:10px;color:var(--text);font-weight:600;text-decoration:none;letter-spacing:-.02em}
+    .brand-mark{width:26px;height:26px;background:var(--text);color:var(--bg);display:grid;place-items:center;border-radius:5px;font-size:12px;font-weight:700}
+    .nav-actions{display:flex;align-items:center;gap:4px}
+    .nav-link,.icon-btn,.btn,.chip,.page-btn{border:0;background:transparent;color:var(--muted);cursor:pointer;border-radius:6px;min-height:36px;padding:8px 12px;transition:background .15s,color .15s,transform .15s}
+    .nav-link:hover,.icon-btn:hover,.page-btn:hover{background:var(--soft);color:var(--text)}
+    .nav-link.active{color:var(--text);font-weight:500}
+    .icon-btn{width:38px;padding:8px;font-size:17px}
+    .btn{border:1px solid var(--line-strong);color:var(--text);background:var(--surface);font-weight:500;display:inline-flex;align-items:center;justify-content:center;gap:7px;text-decoration:none}
+    .btn:hover{border-color:var(--text);transform:translateY(-1px)}
+    .btn-primary{background:var(--text);border-color:var(--text);color:var(--bg)}
+    .btn-accent{background:var(--accent);border-color:var(--accent);color:#fff}
+    .btn-danger{color:var(--danger);border-color:color-mix(in srgb,var(--danger) 45%,var(--line))}
+    .btn-sm{min-height:32px;padding:5px 9px;font-size:13px}
+    .container{width:min(1200px,100%);margin:0 auto;padding:0 24px 64px}
+    .breadcrumb{height:54px;display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13px;border-bottom:1px solid var(--line)}
+    .breadcrumb b{color:var(--text);font-weight:500}
+    .page-head{padding:42px 0 28px;display:flex;align-items:flex-end;justify-content:space-between;gap:24px}
+    h1,h2,h3,p{margin:0}
+    h1{font-size:32px;line-height:1.15;letter-spacing:-.04em;font-weight:600}
+    h2{font-size:20px;letter-spacing:-.025em}
+    h3{font-size:15px;letter-spacing:-.015em}
+    .eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:600;margin-bottom:9px}
+    .sub{color:var(--muted);margin-top:8px;max-width:620px}
+    .toolbar{display:grid;grid-template-columns:minmax(220px,1fr) auto auto;gap:10px;margin-bottom:20px}
+    .search-wrap{position:relative}
+    .search-wrap span{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted)}
+    input,textarea,select{width:100%;border:1px solid var(--line);background:var(--surface);color:var(--text);border-radius:6px;padding:10px 12px;min-height:40px;transition:border .15s,box-shadow .15s}
+    input::placeholder,textarea::placeholder{color:var(--faint)}
+    input:focus,textarea:focus,select:focus{border-color:var(--text);box-shadow:0 0 0 3px color-mix(in srgb,var(--text) 8%,transparent)}
+    .search-wrap input{padding-left:35px}
+    .kpis{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:24px;background:var(--surface)}
+    .kpi{padding:18px 20px;border-right:1px solid var(--line)}
+    .kpi:last-child{border:0}
+    .kpi-label{font-size:12px;color:var(--muted);margin-bottom:6px}
+    .kpi-value{font-size:24px;letter-spacing:-.04em;font-weight:600;font-variant-numeric:tabular-nums}
+    .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+    .link-card{min-width:0;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:18px;box-shadow:var(--shadow);transition:transform .18s,border-color .18s,opacity .18s}
+    .link-card:hover{border-color:var(--line-strong);transform:translateY(-2px)}
+    .card-top,.card-bottom,.section-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .favicon{width:30px;height:30px;border:1px solid var(--line);border-radius:6px;display:grid;place-items:center;background:var(--soft);font-weight:600}
+    .status{font-size:11px;padding:3px 7px;border:1px solid var(--line);border-radius:999px;color:var(--muted);white-space:nowrap}
+    .status.active{color:var(--success);border-color:color-mix(in srgb,var(--success) 35%,var(--line));background:var(--success-soft)}
+    .status.expired,.status.archived{color:var(--warning)}
+    .link-title{font-weight:600;margin-top:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .short{color:var(--text);font-weight:500;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+    .url{font-size:12px;color:var(--muted);margin:9px 0 18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .clicks{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
+    .clicks small{font-size:11px;color:var(--muted);font-weight:400;margin-left:4px}
+    .card-actions{display:flex;gap:5px}
+    .card-actions button{border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:5px;cursor:pointer;padding:6px 8px;font-size:12px}
+    .card-actions button:hover{color:var(--text);border-color:var(--line-strong)}
+    [data-copy-state="copied"]{color:var(--success)!important;background:var(--success-soft)!important}
+    .pagination{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:28px;color:var(--muted)}
+    .page-btn{border:1px solid var(--line);min-width:36px}
+    .state-panel{grid-column:1/-1;border:1px dashed var(--line-strong);border-radius:8px;min-height:270px;display:grid;place-items:center;text-align:center;padding:32px;background:var(--soft)}
+    .state-symbol{width:44px;height:44px;border:1px solid var(--line-strong);border-radius:50%;display:grid;place-items:center;margin:0 auto 15px;font-size:18px}
+    .state-panel p{color:var(--muted);margin:7px auto 18px;max-width:420px}
+    .skeleton{overflow:hidden;position:relative;background:var(--soft)}
+    .skeleton:after{content:"";position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--text) 8%,transparent),transparent);animation:shimmer 1.2s infinite}
+    @keyframes shimmer{to{transform:translateX(100%)}}
+    .analytics-layout{display:grid;grid-template-columns:minmax(0,2fr) minmax(300px,1fr);gap:12px}
+    .panel{min-width:0;border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:20px}
+    .panel.wide{grid-row:span 2}
+    .chart-box{height:310px;margin-top:20px;position:relative}
+    .chart-box.small{height:185px}
+    .chart-empty{height:100%;display:grid;place-items:center;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:6px;padding:18px}
+    .insight{margin-top:14px;padding:12px;background:var(--soft);border-left:2px solid var(--accent);font-size:13px;color:var(--muted)}
+    .stat-layout{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(280px,.8fr);gap:12px}
+    .top-list{margin-top:14px;display:grid}
+    .top-row{display:grid;grid-template-columns:26px minmax(0,1fr) auto;gap:10px;align-items:center;border-top:1px solid var(--line);padding:12px 0}
+    .top-row:first-child{border-top:0}
+    .rank{color:var(--muted);font-variant-numeric:tabular-nums}
+    .truncate{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+    .date-range{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+    .form-layout{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(280px,.65fr);gap:28px}
+    .form-panel{border:1px solid var(--line);border-radius:8px;padding:26px;background:var(--surface)}
+    .field{margin-bottom:20px}
+    .field label{display:block;font-weight:500;margin-bottom:7px}
+    .field-note{font-size:12px;color:var(--muted);margin-top:5px}
+    textarea{min-height:96px;resize:vertical}
+    .prefix-field{display:flex}
+    .prefix-field span{border:1px solid var(--line);border-right:0;background:var(--soft);color:var(--muted);padding:9px 11px;border-radius:6px 0 0 6px;white-space:nowrap}
+    .prefix-field input{border-radius:0 6px 6px 0}
+    .preview{position:sticky;top:88px}
+    .preview-card{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+    .preview-art{height:130px;background:var(--soft);display:grid;place-items:center;border-bottom:1px solid var(--line)}
+    .preview-art span{font-size:34px;font-weight:600;color:var(--line-strong)}
+    .preview-body{padding:18px}
+    .success-banner{border:1px solid color-mix(in srgb,var(--success) 40%,var(--line));background:var(--success-soft);color:var(--success);padding:14px;border-radius:6px;margin-bottom:18px}
+    .login-wrap{min-height:calc(100vh - 64px);display:grid;grid-template-columns:1fr 1fr}
+    .login-hero{background:var(--text);color:var(--bg);padding:8vw;display:flex;flex-direction:column;justify-content:space-between}
+    .login-hero h1{font-size:clamp(38px,5vw,70px);max-width:650px}
+    .login-grid{height:180px;background-image:linear-gradient(color-mix(in srgb,var(--bg) 14%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--bg) 14%,transparent) 1px,transparent 1px);background-size:28px 28px;mask-image:linear-gradient(to bottom,transparent,#000)}
+    .login-form{display:grid;place-items:center;padding:32px}
+    .login-box{width:min(380px,100%)}
+    .ms-mark{display:grid;grid-template-columns:repeat(2,8px);gap:2px}
+    .ms-mark i{width:8px;height:8px;background:currentColor;display:block}
+    .notfound{min-height:calc(100vh - 64px);display:grid;place-items:center;text-align:center;padding:30px}
+    .notfound-code{font-size:clamp(100px,20vw,240px);font-weight:600;letter-spacing:-.09em;line-height:.9;color:var(--text)}
+    .notfound-line{height:1px;background:var(--line);width:min(520px,80vw);margin:26px auto}
+    dialog{border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--text);padding:0;width:min(440px,calc(100vw - 32px));box-shadow:0 24px 80px rgba(0,0,0,.28)}
+    dialog::backdrop{background:rgba(0,0,0,.55);backdrop-filter:blur(2px)}
+    .dialog-body{padding:24px}.dialog-actions{display:flex;justify-content:flex-end;gap:8px;padding:14px 24px;border-top:1px solid var(--line)}
+    .toast{position:fixed;right:22px;bottom:22px;z-index:40;background:var(--text);color:var(--bg);padding:12px 14px;border-radius:7px;box-shadow:0 16px 50px rgba(0,0,0,.25);display:flex;align-items:center;gap:14px;animation:toast-in .2s ease}
+    .toast button{border:0;background:transparent;color:var(--accent);font-weight:600;cursor:pointer}
+    @keyframes toast-in{from{transform:translateY(12px);opacity:0}}
+    .mobile-menu{display:none}
+    @media(max-width:800px){
+      .topbar{padding:0 16px}.desktop-nav{display:none}.mobile-menu{display:block}
+      .container{padding:0 16px 48px}.breadcrumb{height:46px}.page-head{padding:28px 0 22px;align-items:flex-start;flex-direction:column}.page-head .btn{width:100%}
+      h1{font-size:28px}.toolbar{grid-template-columns:1fr 1fr}.search-wrap{grid-column:1/-1}
+      .kpis{grid-template-columns:1fr 1fr}.kpi:nth-child(2){border-right:0}.kpi:nth-child(-n+2){border-bottom:1px solid var(--line)}
+      .grid{grid-template-columns:1fr}.link-card{padding:16px}.analytics-layout,.stat-layout,.form-layout{grid-template-columns:1fr}
+      .panel.wide{grid-row:auto}.chart-box{height:250px}.preview{position:static;order:-1}.preview-art{height:90px}
+      .login-wrap{grid-template-columns:1fr;min-height:calc(100vh - 64px)}.login-hero{display:none}.login-form{padding:24px}
+      .toast{left:16px;right:16px;bottom:16px;justify-content:space-between}
+    }
+    @media(max-width:430px){
+      .toolbar{grid-template-columns:1fr}.search-wrap{grid-column:auto}.toolbar .btn{width:100%}
+      .kpi{padding:14px}.kpi-value{font-size:21px}.card-bottom{align-items:flex-end}.card-actions{flex-wrap:wrap;justify-content:flex-end}
+      .form-panel{padding:18px}.prefix-field span{font-size:12px;padding-left:8px;padding-right:8px}
+    }
+    @media(prefers-reduced-motion:reduce){
+      *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+    }
+  </style>
+</head>
+<body data-proposal-id="05-vercel" data-theme="light" data-active-view="dashboard" data-dataset="default">
+  <div class="shell">
+    <header class="topbar">
+      <button class="brand" data-action="view-switch" data-view-target="dashboard" aria-label="前往儀表板"><span class="brand-mark">A</span><span>AkaMoney</span></button>
+      <nav class="nav-actions desktop-nav" aria-label="主要導覽">
+        <button class="nav-link active" data-action="view-switch" data-view-target="dashboard">儀表板</button>
+        <button class="nav-link" data-action="view-switch" data-view-target="analytics">成效分析</button>
+        <button class="nav-link" data-action="view-switch" data-view-target="stats">總覽統計</button>
+      </nav>
+      <div class="nav-actions">
+        <button class="icon-btn" data-action="theme-toggle" aria-label="切換深淺布景" title="切換布景">◐</button>
+        <button class="nav-link mobile-menu" data-action="view-switch" data-view-target="stats">統計</button>
+        <button class="btn btn-sm btn-primary" data-action="view-switch" data-view-target="create">＋ 建立</button>
+      </div>
+    </header>
+
+    <main data-view="dashboard">
+      <div class="container">
+        <div class="breadcrumb"><span>AkaMoney</span><span>/</span><b>儀表板</b></div>
+        <div class="page-head">
+          <div><div class="eyebrow">Workspace</div><h1>短網址</h1><p class="sub">快速掃描、整理並追蹤所有正在運作的連結。</p></div>
+          <button class="btn btn-primary" data-action="view-switch" data-view-target="create">＋ 建立短網址</button>
+        </div>
+        <section class="kpis" id="dashboard-kpis" aria-label="清單成效摘要"></section>
+        <div class="toolbar">
+          <div class="search-wrap"><span>⌕</span><input data-action="search" type="search" placeholder="搜尋短代碼、原始網址或標題" aria-label="搜尋"></div>
+          <button class="btn" data-action="sort-clicks" aria-label="依點擊數排序">點擊數 ↓</button>
+          <select id="status-filter" aria-label="篩選狀態"><option value="all">所有狀態</option><option value="active">作用中</option><option value="archived">已封存</option></select>
+        </div>
+        <section class="grid" id="url-grid" aria-live="polite">
+          <article class="link-card"><button data-action="copy" data-copy-state="idle">複製</button><button data-action="archive">封存</button></article>
+        </section>
+        <div class="pagination" id="pagination"></div>
+      </div>
+    </main>
+
+    <main data-view="analytics" hidden inert>
+      <div class="container">
+        <div class="breadcrumb"><span>AkaMoney</span><span>/</span><span>短網址</span><span>/</span><b>成效分析</b></div>
+        <div class="page-head"><div><div class="eyebrow">Explore</div><h1>成效分析</h1><p class="sub" id="analytics-link">單一短網址的即時探索工作台</p></div><button class="btn" data-action="view-switch" data-view-target="dashboard">返回儀表板</button></div>
+        <div class="kpis" id="analytics-kpis"></div>
+        <section class="analytics-layout">
+          <article class="panel wide">
+            <div class="section-head"><div><div class="eyebrow">30 days</div><h2>每日點擊趨勢</h2></div><span class="date-range" id="analytics-range"></span></div>
+            <div class="chart-box" data-chart="clicks-trend" data-chart-state="rendered"><canvas></canvas></div>
+            <div class="insight" id="analytics-insight"></div>
+          </article>
+          <article class="panel"><div class="section-head"><h3>國家分佈</h3><span class="date-range">點擊數</span></div><div class="chart-box small" data-chart="country-distribution" data-chart-state="rendered"><canvas></canvas></div></article>
+          <article class="panel"><div class="section-head"><h3>裝置分佈</h3><span class="date-range">工作階段</span></div><div class="chart-box small" data-chart="device-distribution" data-chart-state="rendered"><canvas></canvas></div></article>
+          <article class="panel"><div class="section-head"><h3>瀏覽器分佈</h3><span class="date-range">點擊數</span></div><div class="chart-box small" data-chart="browser-distribution" data-chart-state="rendered"><canvas></canvas></div></article>
+        </section>
+      </div>
+    </main>
+
+    <main data-view="stats" hidden inert>
+      <div class="container">
+        <div class="breadcrumb"><span>AkaMoney</span><span>/</span><b>總覽統計</b></div>
+        <div class="page-head"><div><div class="eyebrow">Overview</div><h1>總覽統計</h1><p class="sub">從全帳號視角掌握連結成長與流量組成。</p></div><span class="date-range" id="stats-range"></span></div>
+        <div class="kpis" id="stats-kpis"></div>
+        <section class="stat-layout">
+          <article class="panel"><div class="section-head"><div><div class="eyebrow">Account</div><h2>期間趨勢</h2></div></div><div class="chart-box" data-chart="stats-trend" data-chart-state="rendered"><canvas></canvas></div></article>
+          <article class="panel"><div class="section-head"><h2>Top Links</h2><span class="date-range">點擊數</span></div><div class="top-list" id="top-links"></div></article>
+          <article class="panel"><div class="section-head"><h3>國家分佈</h3></div><div class="chart-box small" data-chart="stats-country" data-chart-state="rendered"><canvas></canvas></div></article>
+          <article class="panel"><div class="section-head"><h3>裝置分佈</h3></div><div class="chart-box small" data-chart="stats-device" data-chart-state="rendered"><canvas></canvas></div></article>
+        </section>
+      </div>
+    </main>
+
+    <main data-view="login" hidden inert>
+      <section class="login-wrap">
+        <div class="login-hero"><div class="brand"><span class="brand-mark">A</span><span>AkaMoney</span></div><h1>每一次點擊，<br>都值得被看見。</h1><div class="login-grid"></div></div>
+        <div class="login-form"><div class="login-box"><div class="eyebrow">Welcome back</div><h1>登入</h1><p class="sub">使用組織的 Microsoft 帳號繼續。</p><button class="btn btn-primary" id="login-button" style="width:100%;margin-top:28px;min-height:44px"><span class="ms-mark"><i></i><i></i><i></i><i></i></span>使用 Microsoft 帳號登入</button><p class="field-note" style="text-align:center;margin-top:16px">受組織 Entra ID 安全保護</p><div class="insight" style="margin-top:24px">開發模式：本機環境可略過身分驗證。</div></div></div>
+      </section>
+    </main>
+
+    <main data-view="create" hidden inert>
+      <div class="container">
+        <div class="breadcrumb"><span>AkaMoney</span><span>/</span><span>短網址</span><span>/</span><b>建立短網址</b></div>
+        <div class="page-head"><div><div class="eyebrow">New link</div><h1>建立短網址</h1><p class="sub">填寫連結資訊。你可以稍後再調整或封存。</p></div><button class="btn" data-action="view-switch" data-view-target="dashboard">取消並返回</button></div>
+        <div id="create-success" class="success-banner" role="status" hidden></div>
+        <div class="form-layout">
+          <form class="form-panel" id="create-form">
+            <div class="field"><label for="original-url">原始網址 *</label><input id="original-url" name="original_url" type="url" placeholder="https://example.com/campaign" required><div class="field-note">輸入要縮短的完整網址。</div></div>
+            <div class="field"><label for="short-code">短代碼 *</label><div class="prefix-field"><span>aka.money/</span><input id="short-code" name="short_code" pattern="[a-zA-Z0-9_\-]{3,20}" minlength="3" maxlength="20" placeholder="summer24" required></div><div class="field-note">3–20 字，僅限英數字、連字號與底線。</div></div>
+            <div class="field"><label for="title">標題</label><input id="title" name="title" maxlength="80" placeholder="例如：夏季活動首頁"></div>
+            <div class="field"><label for="description">描述</label><textarea id="description" name="description" placeholder="補充這筆短網址的用途"></textarea></div>
+            <div class="field"><label for="image-url">預覽圖</label><input id="image-url" name="image_url" type="url" placeholder="https://example.com/preview.png"><div class="field-note">選填，只儲存網址，不會在此載入外部圖片。</div></div>
+            <div class="field"><label for="expires-at">到期時間</label><input id="expires-at" name="expires_at" type="datetime-local"><div class="field-note">留空代表永不過期。</div></div>
+            <button class="btn btn-accent" data-action="create-submit" type="submit" style="width:100%;min-height:44px">建立短網址</button>
+          </form>
+          <aside class="preview"><div class="eyebrow">Preview</div><div class="preview-card"><div class="preview-art"><span>A</span></div><div class="preview-body"><h3 id="preview-title">你的新連結</h3><p class="short" id="preview-short">aka.money/short-code</p><p class="url" id="preview-url">原始網址會顯示在這裡</p><span class="status active">作用中</span></div></div></aside>
+        </div>
+      </div>
+    </main>
+
+    <main data-view="notfound" hidden inert>
+      <section class="notfound"><div><div class="eyebrow">Route not found</div><div class="notfound-code">404</div><div class="notfound-line"></div><h1>找不到頁面</h1><p class="sub" style="margin:10px auto 24px">這個短代碼不存在，或頁面已被移除。</p><button class="btn btn-primary" data-action="view-switch" data-view-target="dashboard">回到儀表板</button></div></section>
+    </main>
+  </div>
+
+  <dialog id="archive-dialog" aria-labelledby="archive-title">
+    <div class="dialog-body"><div class="eyebrow">Archive link</div><h2 id="archive-title">封存這筆短網址？</h2><p class="sub" id="archive-message">封存後將停止管理此連結，你仍可稍後還原。</p></div>
+    <div class="dialog-actions"><button class="btn" id="archive-cancel">取消</button><button class="btn btn-danger" data-action="archive-confirm">確認封存</button></div>
+  </dialog>
+  <div class="toast" id="toast" hidden><span id="toast-text">已封存</span><button data-action="archive-undo">還原</button></div>
+
+  <script>
+  (function(){
+    'use strict';
+    var PROPOSAL_ID='05-vercel';
+    var VIEWS=['dashboard','analytics','stats','login','create','notfound'];
+    var THEMES=['light','dark'];
+    var DATASETS=['default','large250','empty','noResults','edgeCases','zeroAnalytics','apiError'];
+    var root=document.body;
+    var state={view:'dashboard',theme:'light',dataset:'default'};
+    var scenario=null,urls=[],charts=[],sortDirection='desc',query='',filter='all',page=1,pageSize=24;
+    var archiveId=null,lastArchived=null,lastTrigger=null,toastTimer=null,loading=false;
+    var reduced=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var $=function(s){return document.querySelector(s)};
+    var $$=function(s){return Array.prototype.slice.call(document.querySelectorAll(s))};
+    var esc=function(value){return String(value==null?'':value).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})};
+    var number=function(n){return new Intl.NumberFormat('zh-TW').format(n||0)};
+    var date=function(ms){return ms?new Date(ms).toISOString().slice(0,10):'—'};
+
+    function emit(type){
+      if(window.parent===window)return;
+      window.parent.postMessage({source:'akamoney-proposal',proposalId:PROPOSAL_ID,type:type,state:{view:state.view,theme:state.theme,dataset:state.dataset}},'*');
+    }
+    function applyView(view,notify){
+      if(VIEWS.indexOf(view)<0)return;
+      state.view=view;root.dataset.activeView=view;
+      $$('[data-view]').forEach(function(el){
+        var active=el.dataset.view===view;
+        el.hidden=!active;
+        if(active)el.removeAttribute('inert');else el.setAttribute('inert','');
+      });
+      $$('.nav-link[data-view-target]').forEach(function(el){el.classList.toggle('active',el.dataset.viewTarget===view)});
+      if(view==='analytics'||view==='stats')window.setTimeout(renderCharts,0);
+      if(!reduced)window.scrollTo({top:0,behavior:'smooth'});else window.scrollTo(0,0);
+      if(notify!==false)emit('STATE_CHANGED');
+    }
+    function applyTheme(theme,notify){
+      if(THEMES.indexOf(theme)<0)return;
+      state.theme=theme;root.dataset.theme=theme;
+      if(state.view==='analytics'||state.view==='stats')renderCharts();
+      if(notify!==false)emit('STATE_CHANGED');
+    }
+    function applyDataset(name,notify){
+      if(DATASETS.indexOf(name)<0)return;
+      state.dataset=name;root.dataset.dataset=name;loading=true;page=1;filter='all';
+      scenario=window.AKAMONEY_SCENARIOS.getScenario(name);urls=scenario.urls.slice();
+      query=scenario.meta.searchQuery||'';$('[data-action="search"]').value=query;
+      renderDashboard();
+      Promise.resolve().then(function(){loading=false;renderAll()});
+      if(notify!==false)emit('STATE_CHANGED');
+    }
+    function renderAll(){renderDashboard();renderAnalytics();renderStats();updatePreview()}
+    function statCard(label,value,note){return '<div class="kpi"><div class="kpi-label">'+esc(label)+'</div><div class="kpi-value">'+esc(value)+'</div>'+(note?'<div class="field-note">'+esc(note)+'</div>':'')+'</div>'}
+    function currentStatus(u){
+      if(!u.is_active)return {label:'已封存',cls:'archived'};
+      if(u.expires_at&&u.expires_at<Date.now())return {label:'已過期',cls:'expired'};
+      return {label:'作用中',cls:'active'};
+    }
+    function renderDashboard(){
+      var active=urls.filter(function(u){return u.is_active}).length;
+      var clicks=urls.reduce(function(sum,u){return sum+u.click_count},0);
+      $('#dashboard-kpis').innerHTML=statCard('總點擊',number(clicks),'全部連結')+statCard('作用中',number(active),'可用連結')+statCard('已封存',number(urls.length-active),'可隨時還原')+statCard('全部連結',number(urls.length),state.dataset==='large250'?'大量資料模式':'目前資料集');
+      var grid=$('#url-grid');
+      if(loading){grid.innerHTML='<div class="state-panel skeleton" data-state="loading"><div><div class="state-symbol">···</div><h2>載入資料中</h2><p>正在同步最新短網址與點擊數。</p></div></div>';$('#pagination').innerHTML='';return}
+      if(scenario.meta.error){grid.innerHTML='<div class="state-panel" data-state="error"><div><div class="state-symbol">!</div><h2>無法載入短網址</h2><p>'+esc(scenario.meta.error)+'</p><button class="btn" id="retry-button">重試</button></div></div>';$('#retry-button').onclick=function(){applyDataset('default')};$('#pagination').innerHTML='';return}
+      if(urls.length===0){grid.innerHTML='<div class="state-panel" data-state="empty"><div><div class="state-symbol">＋</div><h2>還沒有短網址</h2><p>建立第一筆短網址，開始累積可追蹤的點擊成效。</p><button class="btn btn-primary" data-action="view-switch" data-view-target="create">建立短網址</button></div></div>';bindViewButtons(grid);$('#pagination').innerHTML='';return}
+      var q=query.trim().toLowerCase();
+      var filtered=urls.filter(function(u){
+        var matches=!q||[u.short_code,u.original_url,u.title].some(function(v){return String(v||'').toLowerCase().indexOf(q)>=0});
+        var status=filter==='all'||(filter==='active'&&u.is_active)||(filter==='archived'&&!u.is_active);
+        return matches&&status;
+      }).sort(function(a,b){
+        if(String(a.id).indexOf('created-')===0&&String(b.id).indexOf('created-')!==0)return -1;
+        if(String(b.id).indexOf('created-')===0&&String(a.id).indexOf('created-')!==0)return 1;
+        return sortDirection==='desc'?b.click_count-a.click_count:a.click_count-b.click_count;
+      });
+      if(filtered.length===0){grid.innerHTML='<div class="state-panel" data-state="no-results"><div><div class="state-symbol">⌕</div><h2>查無結果</h2><p>找不到符合「'+esc(query)+'」的短網址，請調整關鍵字。</p><button class="btn" id="clear-search">清除搜尋</button></div></div>';$('#clear-search').onclick=function(){query='';$('[data-action="search"]').value='';renderDashboard()};$('#pagination').innerHTML='';return}
+      var pages=Math.ceil(filtered.length/pageSize);page=Math.min(page,pages);
+      var start=(page-1)*pageSize;
+      grid.innerHTML=filtered.slice(start,start+pageSize).map(function(u){
+        var s=currentStatus(u);
+        var title=u.title||'未命名短網址';
+        return '<article class="link-card" data-url-id="'+esc(u.id)+'"><div class="card-top"><div class="favicon">'+esc(title.charAt(0))+'</div><span class="status '+s.cls+'">'+s.label+'</span></div><div class="link-title" title="'+esc(title)+'">'+esc(title)+'</div><div class="short">aka.money/'+esc(u.short_code)+'</div><div class="url" title="'+esc(u.original_url)+'">'+esc(u.original_url)+'</div><div class="card-bottom"><div class="clicks">'+number(u.click_count)+'<small>點擊數</small></div><div class="card-actions"><button data-action="copy" data-copy-state="idle" data-id="'+esc(u.id)+'" data-short-url="aka.money/'+esc(u.short_code)+'">複製</button><button class="analytics-open" data-id="'+esc(u.id)+'">分析</button>'+(u.is_active?'<button data-action="archive" data-id="'+esc(u.id)+'">封存</button>':'<button data-action="archive-undo" data-id="'+esc(u.id)+'">還原</button>')+'</div></div></article>'
+      }).join('');
+      bindCards();
+      $('#pagination').innerHTML=(pages>1?'<button class="page-btn" id="prev-page" aria-label="上一頁" '+(page===1?'disabled':'')+'>←</button><span>第 '+page+' / '+pages+' 頁 · 共 '+filtered.length+' 筆</span><button class="page-btn" id="next-page" aria-label="下一頁" '+(page===pages?'disabled':'')+'>→</button>':'<span>共 '+filtered.length+' 筆</span>');
+      if($('#prev-page'))$('#prev-page').onclick=function(){if(page>1){page--;renderDashboard()}};
+      if($('#next-page'))$('#next-page').onclick=function(){if(page<pages){page++;renderDashboard()}};
+    }
+    function bindCards(){
+      $$('[data-action="copy"]').forEach(function(btn){btn.onclick=function(){copyUrl(btn)}});
+      $$('[data-action="archive"]').forEach(function(btn){btn.onclick=function(){openArchive(btn)}});
+      $$('.link-card [data-action="archive-undo"]').forEach(function(btn){btn.onclick=function(){restoreUrl(btn.dataset.id)}});
+      $$('.analytics-open').forEach(function(btn){btn.onclick=function(){var i=urls.findIndex(function(u){return u.id===btn.dataset.id});if(i>0){var item=urls.splice(i,1)[0];urls.unshift(item)}renderAnalytics();applyView('analytics')}});
+    }
+    async function copyUrl(btn){
+      var u=urls.find(function(item){return item.id===btn.dataset.id});if(!u)return;
+      var text='https://aka.money/'+u.short_code;
+      try{if(navigator.clipboard&&navigator.clipboard.writeText)await navigator.clipboard.writeText(text);else fallbackCopy(text)}catch(e){fallbackCopy(text)}
+      btn.dataset.copyState='copied';btn.textContent='已複製 ✓';
+      window.setTimeout(function(){if(btn.isConnected){btn.dataset.copyState='idle';btn.textContent='複製'}},1600);
+    }
+    function fallbackCopy(text){
+      try{var area=document.createElement('textarea');area.value=text;area.style.position='fixed';area.style.opacity='0';document.body.appendChild(area);area.select();document.execCommand('copy');area.remove()}catch(e){}
+    }
+    function openArchive(btn){
+      archiveId=btn.dataset.id;lastTrigger=btn;
+      var u=urls.find(function(item){return item.id===archiveId});
+      $('#archive-message').textContent='「'+(u.title||u.short_code)+'」封存後會顯示為已封存，你仍可隨時還原。';
+      $('#archive-dialog').showModal();window.setTimeout(function(){$('[data-action="archive-confirm"]').focus()},0);
+    }
+    function closeArchive(){var d=$('#archive-dialog');if(d.open)d.close();if(lastTrigger&&lastTrigger.isConnected)lastTrigger.focus()}
+    function confirmArchive(){
+      var u=urls.find(function(item){return item.id===archiveId});if(!u)return closeArchive();
+      u.is_active=false;lastArchived=u;closeArchive();renderDashboard();showToast('已封存 aka.money/'+u.short_code);
+    }
+    function restoreUrl(id){
+      var u=id?urls.find(function(item){return item.id===id}):lastArchived;if(!u)return;
+      u.is_active=true;lastArchived=null;renderDashboard();showToast('已還原 aka.money/'+u.short_code,true);
+    }
+    function showToast(text,noUndo){
+      clearTimeout(toastTimer);$('#toast-text').textContent=text;$('#toast [data-action="archive-undo"]').hidden=!!noUndo;$('#toast').hidden=false;
+      toastTimer=setTimeout(function(){$('#toast').hidden=true},4200);
+    }
+    function renderAnalytics(){
+      var a=scenario.analytics,u=urls[0];
+      $('#analytics-link').textContent=u?'aka.money/'+u.short_code+' · '+(u.title||'未命名短網址'):'目前沒有可分析的短網址';
+      $('#analytics-kpis').innerHTML=statCard('總點擊',number(a.totalClicks),'所選短網址')+statCard('國家',number(Object.keys(a.countryDistribution).length),'已辨識地區')+statCard('裝置',number(Object.keys(a.deviceDistribution).length),'裝置類別')+statCard('瀏覽器',number(Object.keys(a.browserDistribution).length),'瀏覽器類別');
+      var series=a.dailySeries||[];
+      $('#analytics-range').textContent=series.length?series[0].date+' → '+series[series.length-1].date:'尚無日期資料';
+      $('#analytics-insight').textContent=(a.highlights||[]).join(' · ');
+      if(state.view==='analytics')renderCharts();
+    }
+    function renderStats(){
+      var s=scenario.overallStats;
+      $('#stats-kpis').innerHTML=statCard('總點擊',number(s.total_clicks),'全帳號')+statCard('作用中',number(s.active_links),'短網址')+statCard('全部連結',number(s.total_links),'含已封存')+statCard('平均點擊',number(s.average_clicks_per_link),'每筆連結');
+      $('#stats-range').textContent=s.date_range.start?s.date_range.start+' → '+s.date_range.end:'尚無日期區間';
+      $('#top-links').innerHTML=s.top_links.length?s.top_links.map(function(u,i){return '<div class="top-row"><span class="rank">0'+(i+1)+'</span><div class="truncate"><b>'+esc(u.title||'未命名短網址')+'</b><div class="field-note truncate">aka.money/'+esc(u.short_code)+'</div></div><b>'+number(u.click_count)+'</b></div>'}).join(''):'<div class="state-panel" style="min-height:180px"><div><div class="state-symbol">—</div><p>尚無 Top Links</p></div></div>';
+      if(state.view==='stats')renderCharts();
+    }
+    function chartTheme(){
+      return state.theme==='dark'?{text:'#a1a1a1',grid:'#2e2e2e',series:['#ffffff','#3291ff','#a1a1a1','#666666']}:{text:'#666666',grid:'#e5e5e5',series:['#000000','#0070f3','#666666','#a1a1a1']};
+    }
+    function destroyCharts(){charts.forEach(function(c){try{c.destroy()}catch(e){}});charts=[]}
+    function renderCharts(){
+      destroyCharts();
+      var definitions={
+        'clicks-trend':{type:'line',labels:(scenario.analytics.dailySeries||[]).map(function(x){return x.date}),values:(scenario.analytics.dailySeries||[]).map(function(x){return x.clicks}),label:'點擊數'},
+        'country-distribution':distribution('doughnut',scenario.analytics.countryDistribution),
+        'device-distribution':distribution('doughnut',scenario.analytics.deviceDistribution),
+        'browser-distribution':distribution('bar',scenario.analytics.browserDistribution),
+        'stats-trend':{type:'line',labels:Object.keys(scenario.overallStats.click_trend),values:Object.values(scenario.overallStats.click_trend),label:'點擊數'},
+        'stats-country':distribution('doughnut',scenario.overallStats.country_distribution),
+        'stats-device':distribution('bar',scenario.overallStats.device_distribution)
+      };
+      $$('[data-chart]').forEach(function(box){
+        var def=definitions[box.dataset.chart];if(!def)return;
+        var hasData=def.values.length&&def.values.some(function(v){return v>0});
+        if(!hasData){box.dataset.chartState='empty';box.innerHTML='<div class="chart-empty"><div><div class="state-symbol">○</div><b>尚無圖表資料</b><p class="field-note">開始分享短網址後，成效會顯示在這裡。</p></div></div>';return}
+        if(window.__chartFailed||typeof window.Chart==='undefined'){renderFallback(box,def);return}
+        box.dataset.chartState='rendered';box.innerHTML='<canvas></canvas>';
+        var t=chartTheme(),isLine=def.type==='line';
+        try{
+          charts.push(new Chart(box.querySelector('canvas'),{type:def.type,data:{labels:def.labels,datasets:[{label:def.label,data:def.values,borderColor:t.series[isLine?1:0],backgroundColor:isLine?'rgba(0,112,243,.10)':t.series,borderWidth:isLine?2:0,pointRadius:isLine?1.5:0,pointHoverRadius:4,tension:.35,fill:isLine}]},options:{responsive:true,maintainAspectRatio:false,animation:reduced?false:{duration:380},plugins:{legend:{display:def.type==='doughnut',position:'bottom',labels:{color:t.text,usePointStyle:true,boxWidth:7,padding:14,font:{family:'Geist, Noto Sans TC',size:11}}},tooltip:{backgroundColor:state.theme==='dark'?'#fff':'#000',titleColor:state.theme==='dark'?'#000':'#fff',bodyColor:state.theme==='dark'?'#000':'#fff',padding:10,cornerRadius:5}},scales:def.type==='doughnut'?{}:{x:{grid:{display:false},ticks:{color:t.text,maxTicksLimit:6,font:{size:10}}},y:{beginAtZero:true,grid:{color:t.grid},ticks:{color:t.text,precision:0,font:{size:10}}}}}}));
+        }catch(e){renderFallback(box,def)}
+      });
+    }
+    function distribution(type,obj){return {type:type,labels:Object.keys(obj||{}),values:Object.values(obj||{}),label:'點擊數'}}
+    function renderFallback(box,def){
+      box.dataset.chartState='fallback';
+      var w=600,h=220,p=24,max=Math.max.apply(null,def.values)||1;
+      var points=def.values.map(function(v,i){var x=p+i*((w-p*2)/Math.max(1,def.values.length-1));var y=h-p-(v/max)*(h-p*2);return x.toFixed(1)+','+y.toFixed(1)}).join(' ');
+      box.innerHTML='<svg viewBox="0 0 '+w+' '+h+'" role="img" aria-label="'+esc(def.label)+' 簡化圖表" style="width:100%;height:100%"><line x1="'+p+'" y1="'+(h-p)+'" x2="'+(w-p)+'" y2="'+(h-p)+'" stroke="var(--line)"/><polyline points="'+points+'" fill="none" stroke="var(--accent)" stroke-width="3"/>'+def.values.map(function(v,i){var x=p+i*((w-p*2)/Math.max(1,def.values.length-1));var y=h-p-(v/max)*(h-p*2);return '<circle cx="'+x+'" cy="'+y+'" r="3" fill="var(--accent)"/>'}).join('')+'</svg>';
+    }
+    function updatePreview(){
+      $('#preview-title').textContent=$('#title').value||'你的新連結';
+      $('#preview-short').textContent='aka.money/'+($('#short-code').value||'short-code');
+      $('#preview-url').textContent=$('#original-url').value||'原始網址會顯示在這裡';
+    }
+    function submitCreate(event){
+      event.preventDefault();var form=event.currentTarget;if(!form.reportValidity())return;
+      var submit=$('[data-action="create-submit"]');submit.disabled=true;submit.textContent='建立中…';
+      window.setTimeout(function(){
+        var now=Date.now(),code=$('#short-code').value;
+        var item={id:'created-'+now,short_code:code,original_url:$('#original-url').value,short_url:'https://aka.money/'+code,title:$('#title').value||undefined,description:$('#description').value||undefined,image_url:$('#image-url').value||undefined,created_at:now,updated_at:now,expires_at:$('#expires-at').value?new Date($('#expires-at').value).getTime():undefined,is_active:true,click_count:0};
+        urls.unshift(item);$('#create-success').hidden=false;$('#create-success').textContent='建立成功：aka.money/'+code+' 已加入儀表板最前面。';form.reset();updatePreview();submit.disabled=false;submit.textContent='建立短網址';renderDashboard();$('#create-success').scrollIntoView({block:'center',behavior:reduced?'auto':'smooth'});
+      },reduced?1:450);
+    }
+    function bindViewButtons(scope){
+      (scope||document).querySelectorAll('[data-action="view-switch"]').forEach(function(btn){btn.onclick=function(){applyView(btn.dataset.viewTarget)}});
+    }
+    bindViewButtons(document);
+    $('[data-action="theme-toggle"]').onclick=function(){applyTheme(state.theme==='light'?'dark':'light')};
+    $('[data-action="search"]').oninput=function(e){query=e.target.value;page=1;renderDashboard()};
+    $('[data-action="sort-clicks"]').onclick=function(e){sortDirection=sortDirection==='desc'?'asc':'desc';e.currentTarget.textContent='點擊數 '+(sortDirection==='desc'?'↓':'↑');page=1;renderDashboard()};
+    $('#status-filter').onchange=function(e){filter=e.target.value;page=1;renderDashboard()};
+    $('[data-action="archive-confirm"]').onclick=confirmArchive;
+    $('#archive-cancel').onclick=closeArchive;
+    $('#archive-dialog').addEventListener('cancel',function(e){e.preventDefault();closeArchive()});
+    $('#toast [data-action="archive-undo"]').onclick=function(){restoreUrl()};
+    $('#create-form').addEventListener('submit',submitCreate);
+    ['original-url','short-code','title'].forEach(function(id){$('#'+id).addEventListener('input',updatePreview)});
+    $('#login-button').onclick=function(){showToast('正在前往 Microsoft 登入…',true)};
+    document.addEventListener('keydown',function(e){if(e.key==='Escape'&&$('#archive-dialog').open)closeArchive()});
+    window.addEventListener('message',function(event){
+      var data=event.data;if(!data||typeof data!=='object'||data.source!=='akamoney-compare')return;
+      if(data.type==='SET_VIEW'&&VIEWS.indexOf(data.value)!==-1)applyView(data.value,false);
+      else if(data.type==='SET_THEME'&&THEMES.indexOf(data.value)!==-1)applyTheme(data.value,false);
+      else if(data.type==='SET_DATASET'&&DATASETS.indexOf(data.value)!==-1)applyDataset(data.value,false);
+      else return;emit('STATE_CHANGED');
+    });
+    applyDataset('default',false);applyView('dashboard',false);emit('READY');
+  })();
+  </script>
+</body>
+</html>

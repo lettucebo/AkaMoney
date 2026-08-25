@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AkaMoney - Glassmorphism</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.3/dist/index.global.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
+  <script src="../shared/scenarios.js"></script>
+
+  <style type="text/tailwindcss">
+    @theme {
+      --color-light-bg: #ffffff;
+      --color-light-surface: #fafafa;
+      --color-light-surface-alt: #f4f4f5;
+      --color-light-text-primary: #18181b;
+      --color-light-text-secondary: #71717a;
+      --color-light-border: #e4e4e7;
+      --color-light-accent: #5e6ad2;
+      --color-light-success: #16a34a;
+      --color-light-warning: #d97706;
+      --color-light-danger: #dc2626;
+
+      --color-dark-bg: #0d0e10;
+      --color-dark-surface: #131417;
+      --color-dark-surface-alt: #1a1b1f;
+      --color-dark-text-primary: #ededf0;
+      --color-dark-text-secondary: #8a8f98;
+      --color-dark-border: #23252a;
+      --color-dark-accent: #7b85e8;
+      --color-dark-success: #4ade80;
+      --color-dark-warning: #fbbf24;
+      --color-dark-danger: #f87171;
+
+      --font-sans: "Inter", "Noto Sans TC", system-ui, sans-serif;
+      --font-serif: "Noto Serif TC", serif;
+      --font-mono: "JetBrains Mono", "Noto Sans TC", monospace;
+    }
+
+    [data-theme="light"] {
+      --bg: #f5f3ff;
+      --surface: rgba(255, 255, 255, 0.45);
+      --surface-hover: rgba(255, 255, 255, 0.65);
+      --surface-alt: rgba(255, 255, 255, 0.35);
+      --text-primary: var(--color-light-text-primary);
+      --text-secondary: var(--color-light-text-secondary);
+      --border: rgba(255, 255, 255, 0.7);
+      --accent: var(--color-light-accent);
+      --success: var(--color-light-success);
+      --warning: var(--color-light-warning);
+      --danger: var(--color-light-danger);
+      
+      background: radial-gradient(circle at 0% 0%, #e0e7ff 0%, transparent 40%),
+                  radial-gradient(circle at 100% 100%, #fae8ff 0%, transparent 40%),
+                  radial-gradient(circle at 100% 0%, #dbeafe 0%, transparent 40%),
+                  #f3f4f6;
+    }
+
+    [data-theme="dark"] {
+      --bg: var(--color-dark-bg);
+      --surface: rgba(30, 32, 38, 0.4);
+      --surface-hover: rgba(40, 43, 51, 0.6);
+      --surface-alt: var(--color-dark-surface-alt);
+      --text-primary: var(--color-dark-text-primary);
+      --text-secondary: var(--color-dark-text-secondary);
+      --border: rgba(255, 255, 255, 0.05);
+      --accent: var(--color-dark-accent);
+      --success: var(--color-dark-success);
+      --warning: var(--color-dark-warning);
+      --danger: var(--color-dark-danger);
+      
+      background: radial-gradient(circle at 10% 20%, #1a1525 0%, #0d0e10 100%);
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+    }
+    
+    .glass-panel {
+      background: var(--surface);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border);
+      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
+    }
+
+    .glass-panel:hover {
+      background: var(--surface-hover);
+    }
+
+    /* PREFERS REDUCED MOTION */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+
+    [hidden] { display: none !important; }
+    
+    [data-active-view="dashboard"] [data-view="dashboard"],
+    [data-active-view="analytics"] [data-view="analytics"],
+    [data-active-view="stats"] [data-view="stats"],
+    [data-active-view="login"] [data-view="login"],
+    [data-active-view="create"] [data-view="dashboard"],
+    [data-active-view="create"] [data-view="create"],
+    [data-active-view="notfound"] [data-view="notfound"] {
+      display: flex !important;
+    }
+    
+    [data-view="create"] {
+      position: fixed; inset: 0; z-index: 50;
+      background: rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(4px);
+      justify-content: center; align-items: center;
+      display: none;
+    }
+    [data-state="loading"]::after {
+      content: "";
+      position: fixed; inset: 0; z-index: 100;
+      background: rgba(255,255,255,0.1);
+      backdrop-filter: blur(2px);
+    }
+  </style>
+</head>
+<body data-proposal-id="08-glass" data-theme="light" data-active-view="dashboard" data-dataset="default" class="min-h-screen text-[14px]">
+
+  <!-- Main App Layout (Visible for dashboard, analytics, stats) -->
+  <div class="flex h-screen w-full overflow-hidden" id="app-layout">
+    
+    <!-- Floating Sidebar -->
+    <nav class="hidden md:flex flex-col m-4 mr-0 p-4 rounded-[12px] glass-panel w-[240px] z-10">
+      <div class="font-serif text-xl font-bold mb-8">AkaMoney</div>
+      <div class="flex-1 flex flex-col gap-2">
+        <button class="text-left px-4 py-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer" tabindex="0" data-action="view-switch" data-view-target="dashboard">儀表板</button>
+        <button class="text-left px-4 py-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer" tabindex="0" data-action="view-switch" data-view-target="stats">總覽統計</button>
+      </div>
+      <button class="mt-auto px-4 py-2 rounded-lg bg-[var(--accent)] text-white hover:opacity-90 transition-opacity cursor-pointer text-center" tabindex="0" data-action="view-switch" data-view-target="create">建立短網址</button>
+      <button data-action="theme-toggle" class="mt-4 text-left px-4 py-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer text-[var(--text-secondary)]" tabindex="0">切換主題</button>
+    </nav>
+
+    <!-- Mobile Bottom Sheet / Nav -->
+    <div class="md:hidden fixed bottom-0 left-0 right-0 glass-panel rounded-t-xl z-20 flex justify-around p-2">
+      <button class="p-2 flex-1 text-center" tabindex="0" data-action="view-switch" data-view-target="dashboard">儀表板</button>
+      <button class="p-2 flex-1 text-center" tabindex="0" data-action="view-switch" data-view-target="create">建立</button>
+      <button class="p-2 flex-1 text-center" tabindex="0" data-action="view-switch" data-view-target="stats">統計</button>
+    </div>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 h-full overflow-y-auto p-4 md:p-8 md:pl-6 pb-20 md:pb-8 flex flex-col">
+      
+      <!-- View: Dashboard (Split Pane for lists) -->
+      <div data-view="dashboard" class="hidden flex-col h-full gap-4">
+        <header class="flex justify-between items-center shrink-0">
+          <h1 class="text-[28px] font-serif font-bold">儀表板</h1>
+          <div class="flex items-center gap-2">
+            <input type="text" data-action="search" placeholder="搜尋..." class="glass-panel px-4 py-2 rounded-lg outline-none focus:border-[var(--accent)] w-[200px]" tabindex="0">
+            <button data-action="sort-clicks" class="glass-panel px-4 py-2 rounded-lg cursor-pointer hover:bg-black/5" tabindex="0">排序</button>
+          </div>
+        </header>
+
+        <div class="flex-1 flex flex-col md:flex-row gap-4 min-h-0">
+          <!-- Split Pane: List -->
+          <div class="md:w-1/2 lg:w-1/3 flex flex-col gap-2 overflow-y-auto pr-2" id="dashboard-list">
+            <!-- Items rendered via JS -->
+          </div>
+          <!-- Split Pane: Detail / Quick Chart -->
+          <div class="flex flex-1 glass-panel rounded-[12px] flex-col p-6 overflow-y-auto min-h-[300px]" id="dashboard-detail">
+            <h2 class="text-xl font-bold mb-4">即時監控</h2>
+            <div data-chart="dashboard-sparkline" data-chart-state="empty" class="h-[200px] w-full relative"><canvas class="absolute inset-0 w-full h-full"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- View: Analytics (Live Monitor / Specific link) -->
+      <div data-view="analytics" class="hidden flex-col h-full gap-4">
+        <header class="flex items-center gap-4 shrink-0">
+          <button data-action="view-switch" data-view-target="dashboard" class="glass-panel p-2 rounded-lg cursor-pointer" tabindex="0">返回</button>
+          <div>
+            <h1 class="text-[28px] font-serif font-bold">成效分析</h1>
+            <div id="analytics-identity" class="text-sm text-[var(--text-secondary)] hidden">
+              <span id="analytics-short" class="font-bold text-[var(--text-primary)]"></span>
+              <span id="analytics-clicks" class="ml-2"></span> 點擊
+            </div>
+          </div>
+        </header>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 flex-1 overflow-y-auto pb-8">
+          <div class="glass-panel p-4 rounded-xl col-span-1 md:col-span-2 lg:col-span-3">
+            <h3 class="mb-2 font-bold">每日點擊趨勢圖</h3>
+            <div data-chart="clicks-trend" data-chart-state="empty" class="h-[250px] relative"><canvas class="absolute inset-0 w-full h-full"></canvas></div>
+          </div>
+          <div class="glass-panel p-4 rounded-xl">
+            <h3 class="mb-2 font-bold">國家分佈</h3>
+            <div data-chart="country-distribution" data-chart-state="empty" class="h-[200px] relative"><canvas class="absolute inset-0 w-full h-full"></canvas></div>
+          </div>
+          <div class="glass-panel p-4 rounded-xl">
+            <h3 class="mb-2 font-bold">裝置分佈</h3>
+            <div data-chart="device-distribution" data-chart-state="empty" class="h-[200px] relative"><canvas class="absolute inset-0 w-full h-full"></canvas></div>
+          </div>
+          <div class="glass-panel p-4 rounded-xl">
+            <h3 class="mb-2 font-bold">瀏覽器分佈</h3>
+            <div data-chart="browser-distribution" data-chart-state="empty" class="h-[200px] relative"><canvas class="absolute inset-0 w-full h-full"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- View: Stats (Overall) -->
+      <div data-view="stats" class="hidden flex-col h-full gap-4">
+        <header class="shrink-0">
+          <h1 class="text-[28px] font-serif font-bold">總覽統計</h1>
+          <div id="stats-daterange" class="text-sm text-[var(--text-secondary)]"></div>
+        </header>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 overflow-y-auto pb-8">
+          <div class="glass-panel p-4 rounded-xl col-span-1 md:col-span-2 flex justify-around">
+            <div class="text-center"><div class="text-3xl font-bold font-mono" id="stat-clicks">0</div><div class="text-[var(--text-secondary)]">總點擊</div></div>
+            <div class="text-center"><div class="text-3xl font-bold font-mono" id="stat-active">0</div><div class="text-[var(--text-secondary)]">作用中</div></div>
+            <div class="text-center"><div class="text-3xl font-bold font-mono" id="stat-total">0</div><div class="text-[var(--text-secondary)]">全部連結</div></div>
+          </div>
+          <div class="glass-panel p-4 rounded-xl col-span-1 md:col-span-2">
+            <h3 class="mb-2 font-bold">期間趨勢</h3>
+            <div data-chart="stats-trend" data-chart-state="empty" class="h-[250px] relative"><canvas class="absolute inset-0 w-full h-full"></canvas></div>
+          </div>
+          <div class="glass-panel p-4 rounded-xl">
+            <h3 class="mb-2 font-bold">熱門短網址</h3>
+            <div id="stats-top-links" class="flex flex-col gap-2"></div>
+          </div>
+          <div class="glass-panel p-4 rounded-xl">
+            <h3 class="mb-2 font-bold">國家分佈</h3>
+            <div data-chart="stats-country" data-chart-state="empty" class="h-[200px] relative"><canvas class="absolute inset-0 w-full h-full"></canvas></div>
+          </div>
+          <div class="glass-panel p-4 rounded-xl">
+            <h3 class="mb-2 font-bold">裝置分佈</h3>
+            <div data-chart="stats-device" data-chart-state="empty" class="h-[200px] relative"><canvas class="absolute inset-0 w-full h-full"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- View: Login -->
+  <div data-view="login" class="hidden fixed inset-0 z-50 bg-[var(--bg)] flex items-center justify-center">
+    <div class="glass-panel p-8 rounded-2xl flex flex-col items-center gap-6 max-w-sm w-full mx-4">
+      <div class="font-serif text-2xl font-bold">AkaMoney</div>
+      <button class="w-full bg-[var(--accent)] text-white py-3 rounded-xl hover:opacity-90 transition-opacity" tabindex="0" data-action="view-switch" data-view-target="dashboard">登入 (Demo)</button>
+    </div>
+  </div>
+
+  <!-- View: Not Found -->
+  <div data-view="notfound" class="hidden fixed inset-0 z-50 bg-[var(--bg)] flex items-center justify-center">
+    <div class="glass-panel p-8 rounded-2xl flex flex-col items-center gap-6 text-center mx-4">
+      <h1 class="text-4xl font-bold font-mono">404</h1>
+      <p class="text-[var(--text-secondary)]">找不到頁面</p>
+      <button class="px-6 py-2 bg-[var(--accent)] text-white rounded-lg hover:opacity-90" tabindex="0" data-action="view-switch" data-view-target="dashboard">回到儀表板</button>
+    </div>
+  </div>
+
+  <!-- View: Create (Center Modal) -->
+  <div data-view="create" class="hidden">
+    <div class="glass-panel w-full max-w-md p-6 rounded-2xl shadow-xl flex flex-col gap-4 m-4">
+      <h2 class="text-xl font-bold">建立短網址</h2>
+      <div class="flex flex-col gap-3">
+        <div>
+          <label class="block text-sm mb-1">原始網址 *</label>
+          <input type="url" id="create-original" class="w-full bg-transparent border border-[var(--border)] rounded px-3 py-2 outline-none focus:border-[var(--accent)]" placeholder="https://..." tabindex="0">
+        </div>
+        <div>
+          <label class="block text-sm mb-1">短代碼 *</label>
+          <input type="text" id="create-short" class="w-full bg-transparent border border-[var(--border)] rounded px-3 py-2 outline-none focus:border-[var(--accent)]" placeholder="my-link" tabindex="0">
+          <div id="create-error" class="text-[var(--danger)] text-sm mt-1 hidden"></div>
+        </div>
+        <div>
+          <label class="block text-sm mb-1">標題</label>
+          <input type="text" id="create-title" class="w-full bg-transparent border border-[var(--border)] rounded px-3 py-2 outline-none focus:border-[var(--accent)]" tabindex="0">
+        </div>
+        <div>
+          <label class="block text-sm mb-1">描述</label>
+          <input type="text" id="create-desc" class="w-full bg-transparent border border-[var(--border)] rounded px-3 py-2 outline-none focus:border-[var(--accent)]" tabindex="0">
+        </div>
+        <div>
+          <label class="block text-sm mb-1">預覽圖</label>
+          <input type="text" id="create-image" class="w-full bg-transparent border border-[var(--border)] rounded px-3 py-2 outline-none focus:border-[var(--accent)]" tabindex="0">
+        </div>
+        <div>
+          <label class="block text-sm mb-1">到期時間</label>
+          <input type="date" id="create-expire" class="w-full bg-transparent border border-[var(--border)] rounded px-3 py-2 outline-none focus:border-[var(--accent)]" tabindex="0">
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 mt-2">
+        <button class="px-4 py-2 rounded hover:bg-black/5 dark:hover:bg-white/5" tabindex="0" data-action="view-switch" data-view-target="dashboard">取消</button>
+        <button class="px-4 py-2 rounded bg-[var(--accent)] text-white hover:opacity-90" tabindex="0" data-action="create-submit">建立</button>
+      </div>
+    </div>
+  </div>
+
+  <div hidden>
+    <button data-action="copy" tabindex="0">C</button>
+    <button data-action="archive" tabindex="0">A</button>
+  </div>
+  <!-- Global Confirm / Toast Container -->
+  <div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- Archive Confirm Modal -->
+  <div id="archive-modal" class="hidden fixed inset-0 z-50 bg-black/30 backdrop-blur-sm items-center justify-center">
+    <div class="glass-panel p-6 rounded-xl flex flex-col gap-4 max-w-sm w-full mx-4">
+      <h3 class="text-lg font-bold">確認封存</h3>
+      <p class="text-[var(--text-secondary)]">確定要封存此短網址嗎？</p>
+      <div class="flex justify-end gap-2">
+        <button id="btn-cancel-archive" class="px-4 py-2 rounded hover:bg-black/5 dark:hover:bg-white/5" tabindex="0">取消</button>
+        <button data-action="archive-confirm" class="px-4 py-2 rounded bg-[var(--danger)] text-white hover:opacity-90" tabindex="0">確認</button>
+      </div>
+    </div>
+  </div>
+  
+  <div id="archive-undo-toast" role="status" class="hidden fixed bottom-20 md:bottom-4 left-1/2 -translate-x-1/2 z-50 glass-panel px-4 py-3 rounded-lg flex items-center gap-4">
+    <span>已封存短網址</span>
+    <button data-action="archive-undo" class="text-[var(--accent)] font-bold cursor-pointer" tabindex="0">還原</button>
+  </div>
+
+  <script>
+    (function () {
+      var PROPOSAL_ID = '08-glass';
+      var VIEWS = ['dashboard','analytics','stats','login','create','notfound'];
+      var THEMES = ['light','dark'];
+      var DATASETS = ['default','large250','empty','noResults','edgeCases','zeroAnalytics','apiError'];
+      
+      var state = { view: 'dashboard', theme: 'light', dataset: 'default' };
+      var currentData = null;
+      var charts = {};
+      var sortDesc = true;
+      var archiveTargetId = null;
+      var memoryUrls = [];
+      var savedTrigger = null;
+      var selectedAnalyticsCode = null;
+
+      function formatCreatedAt(timestamp) {
+        if (timestamp === undefined || timestamp === null) return '';
+        var date = new Date(timestamp);
+        if (isNaN(date.getTime())) return '';
+        return date.toISOString().slice(0, 10);
+      }
+
+      function resolveAnalyticsLink() {
+        if (!memoryUrls || memoryUrls.length === 0) return null;
+        var chosen = null;
+        if (selectedAnalyticsCode) {
+          chosen = memoryUrls.find(function (u) {
+            return u.short_code === selectedAnalyticsCode;
+          });
+        }
+        if (!chosen) {
+          chosen = memoryUrls.find(function (u) { return u.is_active; });
+        }
+        if (!chosen) chosen = memoryUrls[0];
+        return chosen || null;
+      }
+
+      function updateAnalyticsIdentity() {
+        var idEl = document.getElementById('analytics-identity');
+        if (!idEl) return;
+        var link = resolveAnalyticsLink();
+        if (link) {
+          selectedAnalyticsCode = link.short_code;
+          idEl.classList.remove('hidden');
+          document.getElementById('analytics-short').innerText = link.short_code;
+          document.getElementById('analytics-clicks').innerText = link.click_count;
+        } else {
+          idEl.classList.add('hidden');
+          document.getElementById('analytics-short').innerText = '';
+          document.getElementById('analytics-clicks').innerText = '';
+        }
+      }
+
+      function emit(type) {
+        if (window.parent === window) return;
+        window.parent.postMessage({
+          source: 'akamoney-proposal',
+          proposalId: PROPOSAL_ID,
+          type: type,
+          state: { view: state.view, theme: state.theme, dataset: state.dataset }
+        }, '*');
+      }
+
+      function getChartColors() {
+        return state.theme === 'light' 
+          ? ["#5e6ad2", "#16a34a", "#d97706", "#dc2626", "#0891b2"]
+          : ["#7b85e8", "#4ade80", "#fbbf24", "#f87171", "#22d3ee"];
+      }
+
+      function getTextColor() {
+        return state.theme === 'light' ? '#71717a' : '#8a8f98';
+      }
+
+      function getGridColor() {
+        return state.theme === 'light' ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)';
+      }
+
+      function initChart(id, type, data, options) {
+        var el = document.querySelector('[data-chart="' + id + '"]');
+        if (!el) return;
+        
+        var isZero = false;
+        if (data && data.datasets && data.datasets.length > 0) {
+          isZero = data.datasets.every(function(ds) { 
+            return ds.data.every(function(v) { return !v; }); 
+          });
+        }
+        if (data && data.labels && data.labels.length === 0) isZero = true;
+
+        if (isZero) {
+          el.setAttribute('data-chart-state', 'empty');
+          el.innerHTML = '<div class="absolute inset-0 flex items-center justify-center text-[var(--text-secondary)]">無資料</div>';
+          if (charts[id]) charts[id].destroy();
+          return;
+        }
+
+        if (typeof Chart === 'undefined') {
+          el.setAttribute('data-chart-state', 'fallback');
+          
+          var vals = [];
+          if (data && data.datasets) {
+            data.datasets.forEach(function(ds) {
+              if (ds.data) {
+                ds.data.forEach(function(v) { vals.push(Number(typeof v === 'object' ? (v.y !== undefined ? v.y : v.v) : v) || 0); });
+              }
+            });
+          }
+          var max = Math.max.apply(null, vals.concat([1]));
+          
+          var svgNS = "http://www.w3.org/2000/svg";
+          var svg = document.createElementNS(svgNS, "svg");
+          svg.setAttribute("viewBox", "0 0 100 100");
+          svg.setAttribute("preserveAspectRatio", "none");
+          svg.style.width = "100%";
+          svg.style.height = "100%";
+          svg.style.display = "block";
+          svg.classList.add("absolute", "inset-0", "w-full", "h-full");
+          
+          if (type === 'line') {
+            var pts = [];
+            var ds = data.datasets[0].data;
+            var w = 100 / Math.max(1, ds.length - 1);
+            for (var i=0; i<ds.length; i++) {
+              var v = ds[i];
+              var numV = Number(typeof v === 'object' ? (v.y !== undefined ? v.y : v.v) : v) || 0;
+              var x = i * w;
+              var y = 100 - (numV/max)*100;
+              pts.push(x+","+y);
+            }
+            var path = document.createElementNS(svgNS, "polyline");
+            path.setAttribute("points", pts.join(" "));
+            path.setAttribute("fill", "none");
+            path.setAttribute("stroke", data.datasets[0].borderColor || getChartColors()[0]);
+            path.setAttribute("stroke-width", "2");
+            svg.appendChild(path);
+          } else {
+            var ds = data.datasets[0].data;
+            var w = 100 / Math.max(1, ds.length);
+            for (var i=0; i<ds.length; i++) {
+              var v = ds[i];
+              var numV = Number(typeof v === 'object' ? (v.y !== undefined ? v.y : v.v) : v) || 0;
+              var rect = document.createElementNS(svgNS, "rect");
+              var h = (numV/max)*100;
+              rect.setAttribute("x", i * w + w*0.1);
+              rect.setAttribute("y", 100 - h);
+              rect.setAttribute("width", w*0.8);
+              rect.setAttribute("height", h);
+              var bg = data.datasets[0].backgroundColor;
+              if (Array.isArray(bg)) bg = bg[i % bg.length];
+              rect.setAttribute("fill", bg || getChartColors()[0]);
+              svg.appendChild(rect);
+            }
+          }
+          
+          el.innerHTML = '';
+          el.appendChild(svg);
+          return;
+        }
+
+        el.setAttribute('data-chart-state', 'rendered');
+        var canvas = el.querySelector('canvas');
+        if (!canvas) {
+          canvas = document.createElement('canvas');
+          canvas.className = 'absolute inset-0 w-full h-full';
+          el.innerHTML = '';
+          el.appendChild(canvas);
+        }
+        if (charts[id]) charts[id].destroy();
+        
+        var defaultOptions = {
+          responsive: true,
+          maintainAspectRatio: false,
+          color: getTextColor(),
+          plugins: { 
+            legend: { labels: { color: getTextColor() } },
+            tooltip: { backgroundColor: state.theme === 'light' ? '#18181b' : '#ffffff', titleColor: state.theme === 'light' ? '#ffffff' : '#000000', bodyColor: state.theme === 'light' ? '#ffffff' : '#000000' }
+          },
+          scales: type !== 'doughnut' ? {
+            x: { ticks: { color: getTextColor() }, grid: { color: getGridColor() } },
+            y: { ticks: { color: getTextColor() }, grid: { color: getGridColor() } }
+          } : {}
+        };
+        
+        charts[id] = new Chart(canvas, {
+          type: type,
+          data: data,
+          options: Object.assign(defaultOptions, options || {})
+        });
+      }
+
+      function applyView(view) {
+        state.view = view;
+        document.body.setAttribute('data-active-view', view);
+        
+        if (view === 'create') {
+          var el = document.querySelector('[data-view="create"]');
+          if (el) {
+            el.style.display = 'flex';
+            el.querySelector('input').focus();
+          }
+        } else {
+          var createEl = document.querySelector('[data-view="create"]');
+          if (createEl) createEl.style.display = 'none';
+          
+          if (view === 'dashboard' || view === 'analytics' || view === 'stats') {
+            document.getElementById('app-layout').style.display = 'flex';
+          } else {
+            document.getElementById('app-layout').style.display = 'none';
+          }
+          
+          if (view === 'dashboard') renderDashboard();
+          if (view === 'analytics') renderAnalytics();
+          if (view === 'stats') renderStats();
+        }
+      }
+
+      function applyTheme(theme) {
+        state.theme = theme;
+        document.body.setAttribute('data-theme', theme);
+        
+        // Update charts color
+        renderAnalytics();
+        renderStats();
+        renderDashboard();
+      }
+
+      function applyDataset(dataset, callback) {
+        state.dataset = dataset;
+        document.body.setAttribute('data-dataset', dataset);
+        document.body.setAttribute('data-state', 'loading');
+        
+        if (window.AKAMONEY_SCENARIOS) {
+          currentData = window.AKAMONEY_SCENARIOS.getScenario(dataset);
+          memoryUrls = currentData.urls || [];
+          
+          if (dataset === 'noResults' && currentData.meta && currentData.meta.searchQuery) {
+            var searchInput = document.querySelector('[data-action="search"]');
+            if (searchInput) {
+              searchInput.value = currentData.meta.searchQuery;
+            }
+          } else {
+             var searchInput = document.querySelector('[data-action="search"]');
+             if(searchInput) searchInput.value = '';
+          }
+        }
+        
+        setTimeout(function() {
+          if (state.view === 'dashboard') renderDashboard();
+          if (state.view === 'analytics') renderAnalytics();
+          if (state.view === 'stats') renderStats();
+          document.body.removeAttribute('data-state');
+          if (typeof callback === 'function') callback();
+        }, 300);
+      }
+
+      function renderDashboard() {
+        var list = document.getElementById('dashboard-list');
+        if (!list || !currentData) return;
+        
+        var query = document.querySelector('[data-action="search"]').value.toLowerCase();
+        
+        var filtered = memoryUrls.filter(function(u) {
+          if (query && !u.short_code.toLowerCase().includes(query) && 
+              !u.original_url.toLowerCase().includes(query) &&
+              !(u.title && u.title.toLowerCase().includes(query))) {
+            return false;
+          }
+          return true;
+        });
+
+        filtered.sort(function(a, b) {
+          if (a.is_new && !b.is_new) return -1;
+          if (!a.is_new && b.is_new) return 1;
+          return sortDesc ? b.click_count - a.click_count : a.click_count - b.click_count;
+        });
+        
+        if (state.dataset === 'apiError') {
+          list.innerHTML = '<div class="glass-panel p-6 rounded-xl text-center text-[var(--danger)]">' + (currentData.meta.error || 'API Error') + '</div>';
+          list.setAttribute('data-state', 'error');
+          return;
+        }
+
+        if (filtered.length === 0) {
+          var stateVal = memoryUrls.length === 0 ? 'empty' : 'no-results';
+          list.innerHTML = '<div class="glass-panel p-6 rounded-xl text-center text-[var(--text-secondary)]">' + (stateVal==='empty'?'無短網址資料':'查無結果') + '</div>';
+          list.setAttribute('data-state', stateVal);
+        } else {
+          list.setAttribute('data-state', '');
+          
+          var html = '';
+          filtered.forEach(function(u) {
+            var activeClass = u.is_active ? 'bg-[var(--success)]' : 'bg-[var(--text-secondary)]';
+            var activeText = u.is_active ? '作用中' : '已封存';
+            var expired = u.expires_at && u.expires_at < Date.now();
+            if (expired) {
+              activeClass = 'bg-[var(--warning)]';
+              activeText = '已過期';
+            }
+            
+            html += '<div class="glass-panel p-4 rounded-xl flex flex-col gap-2 transition-transform hover:-translate-y-1">';
+            html += '<div class="flex justify-between items-start">';
+            html += '<div>';
+            html += '<button type="button" data-action="view-switch" data-view-target="analytics" data-short="' + u.short_code + '" tabindex="0" class="text-left font-bold text-lg cursor-pointer hover:text-[var(--accent)]">' + (u.title || u.short_code) + '</button>';
+            html += '<div class="font-mono text-xs text-[var(--accent)]">' + u.short_code + '</div>';
+            html += '<div class="text-[var(--text-secondary)] font-mono text-sm truncate max-w-[200px] md:max-w-[300px]">' + u.original_url + '</div>';
+            html += '</div>';
+            html += '<div class="text-right">';
+            html += '<div class="font-bold font-mono">' + u.click_count + ' <span class="text-xs text-[var(--text-secondary)]">點擊數</span></div>';
+            html += '</div>';
+            html += '</div>';
+            
+            html += '<div class="flex justify-between items-center mt-2 pt-2 border-t border-[var(--border)]">';
+            html += '<div class="flex items-center gap-2 text-xs">';
+            html += '<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full ' + activeClass + '"></span>' + activeText + '</span>';
+            html += '<span class="text-[var(--text-secondary)]">' + formatCreatedAt(u.created_at) + '</span>';
+            html += '</div>';
+            
+            html += '<div class="flex gap-2">';
+            html += '<button data-action="copy" data-short="' + u.short_code + '" class="px-2 py-1 rounded bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-xs" tabindex="0">複製</button>';
+            if (u.is_active) {
+              html += '<button data-action="archive" data-id="' + u.id + '" class="px-2 py-1 rounded bg-[var(--danger)] text-white text-xs hover:opacity-90" tabindex="0">封存</button>';
+            }
+            html += '</div>';
+            html += '</div>';
+            
+            html += '</div>';
+          });
+          list.innerHTML = html;
+        }
+        
+        // dashboard sparkline
+        var dSeries = (currentData.analytics && currentData.analytics.dailySeries) ? currentData.analytics.dailySeries : [];
+        initChart('dashboard-sparkline', 'line', {
+          labels: dSeries.map(function(d){return d.date}),
+          datasets: [{
+            label: '點擊數',
+            data: dSeries.map(function(d){return d.clicks}),
+            borderColor: getChartColors()[0],
+            tension: 0.4
+          }]
+        });
+      }
+
+      function renderAnalytics() {
+        if (!currentData || !currentData.analytics) return;
+        updateAnalyticsIdentity();
+        var a = currentData.analytics;
+        var colors = getChartColors();
+        
+        initChart('clicks-trend', 'line', {
+          labels: (a.dailySeries||[]).map(function(d){return d.date}),
+          datasets: [{
+            label: '點擊趨勢',
+            data: (a.dailySeries||[]).map(function(d){return d.clicks}),
+            borderColor: colors[0],
+            backgroundColor: colors[0] + '33',
+            fill: true,
+            tension: 0.4
+          }]
+        });
+
+        function makeDoughnut(dataObj) {
+          if (!dataObj) return {labels:[], datasets:[]};
+          return {
+            labels: Object.keys(dataObj),
+            datasets: [{
+              data: Object.values(dataObj),
+              backgroundColor: colors
+            }]
+          };
+        }
+
+        initChart('country-distribution', 'doughnut', makeDoughnut(a.countryDistribution));
+        initChart('device-distribution', 'doughnut', makeDoughnut(a.deviceDistribution));
+        initChart('browser-distribution', 'doughnut', makeDoughnut(a.browserDistribution));
+      }
+
+      function renderStats() {
+        if (!currentData || !currentData.overallStats) return;
+        var s = currentData.overallStats;
+        
+        document.getElementById('stat-clicks').innerText = s.total_clicks;
+        document.getElementById('stat-active').innerText = s.active_links;
+        document.getElementById('stat-total').innerText = s.total_links;
+        
+        if (s.date_range) {
+          document.getElementById('stats-daterange').innerText = s.date_range.start + ' ~ ' + s.date_range.end;
+        }
+
+        var topLinksEl = document.getElementById('stats-top-links');
+        if (topLinksEl && s.top_links) {
+          topLinksEl.innerHTML = s.top_links.map(function(l) {
+            return '<div class="flex justify-between items-center text-sm border-b border-[var(--border)] pb-1">' +
+              '<span class="font-bold">' + l.short_code + '</span>' +
+              '<span class="font-mono text-[var(--text-secondary)]">' + l.click_count + ' 點擊</span></div>';
+          }).join('');
+        }
+
+        var colors = getChartColors();
+        
+        var trendDates = Object.keys(s.click_trend || {});
+        var trendValues = trendDates.map(function(k){return s.click_trend[k]});
+        
+        initChart('stats-trend', 'line', {
+          labels: trendDates,
+          datasets: [{
+            label: '總點擊趨勢',
+            data: trendValues,
+            borderColor: colors[1],
+            tension: 0.4
+          }]
+        });
+
+        initChart('stats-country', 'bar', {
+          labels: Object.keys(s.country_distribution || {}),
+          datasets: [{
+            label: '國家分佈',
+            data: Object.values(s.country_distribution || {}),
+            backgroundColor: colors
+          }]
+        });
+
+        initChart('stats-device', 'doughnut', {
+          labels: Object.keys(s.device_distribution || {}),
+          datasets: [{
+            data: Object.values(s.device_distribution || {}),
+            backgroundColor: colors
+          }]
+        });
+      }
+
+      window.showAnalytics = function(code) {
+        selectedAnalyticsCode = code || null;
+        applyView('analytics');
+        emit('STATE_CHANGED');
+      };
+
+      document.body.addEventListener('click', function (e) {
+        var target = e.target.closest('[data-action]');
+        if (!target) return;
+        
+        var action = target.getAttribute('data-action');
+        
+        if (action === 'theme-toggle') {
+          applyTheme(state.theme === 'light' ? 'dark' : 'light');
+          emit('STATE_CHANGED');
+        } 
+        else if (action === 'view-switch') {
+          var v = target.getAttribute('data-view-target');
+          if (v === 'analytics') {
+            var drillCode = target.getAttribute('data-short');
+            if (drillCode) selectedAnalyticsCode = drillCode;
+          }
+          if (v === 'create' || v === 'dashboard') {
+            if (v === 'create') savedTrigger = target;
+            else if (savedTrigger && state.view === 'create') {
+              // we are cancelling create view by going to dashboard
+              setTimeout(function(){
+                if(savedTrigger) { savedTrigger.focus(); savedTrigger = null; }
+              },0);
+            }
+          }
+          if (v) applyView(v);
+          emit('STATE_CHANGED');
+        }
+        else if (action === 'sort-clicks') {
+          sortDesc = !sortDesc;
+          renderDashboard();
+          emit('STATE_CHANGED');
+        }
+        else if (action === 'copy') {
+          var code = target.getAttribute('data-short');
+          try {
+            navigator.clipboard.writeText('aka.money/' + code).catch(function(){});
+          } catch(e) {}
+          target.setAttribute('data-copy-state', 'copied');
+          target.innerText = '已複製';
+          setTimeout(function() {
+            target.removeAttribute('data-copy-state');
+            target.innerText = '複製';
+          }, 2000);
+        }
+        else if (action === 'archive') {
+          archiveTargetId = target.getAttribute('data-id');
+          savedTrigger = target;
+          var modal = document.getElementById('archive-modal');
+          modal.classList.remove('hidden');
+          modal.style.display = 'flex';
+          setTimeout(function() {
+            var confirmBtn = modal.querySelector('[data-action="archive-confirm"]');
+            if (confirmBtn) confirmBtn.focus();
+          }, 0);
+        }
+        else if (action === 'archive-confirm') {
+          if (archiveTargetId) {
+            var item = memoryUrls.find(function(u){ return u.id === archiveTargetId });
+            if (item) item.is_active = false;
+            renderDashboard();
+            var modal = document.getElementById('archive-modal');
+            modal.style.display = 'none';
+            modal.classList.add('hidden');
+            if (savedTrigger) {
+              savedTrigger.focus();
+              savedTrigger = null;
+            }
+            var undoToast = document.getElementById('archive-undo-toast');
+            undoToast.classList.remove('hidden');
+            undoToast.style.display = 'flex';
+            setTimeout(function(){ undoToast.classList.add('hidden'); undoToast.style.display = 'none'; }, 5000);
+          }
+        }
+        else if (action === 'archive-undo') {
+          if (archiveTargetId) {
+            var item = memoryUrls.find(function(u){ return u.id === archiveTargetId });
+            if (item) item.is_active = true;
+            renderDashboard();
+            var undoToast = document.getElementById('archive-undo-toast');
+            undoToast.classList.add('hidden');
+            undoToast.style.display = 'none';
+          }
+        }
+        else if (action === 'create-submit') {
+          var orig = document.getElementById('create-original').value;
+          var short = document.getElementById('create-short').value;
+          var title = document.getElementById('create-title').value;
+          var desc = document.getElementById('create-desc').value;
+          var image = document.getElementById('create-image').value;
+          var expire = document.getElementById('create-expire').value;
+          var errEl = document.getElementById('create-error');
+          errEl.classList.add('hidden');
+          
+          if (!short || short.length < 3 || short.length > 20 || !/^[A-Za-z0-9_-]+$/.test(short)) {
+            errEl.innerText = '代碼長度須為 3-20 字元，且只能包含英數字、減號、底線。';
+            errEl.classList.remove('hidden');
+            return;
+          }
+
+          if (orig && short) {
+            var btn = target;
+            var originalText = btn.innerText;
+            btn.innerText = '處理中...';
+            btn.disabled = true;
+            btn.classList.add('opacity-50', 'cursor-not-allowed');
+            
+            setTimeout(function() {
+              var newItem = {
+                id: 'new-' + Date.now(),
+                short_code: short,
+                original_url: orig,
+                is_active: true,
+                click_count: 0,
+                created_at: Date.now()
+              };
+              if (title) newItem.title = title;
+              if (desc) newItem.description = desc;
+              if (image) newItem.image_url = image;
+              if (expire) newItem.expires_at = new Date(expire).getTime();
+              
+              // Unshift but ensure it stays first when sorting desc if click_count is 0?
+              // Wait, if we sort by clicks, it'll go down.
+              // To make it stay first, we can mark it as `is_new: true`.
+              newItem.is_new = true;
+              
+              memoryUrls.unshift(newItem);
+              document.getElementById('create-original').value = '';
+              document.getElementById('create-short').value = '';
+              document.getElementById('create-title').value = '';
+              document.getElementById('create-desc').value = '';
+              document.getElementById('create-image').value = '';
+              document.getElementById('create-expire').value = '';
+              
+              btn.innerText = originalText;
+              btn.disabled = false;
+              btn.classList.remove('opacity-50', 'cursor-not-allowed');
+
+              var toastContainer = document.getElementById('toast-container');
+              if (toastContainer) {
+                var toast = document.createElement('div');
+                toast.setAttribute('role', 'status');
+                toast.className = 'glass-panel px-4 py-3 rounded-lg text-[var(--success)] font-bold mb-2';
+                toast.innerText = '短網址已建立';
+                toastContainer.appendChild(toast);
+                setTimeout(function() {
+                  if(toast.parentNode) toast.parentNode.removeChild(toast);
+                }, 2500);
+              }
+
+              applyView('dashboard');
+              
+              if (savedTrigger) {
+                savedTrigger.focus();
+                savedTrigger = null;
+              }
+              
+              emit('STATE_CHANGED');
+            }, 600);
+          }
+        }
+      });
+
+      document.body.addEventListener('input', function (e) {
+        var target = e.target.closest('[data-action="search"]');
+        if (target) {
+          renderDashboard();
+        }
+      });
+
+      document.getElementById('btn-cancel-archive').addEventListener('click', function() {
+        var modal = document.getElementById('archive-modal');
+        modal.style.display = 'none';
+        modal.classList.add('hidden');
+        if (savedTrigger) {
+          savedTrigger.focus();
+          savedTrigger = null;
+        }
+      });
+
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+          var archiveModal = document.getElementById('archive-modal');
+          if (archiveModal && archiveModal.style.display === 'flex') {
+            archiveModal.style.display = 'none';
+            archiveModal.classList.add('hidden');
+            if (savedTrigger) {
+              savedTrigger.focus();
+              savedTrigger = null;
+            }
+            return;
+          }
+          if (state.view === 'create') {
+            applyView('dashboard');
+            if (savedTrigger) {
+              savedTrigger.focus();
+              savedTrigger = null;
+            }
+            emit('STATE_CHANGED');
+          }
+        }
+        
+        // Focus click polyfill for tab indexing
+        if ((e.key === 'Enter' || e.key === ' ') && e.target.tagName !== 'BUTTON' && e.target.tagName !== 'A' && e.target.tagName !== 'INPUT' && e.target.hasAttribute('tabindex')) {
+          e.target.click();
+          e.preventDefault();
+        }
+      });
+
+      window.addEventListener('message', function (event) {
+        var data = event.data;
+        if (!data || typeof data !== 'object') return;
+        if (data.source !== 'akamoney-compare') return;
+        
+        if (data.type === 'SET_VIEW' && VIEWS.indexOf(data.value) !== -1) {
+          applyView(data.value);
+        } else if (data.type === 'SET_THEME' && THEMES.indexOf(data.value) !== -1) {
+          applyTheme(data.value);
+        } else if (data.type === 'SET_DATASET' && DATASETS.indexOf(data.value) !== -1) {
+          applyDataset(data.value, function() {
+            emit('STATE_CHANGED');
+          });
+          return;
+        } else {
+          return;
+        }
+        emit('STATE_CHANGED');
+      });
+
+      document.addEventListener('DOMContentLoaded', function() {
+        var toggleBtn = document.querySelector('[data-action="theme-toggle"]');
+        var desktopNav = document.querySelector('nav.md\\:flex');
+        var mobileNav = document.querySelector('.md\\:hidden.fixed.bottom-0');
+        
+        function updateTogglePosition() {
+          if (window.innerWidth < 768) {
+            if (toggleBtn.parentNode !== mobileNav) {
+              toggleBtn.className = "p-2 flex-1 text-center";
+              toggleBtn.textContent = "主題";
+              mobileNav.appendChild(toggleBtn);
+            }
+          } else {
+            if (toggleBtn.parentNode !== desktopNav) {
+              toggleBtn.className = "mt-4 text-left px-4 py-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer text-[var(--text-secondary)]";
+              toggleBtn.textContent = "切換主題";
+              desktopNav.appendChild(toggleBtn);
+            }
+          }
+        }
+        window.addEventListener('resize', updateTogglePosition);
+        updateTogglePosition();
+
+        if (window.AKAMONEY_SCENARIOS) {
+          currentData = window.AKAMONEY_SCENARIOS.getScenario('default');
+          memoryUrls = currentData.urls || [];
+        }
+
+        applyView('dashboard');
+        emit('READY');
+      });
+
+    })();
+  </script>
+</body>
+</html>
