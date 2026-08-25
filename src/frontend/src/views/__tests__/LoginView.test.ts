@@ -159,7 +159,7 @@ describe('LoginView', () => {
       expect(consoleErrorSpy).toHaveBeenCalledWith('Auto-login failed:', error);
       expect(pushSpy).not.toHaveBeenCalled();
       expect(wrapper.text()).toContain(
-        'Development configuration error: auto-login failed in skip-auth mode. Check console for details.'
+        '開發環境設定錯誤：略過驗證模式的自動登入失敗，請查看主控台。'
       );
       expect(wrapper.find('button').attributes('disabled')).toBeUndefined();
     });
@@ -203,7 +203,7 @@ describe('LoginView', () => {
 
       await flushPromises();
 
-      expect(wrapper.text()).toContain('Failed to sign in');
+      expect(wrapper.text()).toContain('登入失敗，請再試一次。');
     });
 
     it('should show configuration error message', async () => {

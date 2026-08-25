@@ -47,7 +47,8 @@ describe('Types', () => {
   describe('CreateUrlRequest', () => {
     it('should require original_url', () => {
       const request: CreateUrlRequest = {
-        original_url: 'https://example.com'
+        original_url: 'https://example.com',
+        short_code: 'abc123'
       };
       
       expect(request.original_url).toBeDefined();

@@ -455,6 +455,82 @@ describe('URL Service - Database Functions', () => {
       
       expect(result.is_active).toBe(false);
     });
+
+    it('writes an explicit null so a cleared field is actually cleared', async () => {
+      const mockUrl = {
+        id: 'url-id',
+        short_code: 'abc123',
+        original_url: 'https://example.com',
+        user_id: 'user-123',
+        title: 'Old Title',
+        description: 'Old Description',
+        image_url: 'https://storage.example.com/old.jpg',
+        created_at: Date.now(),
+        updated_at: Date.now(),
+        expires_at: 1800000000000,
+        is_active: 1,
+        click_count: 0
+      };
+      const clearedUrl = { ...mockUrl, title: null, description: null, image_url: null, expires_at: null };
+
+      const mockDb = createMockDb();
+      mockDb._mockFirst.mockResolvedValueOnce(mockUrl);
+      mockDb._mockRun.mockResolvedValue({});
+      mockDb._mockFirst.mockResolvedValueOnce(clearedUrl);
+
+      const result = await updateUrl(mockDb as any, 'url-id', {
+        title: null,
+        description: null,
+        image_url: null,
+        expires_at: null
+      }, 'user-123');
+
+      const sql = mockDb.prepare.mock.calls.find((call: any[]) => String(call[0]).includes('UPDATE urls'))![0];
+      expect(sql).toContain('title = ?');
+      expect(sql).toContain('description = ?');
+      expect(sql).toContain('image_url = ?');
+      expect(sql).toContain('expires_at = ?');
+
+      // prepare/bind order: getUrlById -> UPDATE -> getUrlById.
+      const boundValues = mockDb._mockBind.mock.calls[1] as unknown[];
+      expect(boundValues.slice(0, 4)).toEqual([null, null, null, null]);
+      expect(boundValues.at(-1)).toBe('url-id');
+
+      expect(result.title).toBeUndefined();
+      expect(result.description).toBeUndefined();
+      expect(result.image_url).toBeUndefined();
+      expect(result.expires_at).toBeUndefined();
+    });
+
+    it('leaves omitted fields out of the UPDATE statement entirely', async () => {
+      const mockUrl = {
+        id: 'url-id',
+        short_code: 'abc123',
+        original_url: 'https://example.com',
+        user_id: 'user-123',
+        title: 'Old Title',
+        description: 'Old Description',
+        image_url: 'https://storage.example.com/old.jpg',
+        created_at: Date.now(),
+        updated_at: Date.now(),
+        expires_at: null,
+        is_active: 1,
+        click_count: 0
+      };
+
+      const mockDb = createMockDb();
+      mockDb._mockFirst.mockResolvedValueOnce(mockUrl);
+      mockDb._mockRun.mockResolvedValue({});
+      mockDb._mockFirst.mockResolvedValueOnce(mockUrl);
+
+      await updateUrl(mockDb as any, 'url-id', { title: 'New Title' }, 'user-123');
+
+      const sql = String(mockDb.prepare.mock.calls.find((call: any[]) => String(call[0]).includes('UPDATE urls'))![0]);
+      expect(sql).toContain('title = ?');
+      expect(sql).not.toContain('description = ?');
+      expect(sql).not.toContain('image_url = ?');
+      expect(sql).not.toContain('expires_at = ?');
+    });
   });
 
   describe('deleteUrl', () => {

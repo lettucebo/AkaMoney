@@ -1,1085 +1,313 @@
 <template>
-  <div class="container">
-    <div class="row">
-      <div class="col-12">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-          <h2>My URLs</h2>
-          <div>
-            <button 
-              class="btn btn-sm me-2"
-              :class="showArchived ? 'btn-secondary' : 'btn-outline-secondary'"
-              @click="toggleArchived"
-            >
-              <i class="bi bi-archive"></i>
-              {{ showArchived ? 'Hide Archived' : 'Show All' }}
-              <span v-if="archivedCount > 0" class="badge bg-secondary ms-1">
-                {{ archivedCount }}
-              </span>
-            </button>
-            <button class="btn btn-primary" @click="openCreateModal">
-              <i class="bi bi-plus-lg"></i> Create New
-            </button>
-          </div>
-        </div>
+  <div class="dashboard-view">
+    <KpiSummary :stats="kpiStats" :loading="kpiLoading" :error="kpiError" @retry="loadKpiSummary" />
 
-        <!-- Loading State -->
-        <div v-if="urlStore.loading" class="text-center py-5">
-          <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Loading...</span>
-          </div>
-        </div>
-
-        <!-- Error State -->
-        <div v-else-if="urlStore.error" class="alert alert-danger" role="alert">
-          {{ urlStore.error }}
-        </div>
-
-        <!-- Empty State -->
-        <div v-else-if="urlStore.urls.length === 0" class="text-center py-5">
-          <i class="bi bi-link-45deg fs-1 text-muted"></i>
-          <h4 class="mt-3">No URLs yet</h4>
-          <p class="text-muted">Create your first shortened URL to get started</p>
-        </div>
-
-        <!-- Search Box -->
-        <div v-if="!urlStore.loading && urlStore.urls.length > 0" class="mb-4">
-          <div class="input-group">
-            <span class="input-group-text">
-              <i class="bi bi-search"></i>
-            </span>
-            <input 
-              type="text" 
-              class="form-control" 
-              placeholder="Search by short code, URL, or title..." 
-              v-model="searchQuery"
-              aria-label="Search URLs"
-            >
-            <button 
-              v-if="searchQuery" 
-              class="btn btn-outline-secondary" 
-              @click="searchQuery = ''"
-              type="button"
-              aria-label="Clear search"
-            >
-              <i class="bi bi-x-lg"></i>
-            </button>
-          </div>
-          <small v-if="searchQuery" class="text-muted">
-            Found {{ totalFilteredCount }} of {{ urlStore.urls.length }} URLs
-          </small>
-        </div>
-
-        <!-- URLs List -->
-        <div v-if="!urlStore.loading && urlStore.urls.length > 0" class="row">
-          <div v-for="url in filteredUrls" :key="url.id" class="col-12 mb-3">
-            <div class="card" :class="{ 'archived-url-card': !url.is_active }">
-              <div class="card-body">
-                <div class="row align-items-center">
-                  <div class="col-md-6">
-                    <!-- Short URL with Copy Button -->
-                    <div class="d-flex align-items-center gap-2 mb-1">
-                      <h5 class="card-title mb-0">
-                        <a 
-                          :href="`https://${shortDomain}/${url.short_code}`" 
-                          target="_blank" 
-                          class="text-decoration-none"
-                        >
-                          {{ shortDomain }}/{{ url.short_code }}
-                        </a>
-                        <span v-if="!url.is_active" class="archived-badge">
-                          <i class="bi bi-archive"></i> Archived
-                        </span>
-                      </h5>
-                      <button 
-                        class="btn btn-sm btn-outline-secondary"
-                        @click="copyToClipboard(`${shortDomain}/${url.short_code}`, url.id)"
-                        :title="copiedId === url.id ? 'Copied!' : 'Copy short URL'"
-                        :aria-label="copiedId === url.id ? 'Copied!' : 'Copy short URL'"
-                      >
-                        <i :class="copiedId === url.id ? 'bi bi-check2' : 'bi bi-clipboard'"></i>
-                        <span class="visually-hidden" role="status" aria-live="polite">
-                          {{ copiedId === url.id ? 'Short URL copied to clipboard.' : '' }}
-                        </span>
-                      </button>
-                    </div>
-                    <p class="card-text text-muted small mb-0">
-                      {{ truncate(url.original_url, 60) }}
-                    </p>
-                  </div>
-                  <div class="col-md-3 text-center">
-                    <div class="d-flex align-items-center justify-content-center">
-                      <i class="bi bi-bar-chart-fill me-2 text-primary"></i>
-                      <span class="fw-bold">{{ url.click_count }}</span>
-                      <span class="text-muted ms-1">clicks</span>
-                    </div>
-                    <small class="text-muted">
-                      {{ formatDate(url.created_at) }}
-                    </small>
-                  </div>
-                  <div class="col-md-3 text-end">
-                    <div v-if="url.is_active" class="btn-group">
-                      <router-link
-                        :to="`/analytics/${url.short_code}`"
-                        class="btn btn-sm btn-outline-primary"
-                      >
-                        <i class="bi bi-graph-up"></i> Analytics
-                      </router-link>
-                      <button
-                        class="btn btn-sm btn-outline-secondary"
-                        @click="openEditModal(url)"
-                      >
-                        <i class="bi bi-pencil"></i> Edit
-                      </button>
-                      <button
-                        class="btn btn-sm btn-outline-warning"
-                        @click="confirmArchive(url.id)"
-                      >
-                        <i class="bi bi-archive"></i> Archive
-                      </button>
-                    </div>
-                    <div v-else class="btn-group">
-                      <router-link
-                        :to="`/analytics/${url.short_code}`"
-                        class="btn btn-sm btn-outline-primary"
-                      >
-                        <i class="bi bi-graph-up"></i> Analytics
-                      </router-link>
-                      <button
-                        class="btn btn-sm btn-outline-success"
-                        @click="confirmRestore(url.id)"
-                      >
-                        <i class="bi bi-arrow-counterclockwise"></i> Restore
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Pagination -->
-        <nav v-if="shouldShowPagination" class="mt-4" aria-label="Pagination">
-          <ul class="pagination justify-content-center">
-            <li class="page-item" :class="{ disabled: currentPage === 1 }">
-              <a class="page-link" href="#" @click.prevent="goToPage(currentPage - 1)" :aria-disabled="currentPage === 1 ? 'true' : 'false'">
-                Previous
-              </a>
-            </li>
-            <li
-              v-for="page in visiblePages"
-              :key="page"
-              class="page-item"
-              :class="{ active: page === currentPage }"
-            >
-              <a class="page-link" href="#" @click.prevent="goToPage(page)">{{ page }}</a>
-            </li>
-            <li
-              class="page-item"
-              :class="{ disabled: currentPage === totalPages }"
-            >
-              <a class="page-link" href="#" @click.prevent="goToPage(currentPage + 1)" :aria-disabled="currentPage === totalPages ? 'true' : 'false'">
-                Next
-              </a>
-            </li>
-          </ul>
-        </nav>
+    <div class="page-head">
+      <div>
+        <h1>連結</h1>
+        <div class="sub">建立、搜尋並管理所有短網址與即時成效。</div>
       </div>
     </div>
 
-    <!-- Create URL Modal -->
-    <div v-if="showCreateModal" class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5)">
-      <div class="modal-dialog">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">Create Short URL</h5>
-            <button type="button" class="btn-close" @click="closeCreateModal"></button>
-          </div>
-          <div class="modal-body">
-            <UrlCreateForm mode="modal" @created="onUrlCreated" @cancel="closeCreateModal" />
-          </div>
-        </div>
-      </div>
-    </div>
+    <QuickCreatePanel @created="handleCreated" />
 
-    <!-- Archive Confirmation Modal -->
-    <div v-if="showArchiveModal" class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5)">
-      <div class="modal-dialog">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">Confirm Archive</h5>
-            <button type="button" class="btn-close" @click="showArchiveModal = false"></button>
-          </div>
-          <div class="modal-body">
-            <p>⚠️ Archive this shortened URL?</p>
-            <p>After archiving:</p>
-            <ul>
-              <li>Visitors will be redirected to: {{ archivedRedirectUrl }}</li>
-              <li>Clicks will NOT be counted</li>
-              <li>You can restore it anytime</li>
-            </ul>
-            <p>Continue?</p>
-            <div v-if="archiveError" class="alert alert-danger">{{ archiveError }}</div>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" @click="showArchiveModal = false">
-              Cancel
-            </button>
-            <button type="button" class="btn btn-warning" @click="handleArchive">
-              Archive
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    <UrlTableToolbar
+      :search="search"
+      :status="statusFilter"
+      :sort="sortOption"
+      :counts="visibleUrls.counts"
+      @update:search="search = $event"
+      @update:status="statusFilter = $event"
+      @update:sort="sortOption = $event"
+    />
 
-    <!-- Restore Confirmation Modal -->
-    <div v-if="showRestoreModal" class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5)">
-      <div class="modal-dialog">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">Confirm Restore</h5>
-            <button type="button" class="btn-close" @click="showRestoreModal = false"></button>
-          </div>
-          <div class="modal-body">
-            <p>Restore this archived URL?</p>
-            <p>After restoring:</p>
-            <ul>
-              <li>The short URL will redirect to the original destination</li>
-              <li>Clicks will be counted again</li>
-              <li>The URL will appear in your active list</li>
-            </ul>
-            <div v-if="restoreError" class="alert alert-danger">{{ restoreError }}</div>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" @click="showRestoreModal = false">
-              Cancel
-            </button>
-            <button type="button" class="btn btn-success" @click="handleRestore">
-              Restore
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    <StateBlock v-if="urlStore.listLoading" state="loading" title="載入中" message="正在載入短網址清單…" />
+    <StateBlock v-else-if="urlStore.listError" state="error" title="無法載入清單" :message="urlStore.listError" />
+    <EmptyState
+      v-else-if="isEmpty"
+      title="尚未建立任何短網址"
+      description="使用上方的建立短網址面板建立你的第一個短網址。"
+    />
+    <EmptyState
+      v-else-if="isNoResults"
+      title="目前頁面沒有符合條件的短網址"
+      description="試著調整搜尋關鍵字、狀態篩選或排序（僅套用於目前頁面已載入的項目）。"
+    />
+    <UrlTable
+      v-else
+      :urls="visibleUrls.visible"
+      :copied-id="copiedId"
+      @copy="handleCopy"
+      @edit="openEdit"
+      @archive="confirmArchive"
+      @restore="confirmRestore"
+    />
 
-    <!-- Edit URL Modal -->
-    <div v-if="showEditModal" class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5)">
-      <div class="modal-dialog">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">
-              <i class="bi bi-pencil me-2"></i>Edit URL
-            </h5>
-            <button
-              type="button"
-              class="btn-close"
-              @click="closeEditModal"
-            ></button>
-          </div>
-          <div class="modal-body">
-            <form @submit.prevent="handleEditSubmit">
-              <!-- Short Code (Read-only) -->
-              <div class="mb-3">
-                <label for="editShortCode" class="form-label">Short Code</label>
-                <input
-                  type="text"
-                  class="form-control"
-                  id="editShortCode"
-                  v-model="editForm.short_code"
-                  disabled
-                />
-                <small class="text-muted">Short code cannot be changed</small>
-              </div>
+    <DashboardPagination
+      :page="urlStore.pagination.page"
+      :total-pages="urlStore.pagination.total_pages"
+      :total="urlStore.pagination.total"
+      @change="goToPage"
+    />
 
-              <!-- Original URL -->
-              <div class="mb-3">
-                <label for="editOriginalUrl" class="form-label">
-                  Original URL <span class="text-danger">*</span>
-                </label>
-                <input
-                  type="url"
-                  class="form-control"
-                  id="editOriginalUrl"
-                  v-model="editForm.original_url"
-                  required
-                  placeholder="https://example.com"
-                />
-              </div>
+    <UrlEditModal :open="showEditModal" :url="editingUrl" @close="closeEdit" @saved="handleEditSaved" />
 
-              <!-- Title -->
-              <div class="mb-3">
-                <label for="editTitle" class="form-label">Title (Optional)</label>
-                <input
-                  type="text"
-                  class="form-control"
-                  id="editTitle"
-                  v-model="editForm.title"
-                  placeholder="My Link"
-                />
-              </div>
+    <ConfirmActionModal
+      :open="showArchiveModal"
+      title="封存這個短網址？"
+      description="封存後連結會停止轉址，但你可以立即還原。"
+      confirm-label="確認封存"
+      confirm-variant="danger"
+      :loading="archiveSubmitting"
+      :error="archiveError"
+      @close="showArchiveModal = false"
+      @confirm="handleArchiveConfirm"
+    />
 
-              <!-- Description -->
-              <div class="mb-3">
-                <label for="editDescription" class="form-label">Description (Optional)</label>
-                <textarea
-                  class="form-control"
-                  id="editDescription"
-                  v-model="editForm.description"
-                  rows="3"
-                  placeholder="Optional description"
-                ></textarea>
-              </div>
+    <ConfirmActionModal
+      :open="showRestoreModal"
+      title="還原這個短網址？"
+      description="還原後短網址將恢復轉址並重新開始計算點擊。"
+      confirm-label="確認還原"
+      :loading="restoreSubmitting"
+      :error="restoreError"
+      @close="showRestoreModal = false"
+      @confirm="handleRestoreConfirm"
+    />
 
-              <!-- Preview Image Upload -->
-              <div class="mb-3">
-                <label class="form-label">
-                  <i class="bi bi-image me-1"></i>Preview Image (Optional)
-                </label>
-                <div class="form-text mb-2">
-                  Upload an image for link preview when sharing on social media
-                </div>
-                
-                <!-- Current/Preview Image -->
-                <div v-if="editPreviewImageUrl || editForm.image_url" class="mb-2">
-                  <div class="position-relative d-inline-block">
-                    <img 
-                      :src="editPreviewImageUrl || editForm.image_url" 
-                      alt="Preview" 
-                      class="img-thumbnail"
-                      style="max-width: 200px; max-height: 150px;"
-                    >
-                    <button 
-                      type="button"
-                      class="btn btn-sm btn-danger position-absolute top-0 end-0"
-                      @click="clearEditPreviewImage"
-                      title="Remove image"
-                    >
-                      <i class="bi bi-x"></i>
-                    </button>
-                  </div>
-                </div>
-                
-                <!-- Upload Area -->
-                <div 
-                  v-if="!editPreviewImageUrl && !editForm.image_url"
-                  class="upload-area p-3 text-center border border-2 border-dashed rounded"
-                  :class="{ 'drag-over': editIsDragging, 'border-primary': editIsDragging }"
-                  @dragover.prevent="editIsDragging = true"
-                  @dragleave.prevent="editIsDragging = false"
-                  @drop.prevent="handleEditDrop"
-                  @click="triggerEditFileInput"
-                  style="cursor: pointer;"
-                >
-                  <i class="bi bi-cloud-arrow-up fs-4 text-muted"></i>
-                  <p class="mb-0 small text-muted">Drag & drop or click to upload</p>
-                  <small class="text-muted">JPEG, PNG, GIF, WebP (Max 10MB)</small>
-                </div>
-                <input 
-                  type="file" 
-                  ref="editFileInput"
-                  class="d-none" 
-                  accept="image/jpeg,image/png,image/gif,image/webp"
-                  @change="handleEditFileSelect"
-                >
-                
-                <!-- Upload Progress -->
-                <div v-if="editImageUploading" class="mt-2">
-                  <div class="spinner-border spinner-border-sm me-2" role="status"></div>
-                  <span class="small">Uploading image...</span>
-                </div>
-                
-                <!-- Image Error -->
-                <div v-if="editImageError" class="alert alert-danger mt-2 py-1 px-2 small">
-                  {{ editImageError }}
-                </div>
-              </div>
-
-              <!-- Active Status -->
-              <div class="mb-3 form-check">
-                <input
-                  type="checkbox"
-                  class="form-check-input"
-                  id="editIsActive"
-                  v-model="editForm.is_active"
-                />
-                <label class="form-check-label" for="editIsActive">
-                  Active (uncheck to disable this short URL)
-                </label>
-              </div>
-
-              <!-- Expiration Date -->
-              <div class="mb-3">
-                <label for="editExpiresAt" class="form-label">Expiration Date (Optional)</label>
-                <input
-                  type="datetime-local"
-                  class="form-control"
-                  id="editExpiresAt"
-                  v-model="editForm.expires_at_local"
-                />
-                <small class="text-muted">Leave empty for no expiration</small>
-              </div>
-
-              <!-- Error Display -->
-              <div v-if="editError" class="alert alert-danger" role="alert">
-                {{ editError }}
-              </div>
-
-              <!-- Submit Buttons -->
-              <div class="modal-footer">
-                <button
-                  type="button"
-                  class="btn btn-secondary"
-                  @click="closeEditModal"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  class="btn btn-primary"
-                  :disabled="editLoading"
-                >
-                  <span v-if="editLoading">
-                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
-                    Saving...
-                  </span>
-                  <span v-else>
-                    <i class="bi bi-check-lg me-2"></i>Save Changes
-                  </span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Success Toast -->
-    <div v-if="showSuccessToast" class="position-fixed top-0 end-0 p-3" style="z-index: 11">
-      <div class="toast show" role="alert">
-        <div class="toast-header bg-success text-white">
-          <i class="bi bi-check-circle-fill me-2"></i>
-          <strong class="me-auto">Success</strong>
-          <button type="button" class="btn-close btn-close-white" @click="showSuccessToast = false"></button>
-        </div>
-        <div class="toast-body">
-          {{ successMessage }}
-        </div>
-      </div>
-    </div>
-
-    <!-- Error Toast -->
-    <div v-if="showErrorToast" class="position-fixed top-0 end-0 p-3" style="z-index: 11">
-      <div class="toast show" role="alert">
-        <div class="toast-header bg-danger text-white">
-          <i class="bi bi-exclamation-circle-fill me-2"></i>
-          <strong class="me-auto">Error</strong>
-          <button type="button" class="btn-close btn-close-white" @click="showErrorToast = false"></button>
-        </div>
-        <div class="toast-body">
-          {{ errorMessage }}
-        </div>
-      </div>
-    </div>
+    <DashboardToastStack :toasts="toasts" @dismiss="dismissToast" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
+/**
+ * Dashboard vertical slice (Proposal F): KPI summary -> inline quick-create
+ * -> dense URL table, composed entirely from src/components/dashboard/**.
+ *
+ * Search/status/sort in the toolbar operate ONLY on the currently loaded
+ * server page (`urlStore.urls`) - never across the full account dataset -
+ * because the list API only supports `page`/`limit` pagination today. The
+ * KPI summary fetch (explicit rolling 30-day window) is independent of the
+ * URL list fetch, so a KPI failure never blocks the list from rendering and
+ * vice versa.
+ *
+ * Create/edit/archive/restore keep the table stable: the store applies the
+ * mutation to `urlStore.urls` directly (prepend on create, in-place replace on
+ * edit/archive/restore) and uses its own `listLoading`/`listError`, so a
+ * mutation never blanks the table or replaces a list error. The store only
+ * falls back to a server refetch when it must - a create from page > 1, or a
+ * mutation that raced an in-flight list fetch. Only the independent KPI summary
+ * is re-fetched here after a mutation, since it may have changed (link counts,
+ * click totals).
+ */
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useUrlStore } from '@/stores/url';
 import apiService from '@/services/api';
-import UrlCreateForm from '@/components/UrlCreateForm.vue';
-import type { UrlResponse, UpdateUrlRequest } from '@/types';
+import type { OverallStatsResponse, UrlResponse } from '@/types';
+import { extractErrorMessage } from '@/utils/format';
+import { shortLinkTarget } from '@/utils/shortLink';
+import { rollingWindow } from '@/utils/trend';
+import { deriveVisibleUrls, type SortOption, type StatusFilter } from '@/components/dashboard/dashboardUrlList';
+import KpiSummary from '@/components/dashboard/KpiSummary.vue';
+import QuickCreatePanel from '@/components/dashboard/QuickCreatePanel.vue';
+import UrlTableToolbar from '@/components/dashboard/UrlTableToolbar.vue';
+import UrlTable from '@/components/dashboard/UrlTable.vue';
+import DashboardPagination from '@/components/dashboard/DashboardPagination.vue';
+import UrlEditModal from '@/components/dashboard/UrlEditModal.vue';
+import ConfirmActionModal from '@/components/dashboard/ConfirmActionModal.vue';
+import DashboardToastStack, { type DashboardToast } from '@/components/dashboard/DashboardToastStack.vue';
+import StateBlock from '@/components/common/StateBlock.vue';
+import EmptyState from '@/components/common/EmptyState.vue';
 
-const urlStore = useUrlStore();
-const shortDomain = import.meta.env.VITE_SHORT_DOMAIN || 'http://localhost:8787';
-const archivedRedirectUrl = import.meta.env.VITE_ARCHIVED_REDIRECT_URL || 'https://aka.money/archived';
-
-// Timeout constants
+const ROLLING_WINDOW_DAYS = 30;
 const COPY_FEEDBACK_DURATION = 2000;
 const TOAST_DISPLAY_DURATION = 5000;
 
-// Pagination constants
-const PAGE_SIZE = 20;
+const urlStore = useUrlStore();
 
-// Filter state
-const showArchived = ref(false);
+// --- KPI summary: independent loading/error from the URL list below. ---
+const kpiStats = ref<OverallStatsResponse | null>(null);
+const kpiLoading = ref(false);
+const kpiError = ref<string | null>(null);
 
-// Search functionality
-const searchQuery = ref('');
-const searchCurrentPage = ref(1);
+// Every KPI fetch carries a monotonic generation id. A create/edit/archive/
+// restore refresh always starts a newer generation than any fetch already in
+// flight, so if the mount-time (or any earlier) request resolves or rejects
+// after that, its result is only ever a no-op - it can never clobber newer
+// stats with stale data, nor replace a newer success with a stale error.
+let kpiRequestGeneration = 0;
 
-// Watch search query and reset page when it changes
-watch(searchQuery, (newQuery, oldQuery) => {
-  // Always reset local search pagination when the query changes
-  searchCurrentPage.value = 1;
-  
-  // If the user clears the search (non-empty -> empty),
-  // also reset the server-side pagination to page 1 to keep them in sync
-  if (!newQuery && oldQuery) {
-    loadPage(1);
-  }
-});
-
-// Shared filtered results (before pagination)
-const allFilteredUrls = computed(() => {
-  // Filter by archived status first
-  let urls = showArchived.value 
-    ? urlStore.urls 
-    : urlStore.urls.filter(url => url.is_active);
-  
-  if (!searchQuery.value) {
-    return urls;
-  }
-  
-  const query = searchQuery.value.toLowerCase();
-  return urls.filter(url => 
-    url.short_code.toLowerCase().includes(query) ||
-    url.original_url.toLowerCase().includes(query) ||
-    (url.title && url.title.toLowerCase().includes(query))
-  );
-});
-
-// Computed archived count
-const archivedCount = computed(() => {
-  return urlStore.urls.filter(url => !url.is_active).length;
-});
-
-// Toggle archived visibility
-const toggleArchived = () => {
-  showArchived.value = !showArchived.value;
-  // Reset pagination when toggling archived filter
-  searchCurrentPage.value = 1;
-  if (!searchQuery.value) {
-    loadPage(1);
-  }
-};
-
-// Paginated filtered results for display
-const filteredUrls = computed(() => {
-  const filtered = allFilteredUrls.value;
-  
-  // When not searching, return the server-side paginated results
-  if (!searchQuery.value) {
-    return filtered;
-  }
-  
-  // Apply client-side pagination when searching
-  const start = (searchCurrentPage.value - 1) * PAGE_SIZE;
-  const end = start + PAGE_SIZE;
-  return filtered.slice(start, end);
-});
-
-// Total filtered count (before pagination)
-const totalFilteredCount = computed(() => {
-  return allFilteredUrls.value.length;
-});
-
-// Compute total pages for search results
-const searchTotalPages = computed(() => {
-  if (!searchQuery.value) {
-    return 0;
-  }
-  return Math.ceil(totalFilteredCount.value / PAGE_SIZE);
-});
-
-// Unified pagination info
-const currentPage = computed(() => {
-  return searchQuery.value ? searchCurrentPage.value : urlStore.pagination.page;
-});
-
-const totalPages = computed(() => {
-  return searchQuery.value ? searchTotalPages.value : urlStore.pagination.total_pages;
-});
-
-const shouldShowPagination = computed(() => {
-  return totalPages.value > 1;
-});
-
-// Compute visible page numbers for windowed pagination
-const visiblePages = computed(() => {
-  const pages: number[] = [];
-  const total = totalPages.value;
-  const current = currentPage.value;
-  const maxVisible = 5; // Maximum number of page buttons to show
-  
-  if (total <= maxVisible) {
-    // Show all pages if total is within the limit
-    for (let i = 1; i <= total; i++) {
-      pages.push(i);
-    }
-  } else {
-    // Calculate window around current page
-    let start = Math.max(1, current - Math.floor(maxVisible / 2));
-    let end = Math.min(total, start + maxVisible - 1);
-    
-    // Adjust start if we're near the end
-    if (end - start + 1 < maxVisible) {
-      start = Math.max(1, end - maxVisible + 1);
-    }
-    
-    for (let i = start; i <= end; i++) {
-      pages.push(i);
-    }
-  }
-  
-  return pages;
-});
-
-// Copy to clipboard functionality
-const copiedId = ref<string | null>(null);
-const timeoutIds: number[] = [];
-
-const copyToClipboard = async (text: string, id: string) => {
-  // Check if clipboard API is available
-  if (!navigator.clipboard) {
-    errorMessage.value = 'Clipboard API not available. Please copy the URL manually.';
-    showErrorToast.value = true;
-    const timeoutId = window.setTimeout(() => {
-      showErrorToast.value = false;
-    }, TOAST_DISPLAY_DURATION);
-    timeoutIds.push(timeoutId);
-    return;
-  }
-  
+const loadKpiSummary = async (): Promise<void> => {
+  const generation = ++kpiRequestGeneration;
+  kpiLoading.value = true;
+  kpiError.value = null;
   try {
-    await navigator.clipboard.writeText(text);
-    copiedId.value = id;
-    
-    // Reset after configured duration
-    const timeoutId = window.setTimeout(() => {
-      copiedId.value = null;
-    }, COPY_FEEDBACK_DURATION);
-    timeoutIds.push(timeoutId);
-  } catch (error) {
-    console.error('Failed to copy:', error);
-    errorMessage.value = 'Failed to copy to clipboard. Please copy the URL manually.';
-    showErrorToast.value = true;
-    const timeoutId = window.setTimeout(() => {
-      showErrorToast.value = false;
-    }, TOAST_DISPLAY_DURATION);
-    timeoutIds.push(timeoutId);
+    const { start, end } = rollingWindow(ROLLING_WINDOW_DAYS);
+    const stats = await apiService.getOverallStats(start, end);
+    if (generation !== kpiRequestGeneration) {
+      return;
+    }
+    kpiStats.value = stats;
+  } catch (err: unknown) {
+    if (generation !== kpiRequestGeneration) {
+      return;
+    }
+    kpiError.value = extractErrorMessage(err, '無法載入統計摘要');
+    kpiStats.value = null;
+  } finally {
+    if (generation === kpiRequestGeneration) {
+      kpiLoading.value = false;
+    }
   }
 };
 
-const showCreateModal = ref(false);
-const showEditModal = ref(false);
-const archiveUrlId = ref<string | null>(null);
-const restoreUrlId = ref<string | null>(null);
-const showArchiveModal = ref(false);
-const showRestoreModal = ref(false);
-const archiveError = ref<string | null>(null);
-const restoreError = ref<string | null>(null);
-const showSuccessToast = ref(false);
-const successMessage = ref('');
-const showErrorToast = ref(false);
-const errorMessage = ref('');
+// --- Current-page-only search/status/sort toolbar. ---
+const search = ref('');
+const statusFilter = ref<StatusFilter>('all');
+const sortOption = ref<SortOption>('default');
 
-// Cleanup timeouts on unmount to prevent memory leaks
-onBeforeUnmount(() => {
-  timeoutIds.forEach(id => window.clearTimeout(id));
-});
+const visibleUrls = computed(() =>
+  deriveVisibleUrls(urlStore.urls, { status: statusFilter.value, search: search.value, sort: sortOption.value })
+);
 
-// Edit modal state
-const editForm = ref({
-  id: '',
-  short_code: '',
-  original_url: '',
-  title: '',
-  description: '',
-  image_url: '',
-  is_active: true,
-  expires_at_local: ''
-});
-const editLoading = ref(false);
-const editError = ref<string | null>(null);
+const isEmpty = computed(() => !urlStore.listLoading && !urlStore.listError && urlStore.urls.length === 0);
+const isNoResults = computed(
+  () =>
+    !urlStore.listLoading &&
+    !urlStore.listError &&
+    urlStore.urls.length > 0 &&
+    visibleUrls.value.matchingCount === 0
+);
 
-// Edit image upload state
-const editFileInput = ref<HTMLInputElement | null>(null);
-const editIsDragging = ref(false);
-const editPreviewImageUrl = ref<string | null>(null);
-const editImageUploading = ref(false);
-const editImageError = ref<string | null>(null);
+// --- Toasts. ---
+const timeoutIds: number[] = [];
+const scheduleTimeout = (fn: () => void, delay: number): number => {
+  const id = window.setTimeout(fn, delay);
+  timeoutIds.push(id);
+  return id;
+};
+
+const toasts = ref<DashboardToast[]>([]);
+const dismissToast = (id: string): void => {
+  toasts.value = toasts.value.filter((t) => t.id !== id);
+};
+const pushToast = (message: string, tone: DashboardToast['tone']): void => {
+  const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  toasts.value.push({ id, message, tone });
+  scheduleTimeout(() => dismissToast(id), TOAST_DISPLAY_DURATION);
+};
 
 onMounted(() => {
+  // Independent fetches: neither promise rejects outward (both capture
+  // their own errors), so a failure on one side never blocks the other.
   urlStore.fetchUrls();
+  loadKpiSummary();
 });
 
-const loadPage = (page: number) => {
+onBeforeUnmount(() => {
+  timeoutIds.forEach((id) => window.clearTimeout(id));
+});
+
+const goToPage = (page: number): void => {
   urlStore.fetchUrls(page);
 };
 
-const goToPage = (page: number) => {
-  // Prevent navigating to invalid pages
-  if (page < 1 || page > totalPages.value) {
+// --- Copy short URL. ---
+const copiedId = ref<string | null>(null);
+const handleCopy = async (url: UrlResponse): Promise<void> => {
+  if (!navigator.clipboard) {
+    pushToast('瀏覽器不支援剪貼簿功能，請手動複製網址。', 'err');
     return;
   }
-  
-  if (searchQuery.value) {
-    // Handle search pagination (client-side)
-    searchCurrentPage.value = page;
-  } else {
-    // Handle regular pagination (server-side)
-    loadPage(page);
-  }
-};
-
-const openCreateModal = () => {
-  showCreateModal.value = true;
-};
-
-const closeCreateModal = () => {
-  showCreateModal.value = false;
-};
-
-const onUrlCreated = async (url: UrlResponse) => {
-  closeCreateModal();
-  await urlStore.fetchUrls();
-  
-  // Show success toast notification
-  successMessage.value = `Successfully created short URL: ${url.short_code}`;
-  showSuccessToast.value = true;
-  
-  // Auto-hide toast after configured duration
-  const timeoutId = window.setTimeout(() => {
-    showSuccessToast.value = false;
-  }, TOAST_DISPLAY_DURATION);
-  timeoutIds.push(timeoutId);
-};
-
-const confirmArchive = (id: string) => {
-  archiveUrlId.value = id;
-  showArchiveModal.value = true;
-  archiveError.value = null;
-};
-
-const confirmRestore = (id: string) => {
-  restoreUrlId.value = id;
-  showRestoreModal.value = true;
-  restoreError.value = null;
-};
-
-const handleUrlStatusChange = async (
-  urlId: string | null,
-  storeAction: (id: string) => Promise<any>,
-  successMsg: string,
-  actionVerb: string,
-  errorRef: { value: string | null },
-  modalRef: { value: boolean },
-  urlIdRef: { value: string | null }
-) => {
-  if (!urlId) return;
-  
   try {
-    await storeAction(urlId);
-    modalRef.value = false;
-    urlIdRef.value = null;
-    
-    // Show success toast
-    successMessage.value = successMsg;
-    showSuccessToast.value = true;
-    const timeoutId = window.setTimeout(() => {
-      showSuccessToast.value = false;
-    }, TOAST_DISPLAY_DURATION);
-    timeoutIds.push(timeoutId);
-  } catch (err: any) {
-    errorRef.value = err.response?.data?.message || `Failed to ${actionVerb} URL`;
+    // Built from `short_code`, not the API's `short_url` - the Admin API returns
+    // the bare short code there (see UrlTable.vue for the full explanation).
+    await navigator.clipboard.writeText(shortLinkTarget(url.short_code));
+    copiedId.value = url.id;
+    scheduleTimeout(() => {
+      if (copiedId.value === url.id) {
+        copiedId.value = null;
+      }
+    }, COPY_FEEDBACK_DURATION);
+  } catch {
+    pushToast('複製失敗，請手動複製網址。', 'err');
   }
 };
 
-const handleArchive = async () => {
-  await handleUrlStatusChange(
-    archiveUrlId.value,
-    urlStore.archiveUrl.bind(urlStore),
-    'URL archived successfully',
-    'archive',
-    archiveError,
-    showArchiveModal,
-    archiveUrlId
-  );
+// --- Create. ---
+const handleCreated = (url: UrlResponse): void => {
+  pushToast(`已建立短網址：${url.short_code}`, 'ok');
+  loadKpiSummary();
 };
 
-const handleRestore = async () => {
-  await handleUrlStatusChange(
-    restoreUrlId.value,
-    urlStore.restoreUrl.bind(urlStore),
-    'URL restored successfully',
-    'restore',
-    restoreError,
-    showRestoreModal,
-    restoreUrlId
-  );
-};
-
-// Open edit modal
-const openEditModal = (url: UrlResponse) => {
-  editForm.value = {
-    id: url.id,
-    short_code: url.short_code,
-    original_url: url.original_url,
-    title: url.title || '',
-    description: url.description || '',
-    image_url: url.image_url || '',
-    is_active: url.is_active,
-    expires_at_local: url.expires_at ? timestampToLocalDatetime(url.expires_at) : ''
-  };
-  editError.value = null;
-  editImageError.value = null;
-  editPreviewImageUrl.value = null;
+// --- Edit. ---
+const showEditModal = ref(false);
+const editingUrl = ref<UrlResponse | null>(null);
+const openEdit = (url: UrlResponse): void => {
+  editingUrl.value = url;
   showEditModal.value = true;
 };
-
-// Close edit modal
-const closeEditModal = () => {
+const closeEdit = (): void => {
   showEditModal.value = false;
-  editError.value = null;
-  editImageError.value = null;
-  if (editPreviewImageUrl.value) {
-    URL.revokeObjectURL(editPreviewImageUrl.value);
-    editPreviewImageUrl.value = null;
-  }
+};
+const handleEditSaved = (url: UrlResponse): void => {
+  pushToast(`已更新短網址：${url.short_code}`, 'ok');
+  loadKpiSummary();
 };
 
-// Edit image upload functions
-const triggerEditFileInput = () => {
-  editFileInput.value?.click();
+// --- Archive. ---
+const showArchiveModal = ref(false);
+const archiveTarget = ref<UrlResponse | null>(null);
+const archiveSubmitting = ref(false);
+const archiveError = ref<string | null>(null);
+const confirmArchive = (url: UrlResponse): void => {
+  archiveTarget.value = url;
+  archiveError.value = null;
+  showArchiveModal.value = true;
 };
-
-const handleEditFileSelect = (event: Event) => {
-  const target = event.target as HTMLInputElement;
-  if (target.files && target.files[0]) {
-    uploadEditImage(target.files[0]);
-  }
-};
-
-const handleEditDrop = (event: DragEvent) => {
-  editIsDragging.value = false;
-  if (event.dataTransfer?.files && event.dataTransfer.files[0]) {
-    uploadEditImage(event.dataTransfer.files[0]);
-  }
-};
-
-const uploadEditImage = async (file: File) => {
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
-  if (!allowedTypes.includes(file.type)) {
-    editImageError.value = 'Invalid file type. Only JPEG, PNG, GIF, WebP, and SVG are allowed.';
+const handleArchiveConfirm = async (): Promise<void> => {
+  if (!archiveTarget.value) {
     return;
   }
-  
-  if (file.size > 10 * 1024 * 1024) {
-    editImageError.value = 'File too large. Maximum size is 10MB.';
+  archiveSubmitting.value = true;
+  archiveError.value = null;
+  try {
+    const url = await urlStore.archiveUrl(archiveTarget.value.id);
+    showArchiveModal.value = false;
+    pushToast(`已封存短網址：${url.short_code}`, 'ok');
+    loadKpiSummary();
+  } catch (err: unknown) {
+    archiveError.value = extractErrorMessage(err, '封存失敗');
+  } finally {
+    archiveSubmitting.value = false;
+  }
+};
+
+// --- Restore. ---
+const showRestoreModal = ref(false);
+const restoreTarget = ref<UrlResponse | null>(null);
+const restoreSubmitting = ref(false);
+const restoreError = ref<string | null>(null);
+const confirmRestore = (url: UrlResponse): void => {
+  restoreTarget.value = url;
+  restoreError.value = null;
+  showRestoreModal.value = true;
+};
+const handleRestoreConfirm = async (): Promise<void> => {
+  if (!restoreTarget.value) {
     return;
   }
-  
-  editImageError.value = null;
-  editImageUploading.value = true;
-  
-  if (editPreviewImageUrl.value) {
-    URL.revokeObjectURL(editPreviewImageUrl.value);
-  }
-  editPreviewImageUrl.value = URL.createObjectURL(file);
-  
+  restoreSubmitting.value = true;
+  restoreError.value = null;
   try {
-    const result = await apiService.uploadImage(file);
-    editForm.value.image_url = result.url || '';
-  } catch (err: any) {
-    editImageError.value = err.response?.data?.message || 'Failed to upload image';
-    if (editPreviewImageUrl.value) {
-      URL.revokeObjectURL(editPreviewImageUrl.value);
-      editPreviewImageUrl.value = null;
-    }
+    const url = await urlStore.restoreUrl(restoreTarget.value.id);
+    showRestoreModal.value = false;
+    pushToast(`已還原短網址：${url.short_code}`, 'ok');
+    loadKpiSummary();
+  } catch (err: unknown) {
+    restoreError.value = extractErrorMessage(err, '還原失敗');
   } finally {
-    editImageUploading.value = false;
+    restoreSubmitting.value = false;
   }
-};
-
-const clearEditPreviewImage = () => {
-  if (editPreviewImageUrl.value) {
-    URL.revokeObjectURL(editPreviewImageUrl.value);
-    editPreviewImageUrl.value = null;
-  }
-  editForm.value.image_url = '';
-  editImageError.value = null;
-  if (editFileInput.value) {
-    editFileInput.value.value = '';
-  }
-};
-
-// Handle edit form submission
-const handleEditSubmit = async () => {
-  try {
-    editLoading.value = true;
-    editError.value = null;
-
-    const updateData: UpdateUrlRequest = {
-      original_url: editForm.value.original_url,
-      title: editForm.value.title || undefined,
-      description: editForm.value.description || undefined,
-      image_url: editForm.value.image_url || undefined,
-      is_active: editForm.value.is_active
-    };
-
-    // Convert local datetime to timestamp if provided
-    if (editForm.value.expires_at_local) {
-      updateData.expires_at = new Date(editForm.value.expires_at_local).getTime();
-    } else {
-      updateData.expires_at = null;
-    }
-
-    await urlStore.updateUrl(editForm.value.id, updateData);
-    
-    // Close modal
-    closeEditModal();
-    
-    // Show success message
-    successMessage.value = `Successfully updated URL: ${editForm.value.short_code}`;
-    showSuccessToast.value = true;
-    
-    // Auto-hide toast after configured duration
-    const timeoutId = window.setTimeout(() => {
-      showSuccessToast.value = false;
-    }, TOAST_DISPLAY_DURATION);
-    timeoutIds.push(timeoutId);
-  } catch (err: any) {
-    editError.value = err.response?.data?.message || 'Failed to update URL';
-    console.error('Error updating URL:', err);
-  } finally {
-    editLoading.value = false;
-  }
-};
-
-// Helper function to convert timestamp to local datetime input format
-const timestampToLocalDatetime = (timestamp: number): string => {
-  const date = new Date(timestamp);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-
-  // Format as YYYY-MM-DDTHH:mm for datetime-local, using local time components
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
-};
-
-const truncate = (str: string, length: number) => {
-  return str.length > length ? str.substring(0, length) + '...' : str;
-};
-
-const formatDate = (timestamp: number) => {
-  return new Date(timestamp).toLocaleDateString();
 };
 </script>
-
-<style scoped>
-.card {
-  transition: box-shadow 0.2s, opacity 0.2s;
-}
-
-.card:hover {
-  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
-}
-
-.archived-url-card {
-  opacity: 0.7;
-  background-color: #f8f9fa;
-  border-left: 4px solid #ffc107;
-}
-
-.archived-badge {
-  display: inline-block;
-  background-color: #ffc107;
-  color: #000;
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.25rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  margin-left: 0.5rem;
-}
-
-/* Dark mode styling for archived URLs */
-@media (prefers-color-scheme: dark), (min-width: 0) {
-  :is([data-bs-theme="dark"], html:has([data-bs-theme="dark"])) .archived-url-card {
-    opacity: 0.65;
-    background-color: rgba(108, 117, 125, 0.15);
-    border-left: 4px solid rgba(255, 193, 7, 0.5);
-  }
-
-  :is([data-bs-theme="dark"], html:has([data-bs-theme="dark"])) .archived-badge {
-    background-color: rgba(255, 193, 7, 0.25);
-    color: #ffc107;
-  }
-}
-
-/* Fallback for browsers that don't support :has() */
-@supports not selector(:has(*)) {
-  @media (prefers-color-scheme: dark) {
-    .archived-url-card {
-      opacity: 0.65;
-      background-color: rgba(108, 117, 125, 0.15);
-      border-left: 4px solid rgba(255, 193, 7, 0.5);
-    }
-
-    .archived-badge {
-      background-color: rgba(255, 193, 7, 0.25);
-      color: #ffc107;
-    }
-  }
-
-  [data-bs-theme="dark"] .archived-url-card {
-    opacity: 0.65;
-    background-color: rgba(108, 117, 125, 0.15);
-    border-left: 4px solid rgba(255, 193, 7, 0.5);
-  }
-
-  [data-bs-theme="dark"] .archived-badge {
-    background-color: rgba(255, 193, 7, 0.25);
-    color: #ffc107;
-  }
-}
-
-.btn-sm i {
-  font-size: 0.875rem;
-}
-
-/* Copy button animation */
-.btn-outline-secondary i.bi-check2 {
-  color: var(--bs-success);
-  font-weight: bold;
-}
-
-/* Search box styling */
-.input-group-text {
-  background-color: #f8f9fa;
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  .btn-group {
-    flex-direction: column;
-    width: 100%;
-  }
-  
-  .btn-group > * {
-    width: 100%;
-    margin-bottom: 0.25rem;
-  }
-}
-
-/* Upload area styling */
-.upload-area {
-  transition: all 0.2s ease;
-  background-color: var(--bs-body-bg);
-}
-
-.upload-area:hover {
-  background-color: var(--bs-tertiary-bg);
-}
-
-.upload-area.drag-over {
-  background-color: var(--bs-primary-bg-subtle);
-}
-
-.border-dashed {
-  border-style: dashed !important;
-}
-</style>

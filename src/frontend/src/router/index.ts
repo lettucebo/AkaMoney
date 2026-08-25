@@ -7,6 +7,8 @@ import { getValidatedRedirect } from '@/utils/redirect';
 declare module 'vue-router' {
   interface RouteMeta {
     requiresAuth?: boolean;
+    /** Breadcrumb label rendered by the app shell topbar. */
+    title?: string;
   }
 }
 
@@ -19,30 +21,31 @@ const routes: RouteRecordRaw[] = [
     path: '/dashboard',
     name: 'Dashboard',
     component: () => import('@/views/DashboardView.vue'),
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true, title: '連結' }
   },
   {
     path: '/stats',
     name: 'OverallStats',
     component: () => import('@/views/OverallStatsView.vue'),
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true, title: '總覽統計' }
   },
   {
     path: '/login',
     name: 'Login',
-    component: () => import('@/views/LoginView.vue')
+    component: () => import('@/views/LoginView.vue'),
+    meta: { title: '登入' }
   },
   {
     path: '/analytics/:shortCode',
     name: 'Analytics',
     component: () => import('@/views/AnalyticsView.vue'),
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true, title: '成效分析' }
   },
   {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
     component: () => import('@/views/NotFoundView.vue'),
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true, title: '找不到頁面' }
   }
 ];
 
