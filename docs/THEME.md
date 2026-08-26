@@ -1,207 +1,178 @@
-# Theme System Technical Documentation
+English | [繁體中文](THEME.zh-TW.md)
 
-## Overview
+# Theme system
 
-AkaMoney uses Bootstrap 5's built-in dark mode support combined with Vue 3's Pinia state management to implement light/dark theme switching functionality.
+AkaMoney’s management dashboard uses Tailwind CSS v4 in CSS-first mode, Monē design tokens, and a Pinia store that writes `data-theme` on `<html>`. Bootstrap and `data-bs-theme` are not part of this system.
 
-## Architecture
+## Scope
 
-### Core Components
+This document describes the shipped Vue dashboard under `src/frontend/`. Design-proposal HTML in `design-mockups/` is a visual ancestor, not the runtime stylesheet.
 
-1. **Theme Store** (`src/stores/theme.ts`)
-   - Manages theme state (light/dark)
-   - Handles localStorage persistence
-   - Listens for system preference changes
-   - Provides `toggleTheme()` method to switch themes
+## Tailwind CSS v4 (CSS-first)
 
-2. **CSS Variables** (`src/assets/css/main.css`)
-   - Defines custom CSS variables for theme support
-   - Uses `[data-bs-theme="dark"]` selector for dark theme styles
+There is no `tailwind.config.js`. Tokens and the dark variant live in CSS. Vite loads Tailwind through `@tailwindcss/vite` in `src/frontend/vite.config.ts`.
 
-3. **Theme Toggle Button** (`src/App.vue`)
-   - Located in the navbar
-   - Displays moon/sun icons
-   - Click to toggle theme
+Authoritative stylesheet: [`src/frontend/src/assets/css/main.css`](../src/frontend/src/assets/css/main.css).
 
-## How It Works
+```css
+@import "tailwindcss";
 
-### Theme Initialization Flow
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 
-```
-1. main.ts initializes Pinia store
-2. themeStore.initialize() is called
-3. Check localStorage for saved preference
-4. If none, detect system prefers-color-scheme
-5. Set data-bs-theme attribute on document.documentElement
-6. Set up listener for system preference changes
+@theme {
+  --font-display: "Libre Baskerville", "Noto Serif TC", serif;
+  --font-sans: "Noto Sans TC", system-ui, "Microsoft JhengHei", "PingFang TC", sans-serif;
+  --font-mono: "JetBrains Mono", "Noto Sans TC", monospace;
+  --color-bg: #faf8f5;
+  --color-accent: #81b29a;
+  --text-base: 14px;
+}
 ```
 
-### Bootstrap 5 Dark Mode
+`@theme` exposes the tokens as Tailwind theme values. Component CSS in the same file still reads `var(--color-*)` so light/dark overrides on `:root[data-theme="dark"]` apply without a second Tailwind config.
 
-Bootstrap 5 uses the `data-bs-theme` attribute to control themes:
+## Design tokens
+
+### Source of truth
+
+`main.css` is the runtime source of truth. It is derived from proposal **`m2-mone-dense`** (also called Proposal F / Monē dense data tool) in:
+
+- [`design-mockups/proposals/m2-mone-dense.manifest.json`](../design-mockups/proposals/m2-mone-dense.manifest.json)
+- [`design-mockups/proposals/m2-mone-dense.html`](../design-mockups/proposals/m2-mone-dense.html)
+
+Do not copy the full token dump here. Read `@theme`, `:root`, and `:root[data-theme="dark"]` in `main.css` when a value must be exact.
+
+### Light and dark values
+
+| Role | Light | Dark |
+|------|-------|------|
+| Page background | `#faf8f5` | `#0a0a0b` |
+| Surface | `#ffffff` | `#141416` |
+| Surface alt | `#f0eeeb` | `#1a1a1c` |
+| Text | `#3d3a36` | `#e8e6e3` |
+| Muted | `#9a9590` | `#666666` |
+| Border | `#e8e6e3` | `#2a2a2c` |
+| Accent / success | `#81b29a` | `#4ade80` |
+| Warning | `#f2cc8f` | `#ffe66d` |
+| Danger | `#e07a5f` | `#ff6b6b` |
+
+Shared (not theme-flipped) chart series: `#e07a5f`, `#81b29a`, `#f2cc8f`, `#3d405b`, `#6d597a`, `#b56576`, `#355070`, `#eaac8b`, `#9a9590`.
+
+Other layout tokens in `:root`: `--sidebar-w: 236px` (collapsed shell uses `64px`), `--radius-sm/md/lg/xl` = `3px` / `5px` / `8px` / `12px`, base type size `14px`.
+
+### Font stack
+
+Loaded in [`src/frontend/index.html`](../src/frontend/index.html) from Google Fonts, then referenced by `--font-display`, `--font-sans`, and `--font-mono`:
+
+- Display / headings: Libre Baskerville, Noto Serif TC, serif
+- Body: Noto Sans TC, system-ui, Microsoft JhengHei, PingFang TC, sans-serif
+- Mono (short codes, prefixes): JetBrains Mono, Noto Sans TC, monospace
+
+`h1`–`h3` use the display stack; `body` uses the sans stack.
+
+## Runtime theme switching
+
+### Initialization
+
+[`src/frontend/src/main.ts`](../src/frontend/src/main.ts) creates Pinia, then calls `useThemeStore().initialize()` **before** `app.mount('#app')` so the first paint already has `data-theme`.
+
+```
+1. Pinia starts
+2. themeStore.initialize()
+3. localStorage `akamoney-theme` if it is `light` or `dark`
+4. otherwise prefers-color-scheme
+5. document.documentElement.setAttribute('data-theme', theme)
+6. always listen for OS scheme changes; the handler calls setTheme(..., false) only when no stored preference exists
+```
 
 ```html
-<!-- Light theme -->
-<html data-bs-theme="light">
-
-<!-- Dark theme -->
-<html data-bs-theme="dark">
+<html lang="zh-Hant-TW" data-theme="light">
+<html lang="zh-Hant-TW" data-theme="dark">
 ```
 
-When this attribute is set, Bootstrap automatically adjusts all component styles.
+### Persistence and system preference
 
-## Customizing Colors
+Store: [`src/frontend/src/stores/theme.ts`](../src/frontend/src/stores/theme.ts).
 
-### Modifying Primary Colors
-
-Edit CSS variables in `src/assets/css/main.css`:
-
-```css
-:root {
-  /* Primary brand colors */
-  --bs-primary: #0d6efd;    /* Change this to modify primary color */
-  --bs-secondary: #6c757d;
-  --bs-success: #198754;
-  --bs-danger: #dc3545;
-  --bs-warning: #ffc107;
-  --bs-info: #0dcaf0;
-}
+```javascript
+localStorage.getItem('akamoney-theme') // 'light' | 'dark' | null
 ```
 
-### Dark Theme Specific Styles
+- `setTheme(theme, persist = true)` writes the attribute and, when `persist` is true, `akamoney-theme`.
+- `toggleTheme()` always persists.
+- OS `change` events call `setTheme(..., false)` so a stored manual choice is never overwritten.
 
-Use the `[data-bs-theme="dark"]` selector:
+### Semantic toggle icons
 
-```css
-[data-bs-theme="dark"] {
-  --app-shadow-color: rgba(0, 0, 0, 0.4);
-  /* Add dark theme specific variables */
-}
-```
+`toggleIcon` is the **target** appearance, not the current theme:
 
-## API Reference
+- dark theme → `'sun'` (switch to light)
+- light theme → `'moon'` (switch to dark)
 
-### useThemeStore()
+The control lives in [`AppSidebar.vue`](../src/frontend/src/components/layout/AppSidebar.vue) (`data-testid="theme-toggle"`) and renders inline SVG with `data-icon="sun"` / `data-icon="moon"`. It is not a Bootstrap icon class.
 
 ```typescript
 import { useThemeStore } from '@/stores/theme';
 
 const themeStore = useThemeStore();
-
-// Properties
 themeStore.theme        // 'light' | 'dark'
 themeStore.initialized  // boolean
-themeStore.isDark       // boolean (getter)
-themeStore.toggleIcon   // string (getter) - Bootstrap icon class
-
-// Methods
-themeStore.initialize()           // Initialize theme (called automatically in main.ts)
-themeStore.setTheme('dark')       // Set theme and persist
-themeStore.setTheme('light', false) // Set theme without persisting
-themeStore.toggleTheme()          // Toggle between themes
+themeStore.isDark       // boolean
+themeStore.toggleIcon   // 'sun' | 'moon'
+themeStore.initialize()
+themeStore.setTheme('dark')
+themeStore.setTheme('light', false)
+themeStore.toggleTheme()
 ```
 
-## localStorage
+## Chart.js palette
 
-Theme preference is stored in localStorage under the `akamoney-theme` key:
+### Why tokens are mirrored
 
-```javascript
-localStorage.getItem('akamoney-theme')  // 'light' | 'dark' | null
+Chart.js paints to `<canvas>` and cannot read CSS custom properties. [`useChartTheme.ts`](../src/frontend/src/composables/useChartTheme.ts) therefore mirrors the same hex values as `main.css` / the `m2-mone-dense` manifest.
+
+```typescript
+export const CHART_SERIES = [
+  '#e07a5f', '#81b29a', '#f2cc8f', '#3d405b',
+  '#6d597a', '#b56576', '#355070', '#eaac8b', '#9a9590'
+] as const;
 ```
 
-## Smooth Transitions
+The series array is **identical** in light and dark so a category keeps its colour when the theme flips. Theme-dependent canvas chrome (axis text, grid, tooltip, surface, area `fillAlpha` `22` / `33`) switches with `themeStore.isDark`.
 
-CSS transition effects are defined in `App.vue`. Transitions are applied only to key Bootstrap components for better performance:
+### Rerender and race guards
 
-```css
-html {
-  transition: background-color 0.3s ease, color 0.3s ease;
-}
+[`BaseChart.vue`](../src/frontend/src/components/common/BaseChart.vue) watches `type`, `labels`, `values`, and the computed chart theme, then rebuilds the Chart.js instance.
 
-/* Limit transitions to specific elements for better performance */
-.card,
-.modal,
-.dropdown-menu,
-.navbar,
-.btn,
-.form-control,
-.form-select,
-.alert,
-.badge,
-.list-group-item,
-.table,
-.progress,
-.footer {
-  transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
-}
-```
+`renderChart` is async (`await nextTick()` before touching the canvas). A monotonic `renderGeneration` makes a stale render a no-op if props/theme change or the component unmounts mid-await. That prevents a second `Chart` on the same canvas. Empty or all-zero series render the empty state instead of a chart.
 
-## Adding Theme Support to New Components
+Supported types: `line`, `bar`, `doughnut`. `prefers-reduced-motion: reduce` disables Chart.js animation (duration `0`); `main.css` also collapses CSS transitions globally under that media query.
 
-1. **Use Bootstrap's theme-aware classes**:
-   - `text-body` instead of `text-dark`
-   - `text-body-secondary` instead of `text-muted`
-   - `bg-body` instead of `bg-white`
-   - `bg-body-secondary` instead of `bg-light`
-   - `border-body` instead of hardcoded border colors
+## Component conventions
 
-2. **Avoid hardcoded colors**:
-   ```css
-   /* ❌ Avoid */
-   .my-element { background-color: #ffffff; }
-   
-   /* ✅ Use Bootstrap variables */
-   .my-element { background-color: var(--bs-body-bg); }
-   ```
+1. Use semantic tokens (`var(--color-text)`, `var(--color-accent)`, …), not hardcoded hex, except inside `useChartTheme` where canvas cannot see CSS variables.
+2. Prefer the `@layer components` classes in `main.css`: `.btn` / `.btn.primary|.ghost|.danger|.sm`, `.icon-btn`, `.badge.on|.off|.exp`, `.kpi`, `.table` / `.row`, `.palette` (inline create), `.state`, `.card`, `.modal-scrim` / `.modal-panel`.
+3. Vue wrappers: `BaseButton`, `BaseBadge`, `BaseModal`, `BaseChart`, `EmptyState`, `StateBlock`.
+4. Select dark overrides with `:root[data-theme="dark"]` or the Tailwind `dark:` variant wired by `@custom-variant`. Never `data-bs-theme` or Bootstrap utility classes.
+5. Shell breakpoint: `@media (max-width: 860px)` turns the sidebar into an off-canvas drawer.
 
-3. **Dark theme specific styles**:
-   ```css
-   [data-bs-theme="dark"] .my-element {
-     /* Dark theme styles */
-   }
-   ```
+## Tests
 
-## Testing
+| Area | File |
+|------|------|
+| Theme store | `src/frontend/src/stores/__tests__/theme.test.ts` |
+| Chart tokens | `src/frontend/src/composables/__tests__/useChartTheme.test.ts` |
+| Chart race | `src/frontend/src/components/common/__tests__/BaseChart.renderRace.test.ts` |
 
-Theme store unit tests are located at:
-`src/stores/__tests__/theme.test.ts`
-
-Run tests:
 ```bash
 cd src/frontend
 npm run test
 ```
 
-## Future Extensions
+## Related documents
 
-### User Profile Storage
-
-To save theme settings to user account:
-
-1. Add user preferences endpoint to backend API
-2. Modify `theme.ts` to sync settings after user login:
-
-```typescript
-// Example implementation
-async syncWithUserProfile() {
-  if (authStore.isAuthenticated) {
-    const userPrefs = await api.getUserPreferences();
-    if (userPrefs.theme) {
-      this.setTheme(userPrefs.theme, true);
-    }
-  }
-}
-```
-
-### Custom Color Schemes
-
-Can be extended to support multiple color themes:
-
-```typescript
-type ColorScheme = 'default' | 'blue' | 'green' | 'purple';
-
-// Define variables for each color scheme in CSS
-[data-color-scheme="blue"] {
-  --bs-primary: #0ea5e9;
-}
-```
+- [README](../README.md)
+- [Project structure](PROJECT_STRUCTURE.md)
+- [Screenshots](SCREENSHOTS.md)
+- [Setup](SETUP.md)
+- [API](API.md)

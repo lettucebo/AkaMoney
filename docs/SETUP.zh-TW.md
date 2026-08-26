@@ -1,588 +1,213 @@
+[English](SETUP.md) | 繁體中文
+
 # AkaMoney 設定指南
-
-本指南將協助您在本地設定和執行 AkaMoney 網址縮短服務，並將其部署到 Cloudflare。
-
-## 架構概覽
-
-AkaMoney 使用分離式服務架構：
-
-| 服務 | 說明 | 驗證 |
-|------|------|------|
-| **重定向服務** (`akamoney-redirect`) | 公開網址重定向 | 無需驗證 |
-| **管理 API** (`akamoney-admin-api`) | 網址管理和分析 | 需要 JWT |
-| **前端** | 管理儀表板 | Entra ID |
 
 ## 前置需求
 
-- Node.js 24.x（LTS）
-- npm 或 yarn
-- Cloudflare 帳號（免費方案即可）
-- Wrangler CLI（`npm install -g wrangler`）
+- **Node.js >= 24** 和 **npm** — 確切版本請查看 `.node-version`
+- **Wrangler CLI** — 本地後端開發所需（`npm install -g wrangler`）
+- **Cloudflare 帳號** — 免費方案即可用於開發
 
-## 初始設定
+## 快速開始 — 僅 UI 模式
 
-### 1. 複製專案並安裝相依套件
+最快的方式：前端使用**記憶體內 Stub API** 執行，無需任何後端基礎設施。適用於 UI 測試和示範。
 
 ```bash
-# 複製儲存庫
 git clone https://github.com/lettucebo/AkaMoney.git
 cd AkaMoney
+npm run setup
+cp src/frontend/.env.example src/frontend/.env
+```
 
-# 安裝所有專案的相依套件（前端、後端、重定向）
+開啟 `src/frontend/.env` 並設定：
+
+```env
+VITE_SKIP_AUTH=true
+VITE_API_URL=http://localhost:8787
+VITE_SHORT_DOMAIN=http://localhost:8788
+```
+
+啟動前端：
+
+```bash
+cd src/frontend && npm run dev
+```
+
+開啟 <http://localhost:5173>。設定 `VITE_SKIP_AUTH=true` 後，所有後端呼叫均替換為記憶體內模擬資料，並略過 Entra ID 驗證。**不會儲存或擷取真實資料。請勿用於正式環境。**
+
+完整環境變數參考請查閱 [CONFIGURATION.zh-TW.md](CONFIGURATION.zh-TW.md)。
+
+## 完整堆疊本地開發
+
+### 1. 複製並安裝
+
+```bash
+git clone https://github.com/lettucebo/AkaMoney.git
+cd AkaMoney
 npm run setup
 ```
 
-### 2. 配置 Cloudflare
+### 2. 向 Cloudflare 驗證
 
-#### 登入 Cloudflare
 ```bash
 wrangler login
 ```
 
-#### 建立 D1 資料庫
+### 3. 建立 D1 資料庫
+
 ```bash
-cd src/backend
 wrangler d1 create akamoney-clicks
 ```
 
-此命令會輸出資料庫 ID。複製它並為兩個服務建立本地配置：
+從輸出中複製 `database_id` UUID — 接下來兩步驟會需要用到。
 
-**管理 API：**
+### 4. 配置管理 API
+
 ```bash
 cp src/backend/wrangler.local.toml.example src/backend/wrangler.local.toml
 ```
 
-編輯 `src/backend/wrangler.local.toml` 並設定您的 database_id：
+編輯 `src/backend/wrangler.local.toml` 並設定您的 `database_id`：
+
 ```toml
 [[d1_databases]]
 binding = "DB"
 database_name = "akamoney-clicks"
-database_id = "YOUR_DATABASE_ID_HERE"
+database_id = "<貼上您的資料庫 ID>"
 ```
 
-**重定向服務：**
+> 後端範例使用 Wrangler v4 的 `compatibility_flags = ["nodejs_compat"]`。重新導向服務仍固定使用 Wrangler v3，因此保留舊版 `node_compat = true`；請勿將該 key 複製到後端設定。
+
+### 5. 配置重新導向服務
+
 ```bash
 cp src/redirect/wrangler.local.toml.example src/redirect/wrangler.local.toml
 ```
 
-編輯 `src/redirect/wrangler.local.toml` 並設定相同的 database_id：
+編輯 `src/redirect/wrangler.local.toml` 並設定相同的 `database_id`：
+
 ```toml
 [[d1_databases]]
 binding = "DB"
 database_name = "akamoney-clicks"
-database_id = "YOUR_DATABASE_ID_HERE"
+database_id = "<貼上您的資料庫 ID>"
 ```
 
-> **注意**：兩個 `wrangler.local.toml` 檔案都已被 git 忽略，以防止敏感資訊洩漏。主要的 `wrangler.toml` 保留為範本，其中 `database_id` 為空，供 CD 部署時自動從 Secrets 注入。
-
-#### 執行資料庫遷移
-```bash
-# 用於本地開發
-wrangler d1 migrations apply akamoney-clicks --local
-
-# 用於生產環境
-wrangler d1 migrations apply akamoney-clicks --remote
-```
-
-#### 建立 R2 Bucket
-```bash
-wrangler r2 bucket create akamoney-storage
-wrangler r2 bucket create akamoney-storage-preview
-```
-
-#### 設定密鑰
-```bash
-# 設定 JWT 密鑰
-wrangler secret put JWT_SECRET
-# 提示時輸入一個強隨機字串
-
-# 如果使用 Entra ID，設定這些密鑰：
-wrangler secret put ENTRA_ID_CLIENT_SECRET
-```
-
-#### 儲存空間配置
-
-AkaMoney 支援兩種儲存空間提供者用於圖片上傳：
-
-1. **Cloudflare R2**（預設）- 推薦用於 Cloudflare 部署
-2. **Azure Blob Storage** - 適用於 Azure 相關部署
-
-##### 使用 Cloudflare R2（預設）
-
-R2 為預設配置。將 `STORAGE_PROVIDER` 環境變數設定為 `r2`（或保持未設定）：
-
-```toml
-# 在 wrangler.toml 或 wrangler.local.toml 中
-[vars]
-STORAGE_PROVIDER = "r2"
-# R2_PUBLIC_URL = "https://storage.your-domain.com"  # 選用：用於公開 URL
-```
-
-##### 使用 Azure Blob Storage
-
-若要使用 Azure Blob Storage 而非 R2：
-
-1. 建立 Azure 儲存帳戶和容器
-2. 產生具有讀取、寫入、刪除和列表權限的 SAS token
-3. 配置環境變數：
+### 6. 套用資料庫遷移
 
 ```bash
-# 設定儲存提供者為 Azure
-wrangler secret put STORAGE_PROVIDER
-# 輸入：azure
-
-# 設定 Azure 憑證
-wrangler secret put AZURE_STORAGE_ACCOUNT
-# 輸入您的儲存帳戶名稱
-
-wrangler secret put AZURE_STORAGE_CONTAINER
-# 輸入您的容器名稱
-
-wrangler secret put AZURE_STORAGE_SAS_TOKEN
-# 輸入您的 SAS token（可含或不含前導 '?'）
-
-# （選用）如果使用 CDN 或自訂網域，設定公開 URL
-wrangler secret put AZURE_PUBLIC_URL
-# 輸入：https://your-cdn.azureedge.net/container
+cd src/backend
+npx wrangler d1 migrations apply DB --local --config wrangler.local.toml
 ```
 
-> **注意**：使用 Azure Storage 時，不需要配置 R2 bucket。儲存提供者根據 `STORAGE_PROVIDER` 環境變數選擇。
+### 7. 配置前端
 
-##### 使用 CDN
-
-若要透過 CDN 提供圖片而非直接從儲存空間取得（建議以節省成本）：
-
-```bash
-wrangler secret put CDN_URL
-# 輸入：https://your-cdn.example.com
-```
-
-`CDN_URL` 設定優先於 `R2_PUBLIC_URL` 和 `AZURE_PUBLIC_URL`。設定後，所有圖片 URL 將使用此基礎 URL，而非儲存提供者的公開 URL。
-
-**CDN 配置範例：**
-- Cloudflare CDN：`https://cdn.your-domain.com`
-- Azure CDN：`https://your-cdn.azureedge.net/container`
-- AWS CloudFront：`https://d1234567890.cloudfront.net`
-
-### 3. 配置環境變數
-
-#### 後端環境
-建立 `src/backend/.env`：
-```bash
-cp src/backend/.env.example src/backend/.env
-```
-
-編輯 `src/backend/.env` 並填入您的值。
-
-#### 前端環境
-建立 `src/frontend/.env`：
 ```bash
 cp src/frontend/.env.example src/frontend/.env
 ```
 
 編輯 `src/frontend/.env`：
+
 ```env
 VITE_API_URL=http://localhost:8787
-VITE_ENTRA_ID_CLIENT_ID=your_client_id
-VITE_ENTRA_ID_TENANT_ID=your_tenant_id
+VITE_SHORT_DOMAIN=http://localhost:8788
+VITE_ENTRA_ID_CLIENT_ID=<您的用戶端 ID>
+VITE_ENTRA_ID_TENANT_ID=<您的租用戶 ID>
 VITE_ENTRA_ID_REDIRECT_URI=http://localhost:5173
 VITE_APP_NAME=AkaMoney
-VITE_SHORT_DOMAIN=http://localhost:8788
 ```
 
-## 開發
+已追蹤的 `.env.example` 使用 `VITE_SHORT_DOMAIN=http://localhost:8788`，也就是重新導向服務的連接埠。
 
-### 本地執行
+完整變數參考請查閱 [CONFIGURATION.zh-TW.md](CONFIGURATION.zh-TW.md)。
 
-> **重要**：對於使用 D1 資料庫的本地開發，請確保您已為管理 API 和重定向服務按照上述「建立 D1 資料庫」章節建立包含資料庫 ID 的 `wrangler.local.toml`。
+### 8. 啟動所有服務
 
-#### 選項 1：執行前端和管理 API
+開啟三個獨立終端：
+
+**終端 1 — 管理 API（埠號 8787）**
+
 ```bash
-npm run dev
-```
-
-這將啟動：
-- 前端於 http://localhost:5173
-- 管理 API 於 http://localhost:8787
-
-#### 選項 2：分別執行所有服務
-```bash
-# 終端機 1 - 管理 API（使用本地配置）
 cd src/backend
-wrangler dev --config wrangler.local.toml
+npx wrangler dev --config wrangler.local.toml --port 8787
+```
 
-# 終端機 2 - 重定向服務（使用本地配置）
+**終端 2 — 重新導向服務（埠號 8788）**
+
+```bash
 cd src/redirect
-wrangler dev --config wrangler.local.toml --port 8788
+npx wrangler dev --config wrangler.local.toml --port 8788
+```
 
-# 終端機 3 - 前端
+**終端 3 — 前端（埠號 5173）**
+
+```bash
 cd src/frontend
 npm run dev
 ```
 
-### 測試服務
+> **Windows 注意：** 根目錄的 `npm run dev` 腳本只使用 shell `&` 啟動前端和管理 API，**不會**啟動重新導向服務，且在各 shell 中行為可能不同。在 Windows 上建議使用上述三終端方式。
 
-#### 測試重定向服務
-```bash
-# 健康檢查
-curl http://localhost:8788/health
+## 健康狀態檢查
 
-# 測試重定向（透過管理 API 建立短網址後）
-curl -L http://localhost:8788/YOUR_SHORT_CODE
-```
-
-#### 測試管理 API
+三個服務都啟動後，進行驗證：
 
 ```bash
-# 健康檢查
 curl http://localhost:8787/health
-
-# 建立短網址（公開建立無需驗證）
-curl -X POST http://localhost:8787/api/shorten \
-  -H "Content-Type: application/json" \
-  -d '{"original_url": "https://example.com"}'
+curl http://localhost:8788/health
 ```
+
+前端登入頁面位於 <http://localhost:5173/login>。
+
+## 驗證注意事項
+
+- **完整堆疊模式**需要有效的 **Microsoft Entra ID** Token 才能存取所有受保護的 API 端點（`/api/urls`、`/api/analytics/*` 等）。請完成下方的 [Entra ID 配置](#entra-id-配置)。
+- **`VITE_SKIP_AUTH=true`** 用記憶體內 Stub 替換所有 API 呼叫並完全略過驗證。無需 Entra ID 應用程式註冊，但不會存取真實後端資料。
+
+## Entra ID 配置
+
+若要為管理儀表板啟用 Microsoft 驗證：
+
+### 在 Azure 入口網站中註冊應用程式
+
+1. 前往 [Azure 入口網站](https://portal.azure.com) > **Microsoft Entra ID** > **應用程式註冊** > **+ 新增註冊**。
+2. 輸入名稱（例如 `AkaMoney`），選擇支援的帳戶類型，並將重新導向 URI 設定為**單頁應用程式 (SPA)**：`http://localhost:5173`。
+3. 點擊**註冊**，記下**應用程式（用戶端）ID** 和**目錄（租用戶）ID**。
+
+### 配置 API 權限
+
+1. 在應用程式註冊中，前往 **API 權限**。
+2. 確認 **Microsoft Graph** > **User.Read**（委派）已存在。若無則新增。
+
+### 更新環境變數
+
+加入至 `src/frontend/.env`：
+
+```env
+VITE_ENTRA_ID_CLIENT_ID=<應用程式用戶端 ID>
+VITE_ENTRA_ID_TENANT_ID=<目錄租用戶 ID>
+VITE_ENTRA_ID_REDIRECT_URI=http://localhost:5173
+```
+
+加入至 `src/backend/wrangler.local.toml` 的 `[vars]` 下方：
+
+```toml
+ENTRA_ID_TENANT_ID = "<目錄租用戶 ID>"
+ENTRA_ID_CLIENT_ID = "<應用程式用戶端 ID>"
+```
+
+### 正式環境重新導向 URI
+
+部署至正式環境時，請在應用程式註冊的**驗證** > **單頁應用程式** > **新增 URI** 中加入您的正式環境網域。
 
 ## 部署
 
-AkaMoney 將三個獨立服務部署到 Cloudflare：
-
-| 服務 | 部署目標 | 命令 |
-|------|----------|------|
-| 管理 API | Cloudflare Workers | `npm run deploy:backend` |
-| 重定向服務 | Cloudflare Workers | `npm run deploy:redirect` |
-| 前端 | Cloudflare Pages | `npm run deploy:frontend` |
-
-### 部署所有服務
-
 ```bash
 npm run deploy
 ```
 
-### 部署管理 API 到 Cloudflare Workers
+此命令依序執行 `deploy:frontend`、`deploy:backend` 和 `deploy:redirect`，但前提是每個套件設定都已包含有效的正式環境資源 ID 與變數。一般正式發布應優先使用 release workflow。CI/CD 詳細資訊、環境 Secret 注入、手動部署前置條件和自訂網域設定，請查閱 [DEPLOYMENT.zh-TW.md](DEPLOYMENT.zh-TW.md)。
 
-```bash
-cd src/backend
-npm run deploy
-```
+---
 
-這將把您的管理 API worker 部署到 Cloudflare。記下 URL（例如：`https://akamoney-admin-api.YOUR_SUBDOMAIN.workers.dev`）。
-
-### 部署重定向服務到 Cloudflare Workers
-
-```bash
-cd src/redirect
-npm run deploy
-```
-
-這將把您的重定向服務 worker 部署到 Cloudflare。記下 URL（例如：`https://akamoney-redirect.YOUR_SUBDOMAIN.workers.dev`）。
-
-### 部署前端到 Cloudflare Pages
-
-```bash
-cd src/frontend
-
-# 建置前端
-npm run build
-
-# 部署到 Cloudflare Pages
-wrangler pages deploy dist
-```
-
-或使用 Cloudflare 儀表板：
-1. 前往 Pages 在您的 Cloudflare 儀表板
-2. 建立新專案
-3. 連接您的 GitHub 儲存庫
-4. 設定建置命令：`cd src/frontend && npm install && npm run build`
-5. 設定建置輸出目錄：`src/frontend/dist`
-6. 從 `src/frontend/.env.example` 新增環境變數
-
-### 更新前端配置
-
-部署服務後，更新 `src/frontend/.env`（或 Cloudflare Pages 環境變數）：
-
-```env
-VITE_API_URL=https://akamoney-api.YOUR_SUBDOMAIN.workers.dev
-VITE_SHORT_DOMAIN=https://akamoney-api.YOUR_SUBDOMAIN.workers.dev
-```
-
-然後重新部署前端。
-
-## Entra ID 設定（Microsoft Entra ID / Azure AD 驗證）
-
-若要為管理儀表板啟用 Microsoft 驗證，請遵循以下詳細步驟：
-
-### 步驟 1：存取 Azure 入口網站
-
-1. 前往 [Azure 入口網站](https://portal.azure.com)
-2. 使用您的 Microsoft 帳號登入
-3. 導覽至 **Microsoft Entra ID**（前身為 Azure Active Directory）
-
-### 步驟 2：註冊新應用程式
-
-1. 在左側邊欄中，點擊 **應用程式註冊**
-2. 點擊頂部的 **+ 新增註冊**
-3. 填寫註冊表單：
-   - **名稱**：`AkaMoney`（或您偏好的名稱）
-   - **支援的帳戶類型**：根據您的需求選擇：
-     - **單一租用戶**：僅限您組織中的帳戶
-     - **多租用戶**：任何組織目錄中的帳戶
-     - **個人 Microsoft 帳戶**：包含個人帳戶（建議使用以獲得更廣泛的存取權）
-   - **重新導向 URI**：選擇 **單頁應用程式 (SPA)** 並輸入：
-     - 開發環境：`http://localhost:5173`
-     - 點擊 **新增 URI** 以新增生產環境 URL：`https://your-domain.pages.dev`
-4. 點擊 **註冊**
-
-### 步驟 3：配置驗證
-
-1. 註冊後，前往左側邊欄的 **驗證**
-2. 在 **平台組態** 下，確認您的重新導向 URI 已列出
-3. 如有需要，新增額外的重新導向 URI：
-   - 點擊單頁應用程式下的 **新增 URI**
-   - 新增您的生產域名
-4. 在 **隱含授權和混合流程** 下：
-   - ✅ 勾選 **ID 權杖**（用於使用者登入）
-5. 在 **允許公用用戶端流程** 下：保持為 **否**
-6. 點擊頂部的 **儲存**
-
-### 步驟 4：配置 API 權限
-
-1. 點擊左側邊欄的 **API 權限**
-2. 預設權限應包含：
-   - **Microsoft Graph** > **User.Read**（讀取使用者設定檔）
-3. 如果不存在，請新增：
-   - 點擊 **+ 新增權限**
-   - 選擇 **Microsoft Graph**
-   - 選擇 **委派權限**
-   - 找到並勾選 **User.Read**
-   - 點擊 **新增權限**
-4. 選用：如果您有管理員權限，點擊 **授與管理員同意**（這會為所有使用者預先核准權限）
-
-### 步驟 5：取得應用程式 ID
-
-1. 前往左側邊欄的 **概觀**
-2. 複製以下值（配置時需要）：
-   - **應用程式（用戶端）ID**：這是您的 `VITE_ENTRA_ID_CLIENT_ID`
-   - **目錄（租用戶）ID**：這是您的 `VITE_ENTRA_ID_TENANT_ID`
-
-### 步驟 6：產生用戶端密碼（用於後端 API - 選用）
-
-> **注意**：只有當您計劃使用伺服器端驗證流程時才需要用戶端密碼。對於目前使用 MSAL 的 SPA 實作，這是選用的。
-
-1. 點擊左側邊欄的 **憑證和密碼**
-2. 點擊 **+ 新增用戶端密碼**
-3. 輸入描述：`AkaMoney Backend Secret`
-4. 選擇到期期間：
-   - **180 天（6 個月）** - 更安全，需要定期輪換
-   - **730 天（24 個月）** - 較少維護
-   - **自訂** - 設定您自己的到期時間
-5. 點擊 **新增**
-6. **重要**：立即複製 **值**（不會再次顯示）
-7. 安全儲存它 - 您將需要它用於 `ENTRA_ID_CLIENT_SECRET`
-
-### 步驟 7：配置應用程式設定（選用）
-
-1. 前往左側邊欄的 **商標和屬性**
-2. 自訂您的應用程式：
-   - **標誌**：上傳您的應用程式標誌（256x256 像素 PNG）
-   - **首頁 URL**：`https://your-domain.pages.dev`
-   - **服務條款 URL**：您的服務條款頁面
-   - **隱私權聲明 URL**：您的隱私政策頁面
-3. 點擊 **儲存**
-
-### 步驟 8：更新環境變數
-
-#### 前端配置（`src/frontend/.env`）：
-```env
-VITE_ENTRA_ID_CLIENT_ID=<您的應用程式用戶端ID>
-VITE_ENTRA_ID_TENANT_ID=<您的目錄租用戶ID>
-VITE_ENTRA_ID_REDIRECT_URI=http://localhost:5173
-```
-
-#### 後端配置（Wrangler 密碼）：
-```bash
-# 如果對後端驗證使用用戶端密碼
-wrangler secret put ENTRA_ID_CLIENT_SECRET
-# 提示時，貼上您先前複製的密碼值
-```
-
-#### 後端配置（`src/backend/.env`）：
-```env
-ENTRA_ID_TENANT_ID=<您的目錄租用戶ID>
-ENTRA_ID_CLIENT_ID=<您的應用程式用戶端ID>
-```
-
-### 步驟 9：生產環境配置
-
-對於生產部署：
-
-1. 將您的生產域名新增到重新導向 URI：
-   - 前往 **驗證** > **平台組態**
-   - 在 **單頁應用程式** 下，點擊 **新增 URI**
-   - 新增：`https://your-actual-domain.pages.dev` 或 `https://aka.money`
-   - 點擊 **儲存**
-
-2. 更新 Cloudflare Pages 環境變數：
-   - 前往 Cloudflare 儀表板 > Pages > 您的專案 > 設定 > 環境變數
-   - 新增：
-     - `VITE_ENTRA_ID_CLIENT_ID`：您的用戶端 ID
-     - `VITE_ENTRA_ID_TENANT_ID`：您的租用戶 ID
-     - `VITE_ENTRA_ID_REDIRECT_URI`：`https://your-actual-domain.pages.dev`
-
-### 步驟 10：測試驗證
-
-1. 啟動您的開發伺服器：
-   ```bash
-   npm run dev
-   ```
-
-2. 導覽至 `http://localhost:5173/login`
-
-3. 點擊「使用 Microsoft 登入」
-
-4. 您應該會被重新導向到 Microsoft 登入頁面
-
-5. 成功登入後，您應該會被重新導向回您的儀表板
-
-### Entra ID 疑難排解
-
-#### 錯誤：「AADSTS50011：請求中指定的回覆 URL 不符合」
-- **解決方案**：確認 Azure 入口網站中的重新導向 URI 完全符合（包括 http/https 和尾隨斜線）
-
-#### 錯誤：「AADSTS700016：找不到應用程式」
-- **解決方案**：檢查 `.env` 檔案中的用戶端 ID 是否與 Azure 入口網站中的應用程式 ID 相符
-
-#### 錯誤：「AADSTS65001：使用者或管理員尚未同意」
-- **解決方案**：在 Azure 入口網站的 API 權限下授與管理員同意，或讓使用者在首次登入時同意
-
-#### 錯誤：「使用者取消驗證」
-- **解決方案**：當使用者關閉彈出視窗時，這是預期的。在錯誤處理中妥善處理
-
-#### 彈出視窗被封鎖
-- **解決方案**：改用重新導向流程，在 `auth.service.ts` 中呼叫 `loginRedirect()`
-
-### 多租用戶考量
-
-如果您在註冊期間選擇了多租用戶：
-
-1. 來自任何 Azure AD 組織的使用者都可以登入
-2. 個人 Microsoft 帳戶也可以登入（如果您選擇了該選項）
-3. 考慮在後端進行額外驗證以限制對特定域名的存取
-4. 根據使用者電子郵件域名或其他屬性實施適當的授權檢查
-
-### 安全最佳實踐
-
-1. **定期輪換密碼**：設定提醒以在到期前輪換用戶端密碼
-2. **為開發/生產使用單獨的應用程式**：為開發和生產建立單獨的應用程式註冊
-3. **監控登入**：定期檢查 Azure 入口網站中的登入日誌
-4. **實施適當的登出**：確保使用者可以正確登出並清除權杖
-5. **處理權杖到期**：為長時間的會話實施權杖重新整理邏輯
-
-## 自訂域名設定
-
-### 重定向服務（Workers）
-
-1. 在 Cloudflare 儀表板中，前往 Workers & Pages
-2. 選擇 `akamoney-redirect` worker
-3. 前往設定 > 觸發器
-4. 新增自訂域名（例如：`go.aka.money`）
-
-### 管理 API（Workers）
-
-1. 在 Cloudflare 儀表板中，前往 Workers & Pages
-2. 選擇 `akamoney-admin-api` worker
-3. 前往設定 > 觸發器
-4. 新增自訂域名（例如：`api.aka.money`）
-
-### 前端（Pages）
-
-1. 在 Cloudflare 儀表板中，前往 Pages
-2. 選擇您的專案
-3. 前往自訂域名
-4. 新增您的域名（例如：`admin.aka.money`）
-
-### DNS 配置
-
-在 Cloudflare 中新增以下 DNS 記錄：
-- `go.aka.money` → CNAME 到您的重定向服務 worker
-- `api.aka.money` → CNAME 到您的管理 API worker
-- `admin.aka.money` → CNAME 到您的 Pages 部署
-
-## 監控和日誌
-
-### 查看 Worker 日誌
-```bash
-# 管理 API 日誌
-cd src/backend
-wrangler tail
-
-# 重定向服務日誌
-cd src/redirect
-wrangler tail
-```
-
-### 查看分析
-- 前往 Cloudflare 儀表板 > Workers & Pages > 您的 Worker > 分析
-- 查看請求指標、錯誤和效能資料
-
-## 疑難排解
-
-### 資料庫問題
-
-如果遷移失敗：
-```bash
-# 檢查資料庫狀態
-wrangler d1 info akamoney-clicks
-
-# 列出現有遷移
-wrangler d1 migrations list akamoney-clicks --local
-
-# 直接執行 SQL
-wrangler d1 execute akamoney-clicks --local --command "SELECT * FROM urls LIMIT 10"
-```
-
-### CORS 問題
-
-如果遇到 CORS 錯誤：
-1. 檢查 `src/backend/src/middleware/cors.ts` 是否包含您的前端 URL
-2. 確認環境變數設定正確
-3. 清除瀏覽器快取
-
-### JWT 問題
-
-如果驗證失敗：
-1. 確認已設定 JWT_SECRET：`wrangler secret list`
-2. 檢查權杖到期時間
-3. 確保 Authorization 標頭格式：`******`
-
-## 開發提示
-
-1. **使用 DevContainer**：在 VS Code 中使用 DevContainer 開啟以獲得一致的環境
-2. **熱重載**：前端和後端在開發期間都支援熱重載
-3. **資料庫控制台**：使用 `wrangler d1 execute` 快速進行資料庫查詢
-4. **日誌**：在單獨的終端機中保持執行 `wrangler tail` 以查看後端日誌
-
-## 安全最佳實踐
-
-1. **切勿將密碼提交**到版本控制
-2. **使用強 JWT 密碼**（至少 32 個字元）
-3. **在生產環境中啟用 HTTPS**
-4. **定期更新相依套件**
-5. **監控錯誤日誌**以發現安全問題
-6. **實施速率限制**（新增到中介軟體）
-
-## 下一步
-
-- [ ] 新增自訂品牌
-- [ ] 實施 QR 碼生成
-- [ ] 新增連結過期通知
-- [ ] 設定監控警報
-- [ ] 實施 API 速率限制
-- [ ] 新增更多分析功能
-
-## 支援
-
-如有問題或疑問：
-- 查看主要的 [README.md](../README.zh-TW.md)
-- 檢閱 Cloudflare Workers 文件
-- 查看 Vue 3 和 Vite 文件
+📚 [文件目錄](README.zh-TW.md) · [配置](CONFIGURATION.zh-TW.md) · [API](API.zh-TW.md)

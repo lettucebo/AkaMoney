@@ -1,513 +1,369 @@
-# AkaMoney API Documentation
-
 English | [繁體中文](API.zh-TW.md)
 
-## Service Architecture
+# AkaMoney API Reference
 
-AkaMoney uses a separated services architecture:
+## Scope and Base URLs
 
-| Service | Base URL | Authentication |
-|---------|----------|----------------|
-| **Redirect Service** | `https://go.aka.money` | ❌ None (public access) |
-| **Admin API** | `https://api.aka.money` | ✅ JWT required |
+AkaMoney exposes two HTTP services:
 
-## Authentication
+| Service | Runtime | Base URL role | Authentication |
+| --- | --- | --- | --- |
+| Admin API Worker | Hono on Cloudflare Workers | Management, analytics, storage, cleanup | Mixed by route |
+| Redirect Worker | Hono on Cloudflare Workers | Public short-link resolution | None |
 
-Most Admin API endpoints require JWT authentication. Include the JWT token in the Authorization header:
+The repository does not hard-code a single deployment hostname. The examples below use placeholders such as `https://api.example.com` and `https://go.example.com`.
 
-```
-Authorization: Bearer <your_jwt_token>
-```
+## Wire-Level Conventions
 
----
+- Authenticated Admin API requests use a bearer token issued by Microsoft Entra ID.
+- Persisted timestamps are epoch milliseconds.
+- Overall-stats date filters use inclusive UTC calendar dates in `YYYY-MM-DD` format.
+- The Admin API currently returns `short_url` as the bare short code, not a full absolute URL.
+- Route handlers do not normalize every service-layer error into semantic HTTP status codes. Several routes currently collapse validation, conflict, not-found, or ownership failures into `500 Internal Server Error` responses with diagnostic fields.
 
-## Redirect Service Endpoints
-
-Base URL: `https://go.aka.money` (or your redirect worker URL)
-
-> **Note**: The Redirect Service is public and requires no authentication.
-
-### Health Check
 ```http
-GET /health
+Authorization: Bearer TOKEN_VALUE
 ```
 
-**Response:**
-```json
-{
-  "status": "ok",
-  "service": "redirect",
-  "timestamp": 1702834567890
-}
-```
+## Authentication Matrix
 
-### Redirect to Original URL
-```http
-GET /:shortCode
-```
+| Route | Auth class | Current behavior |
+| --- | --- | --- |
+| `GET /health` (admin) | Public | Always unauthenticated |
+| `POST /api/shorten` | Optional auth | Accepts anonymous calls; valid bearer token associates the new URL with the authenticated Entra user; invalid optional token is ignored and the request proceeds anonymously |
+| `GET /api/urls` | Protected | Requires Entra bearer token |
+| `GET /api/urls/:id` | Protected | Requires Entra bearer token |
+| `PUT /api/urls/:id` | Protected | Requires Entra bearer token |
+| `DELETE /api/urls/:id` | Protected | Requires Entra bearer token |
+| `GET /api/analytics/:shortCode` | Protected | Requires Entra bearer token |
+| `GET /api/public/analytics/:shortCode` | Public | Limited shape only |
+| `GET /api/stats/overall` | Protected | Requires Entra bearer token |
+| `POST /api/admin/cleanup` | Protected | Requires Entra bearer token; no role check is enforced today |
+| `GET /api/storage/config` | Protected | Requires Entra bearer token |
+| `POST /api/storage/upload` | Protected | Requires Entra bearer token |
+| `GET /api/storage/files/:key{.+}` | Protected | Requires Entra bearer token |
+| `GET /api/storage/files` | Protected | Requires Entra bearer token |
+| `DELETE /api/storage/files/:key{.+}` | Protected | Requires Entra bearer token |
+| `OPTIONS *` (redirect) | Public | CORS preflight helper |
+| `GET /health` (redirect) | Public | Always unauthenticated |
+| `GET /:shortCode` | Public | Always unauthenticated |
 
-**Response:** 302 redirect to the original URL
+## Shared Payload Shapes
 
-**Error Responses:**
-- 404: Short URL not found
-- 410: Short URL has expired
+### URL Resource
 
----
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | `string` | Generated server-side |
+| `short_code` | `string` | Case-insensitive uniqueness check on create |
+| `original_url` | `string` | Must parse as `http:` or `https:` |
+| `short_url` | `string` | Current implementation returns the bare short code |
+| `title` | `string \| undefined` | Omitted when stored value is `NULL` |
+| `description` | `string \| undefined` | Omitted when stored value is `NULL` |
+| `image_url` | `string \| undefined` | Present when a link preview image has been stored |
+| `created_at` | `number` | Epoch milliseconds |
+| `updated_at` | `number` | Epoch milliseconds |
+| `expires_at` | `number \| undefined` | Epoch milliseconds; omitted when `NULL` |
+| `is_active` | `boolean` | Derived from the `INTEGER` database flag |
+| `click_count` | `number` | Denormalized counter on `urls` |
 
-## Admin API Endpoints
+### `CreateUrlRequest`
 
-Base URL: `https://api.aka.money` (or your admin API worker URL)
-
-> **Note**: Most endpoints require JWT authentication.
-
-### Health Check
-```http
-GET /health
-```
-
-**Response:**
-```json
-{
-  "status": "ok",
-  "service": "admin-api",
-  "timestamp": 1702834567890
-}
-```
-
-### Create Short URL (Public)
-```http
-POST /api/shorten
-Content-Type: application/json
-```
-
-**Request Body:**
-```json
-{
-  "original_url": "https://example.com/very-long-url",
-  "short_code": "my-link",  // Optional: custom short code
-  "title": "My Link",        // Optional: title
-  "description": "Description"  // Optional: description
-}
-```
-
-**Response:** 201 Created
-```json
-{
-  "id": "abc123",
-  "short_code": "my-link",
-  "original_url": "https://example.com/very-long-url",
-  "short_url": "my-link",
-  "title": "My Link",
-  "created_at": 1702834567890,
-  "updated_at": 1702834567890,
-  "is_active": true,
-  "click_count": 0
-}
-```
-
-**Error Responses:**
-- 400: Invalid URL or short code format
-- 409: Short code already exists
-
-### Get Public Analytics
-```http
-GET /api/public/analytics/:shortCode
-```
-
-**Response:** 200 OK
-```json
-{
-  "short_code": "my-link",
-  "total_clicks": 42,
-  "created_at": 1702834567890
-}
-```
-
-### Protected Endpoints (JWT Required)
-
-#### List User URLs
-```http
-GET /api/urls?page=1&limit=20
-Authorization: Bearer <token>
-```
-
-**Query Parameters:**
-- `page` (optional): Page number, default 1
-- `limit` (optional): Items per page, default 20, max 100
-
-**Response:** 200 OK
-```json
-{
-  "data": [
-    {
-      "id": "abc123",
-      "short_code": "my-link",
-      "original_url": "https://example.com",
-      "short_url": "my-link",
-      "title": "My Link",
-      "created_at": 1702834567890,
-      "updated_at": 1702834567890,
-      "is_active": true,
-      "click_count": 42
-    }
-  ],
-  "pagination": {
-    "page": 1,
-    "limit": 20,
-    "total": 100,
-    "total_pages": 5
-  }
-}
-```
-
-#### Get Specific URL
-```http
-GET /api/urls/:id
-Authorization: Bearer <token>
-```
-
-**Response:** 200 OK
-```json
-{
-  "id": "abc123",
-  "short_code": "my-link",
-  "original_url": "https://example.com",
-  "short_url": "my-link",
-  "title": "My Link",
-  "description": "My description",
-  "created_at": 1702834567890,
-  "updated_at": 1702834567890,
-  "expires_at": 1735834567890,
-  "is_active": true,
-  "click_count": 42
-}
-```
-
-#### Update URL
-```http
-PUT /api/urls/:id
-Authorization: Bearer <token>
-Content-Type: application/json
-```
-
-**Request Body:**
-```json
-{
-  "original_url": "https://example.com/updated",  // Optional
-  "title": "Updated Title",                        // Optional
-  "description": "Updated description",            // Optional
-  "is_active": false,                              // Optional
-  "expires_at": 1735834567890                      // Optional
-}
-```
-
-**Response:** 200 OK
-```json
-{
-  "id": "abc123",
-  "short_code": "my-link",
-  "original_url": "https://example.com/updated",
-  "short_url": "my-link",
-  "title": "Updated Title",
-  "updated_at": 1702834600000,
-  "is_active": false,
-  "click_count": 42
-}
-```
-
-#### Delete URL
-```http
-DELETE /api/urls/:id
-Authorization: Bearer <token>
-```
-
-**Response:** 200 OK
-```json
-{
-  "message": "URL deleted successfully"
-}
-```
-
-#### Get Analytics
-```http
-GET /api/analytics/:shortCode
-Authorization: Bearer <token>
-```
-
-**Response:** 200 OK
-```json
-{
-  "url": {
-    "id": "abc123",
-    "short_code": "my-link",
-    "original_url": "https://example.com",
-    "short_url": "my-link",
-    "created_at": 1702834567890,
-    "click_count": 42
-  },
-  "total_clicks": 42,
-  "clicks_by_date": {
-    "2024-12-17": 10,
-    "2024-12-18": 15,
-    "2024-12-19": 17
-  },
-  "clicks_by_country": {
-    "US": 20,
-    "GB": 10,
-    "CA": 12
-  },
-  "clicks_by_device": {
-    "mobile": 25,
-    "desktop": 15,
-    "tablet": 2
-  },
-  "clicks_by_browser": {
-    "chrome": 30,
-    "safari": 8,
-    "firefox": 4
-  },
-  "recent_clicks": [
-    {
-      "id": "click123",
-      "clicked_at": 1702834567890,
-      "country": "US",
-      "city": "New York",
-      "device_type": "mobile",
-      "browser": "chrome",
-      "os": "ios"
-    }
-  ]
-}
-```
-
-### Storage API Endpoints (JWT Required)
-
-The Storage API provides endpoints for uploading and managing images. It supports both Cloudflare R2 and Azure Blob Storage backends.
-
-#### Get Storage Configuration
-```http
-GET /api/storage/config
-Authorization: Bearer <token>
-```
-
-**Response:** 200 OK
-```json
-{
-  "configured": true,
-  "provider": "r2",
-  "hasPublicUrl": true
-}
-```
-
-#### Upload Image
-```http
-POST /api/storage/upload
-Authorization: Bearer <token>
-Content-Type: multipart/form-data
-```
-
-**Request Body:**
-- `file`: Image file (JPEG, PNG, GIF, WebP, SVG)
-- Maximum file size: 10MB
-
-**Response:** 201 Created
-```json
-{
-  "key": "uploads/user123/1702834567890-uuid.jpg",
-  "url": "https://storage.example.com/uploads/user123/1702834567890-uuid.jpg",
-  "size": 102400,
-  "contentType": "image/jpeg",
-  "originalName": "my-image.jpg"
-}
-```
-
-**Error Responses:**
-- 400: No file provided or invalid file type
-- 400: File too large (max 10MB)
-- 500: Storage not configured
-
-#### Get File Info
-```http
-GET /api/storage/files/:key
-Authorization: Bearer <token>
-```
-
-**Response:** 200 OK
-```json
-{
-  "key": "uploads/user123/1702834567890-uuid.jpg",
-  "size": 102400,
-  "lastModified": "2024-12-17T12:34:56.789Z",
-  "contentType": "image/jpeg",
-  "url": "https://storage.example.com/uploads/user123/1702834567890-uuid.jpg"
-}
-```
-
-#### List User Files
-```http
-GET /api/storage/files?limit=50&cursor=nextPageCursor
-Authorization: Bearer <token>
-```
-
-**Query Parameters:**
-- `limit` (optional): Maximum number of files to return, default 50
-- `cursor` (optional): Pagination cursor from previous response
-
-**Response:** 200 OK
-```json
-{
-  "files": [
-    {
-      "key": "uploads/user123/1702834567890-uuid.jpg",
-      "size": 102400,
-      "lastModified": "2024-12-17T12:34:56.789Z",
-      "contentType": "image/jpeg",
-      "url": "https://storage.example.com/uploads/user123/1702834567890-uuid.jpg"
-    }
-  ],
-  "hasMore": true,
-  "cursor": "nextPageCursor"
-}
-```
-
-#### Delete File
-```http
-DELETE /api/storage/files/:key
-Authorization: Bearer <token>
-```
-
-**Response:** 200 OK
-```json
-{
-  "message": "File deleted successfully"
-}
-```
-
-**Error Responses:**
-- 403: Cannot delete files owned by other users
-- 404: File not found
-
-## Error Responses
-
-All error responses follow this format:
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `original_url` | `string` | Yes | Must be an `http` or `https` URL |
+| `short_code` | `string` | Yes | Trimmed, then validated against `^[a-zA-Z0-9-_]{3,20}$` |
+| `title` | `string` | No | Stored as `NULL` when omitted or falsy |
+| `description` | `string` | No | Stored as `NULL` when omitted or falsy |
+| `image_url` | `string` | No | Stored as `NULL` when omitted or falsy |
+| `expires_at` | `number` | No | Epoch milliseconds |
 
 ```json
 {
-  "error": "Error Type",
-  "message": "Detailed error message"
+  "original_url": "https://example.com/articles/launch",
+  "short_code": "launch-2026",
+  "title": "Launch article",
+  "description": "Campaign landing page",
+  "image_url": "https://cdn.example.com/uploads/<user-id>/cover.png",
+  "expires_at": 1798761600000
 }
 ```
 
-### Common HTTP Status Codes
+### `UpdateUrlRequest`
 
-- `200 OK`: Request succeeded
-- `201 Created`: Resource created successfully
-- `400 Bad Request`: Invalid request parameters
-- `401 Unauthorized`: Missing or invalid authentication
-- `404 Not Found`: Resource not found
-- `409 Conflict`: Resource already exists
-- `410 Gone`: Resource has expired
-- `500 Internal Server Error`: Server error
+`updateUrl` writes every field whose value is not `undefined`.
 
-## Rate Limiting
+- Omit a property to leave the stored value unchanged.
+- Send `null` for `title`, `description`, `image_url`, or `expires_at` to clear that column.
+- `original_url` cannot be cleared with `null`; it must be omitted or replaced with another valid URL string.
 
-Currently, there is no rate limiting implemented. It's recommended to implement rate limiting in production:
-
-- Public endpoints: 100 requests per minute per IP
-- Authenticated endpoints: 1000 requests per minute per user
-
-## CORS
-
-The API supports CORS with the following configuration:
-
-- Allowed origins: Configurable in `src/backend/src/middleware/cors.ts`
-- Allowed methods: GET, POST, PUT, DELETE, OPTIONS
-- Allowed headers: Content-Type, Authorization
-- Credentials: Supported
-
-## Short Code Format
-
-Short codes must follow these rules:
-- Length: 3-20 characters
-- Allowed characters: a-z, A-Z, 0-9, hyphen (-), underscore (_)
-- Pattern: `^[a-zA-Z0-9-_]{3,20}$`
-
-## URL Validation
-
-Original URLs must:
-- Be valid URLs
-- Use HTTP or HTTPS protocol
-- Be properly formatted
-
-## Click Tracking
-
-When a short URL is accessed:
-1. The system records click metadata (IP, user agent, referrer, country, device, browser, OS)
-2. The click count is incremented
-3. The user is redirected to the original URL
-4. All data is stored asynchronously for analytics
-
-## Data Retention
-
-- URLs: Stored indefinitely unless deleted or expired
-- Click records: Stored indefinitely
-- User data: Stored while account is active
-
-## Best Practices
-
-1. **Use HTTPS**: Always use HTTPS in production
-2. **Validate input**: Always validate URLs before shortening
-3. **Handle errors**: Implement proper error handling
-4. **Cache responses**: Cache static data when possible
-5. **Monitor usage**: Track API usage and set up alerts
-6. **Secure tokens**: Store JWT tokens securely
-7. **Rate limiting**: Implement rate limiting for production
-8. **Logging**: Log important events for debugging
-
-## Example Usage
-
-### JavaScript/TypeScript
-```typescript
-const response = await fetch('https://api.aka.money/api/shorten', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'Authorization': 'Bearer YOUR_TOKEN'
-  },
-  body: JSON.stringify({
-    original_url: 'https://example.com/very-long-url',
-    short_code: 'my-link'
-  })
-});
-
-const data = await response.json();
-console.log(data.short_url);
+```json
+{
+  "title": null,
+  "description": "Updated copy",
+  "image_url": null,
+  "expires_at": null,
+  "is_active": false
+}
 ```
 
-### cURL
+### Analytics Shapes
+
+`GET /api/analytics/:shortCode` returns:
+
+- `url`: the URL resource shape above
+- `total_clicks`: total count from `click_records`
+- `clicks_by_date`: sparse date map for the last 30 days only
+- `clicks_by_country`: top 10 countries, sparse
+- `clicks_by_device`: sparse device-type counts
+- `clicks_by_browser`: top 5 browsers, sparse
+- `recent_clicks`: up to 20 most recent raw click records
+
+`GET /api/public/analytics/:shortCode` intentionally returns only:
+
+| Field | Type |
+| --- | --- |
+| `short_code` | `string` |
+| `total_clicks` | `number` |
+| `created_at` | `number` |
+
+### Overall Stats Shape
+
+`GET /api/stats/overall` returns:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `total_clicks` | `number` | Count within the selected inclusive range |
+| `active_links` | `number` | Active links across the user account |
+| `total_links` | `number` | Total links across the user account |
+| `click_trend` | `Record<string, number>` | Sparse `YYYY-MM-DD` map |
+| `top_links` | `Array<{ short_code, original_url, click_count, title? }>` | Sorted in service output by click count |
+| `country_distribution` | `Record<string, number>` | Sparse |
+| `device_distribution` | `Record<string, number>` | Sparse |
+| `date_range.start` | `string` | Inclusive UTC date |
+| `date_range.end` | `string` | Inclusive UTC date |
+
+### Storage Shapes
+
+| Route | Success shape |
+| --- | --- |
+| `GET /api/storage/config` | `{ configured, provider, hasPublicUrl }` |
+| `POST /api/storage/upload` | `{ key, url?, size?, contentType, originalName }` |
+| `GET /api/storage/files/:key{.+}` | `{ key, size, lastModified?, contentType?, url? }` |
+| `GET /api/storage/files` | `{ files: Array<{ key, size, lastModified?, contentType?, url? }>, hasMore, cursor? }` |
+| `DELETE /api/storage/files/:key{.+}` | `{ message }` |
+
+## Redirect Worker Routes
+
+### `OPTIONS *`
+
+| Item | Behavior |
+| --- | --- |
+| Purpose | Public CORS preflight helper |
+| Success | `204 No Content` with an empty body |
+| Notes | Redirect Worker also appends `Access-Control-Allow-Origin: *`, `Access-Control-Allow-Methods: GET, OPTIONS`, and `Access-Control-Allow-Headers: Content-Type` after each request |
+
+### `GET /health`
+
+| Item | Behavior |
+| --- | --- |
+| Success | `200 OK` with `{ status: "ok", service: "redirect", timestamp }` |
+| Errors | Falls through to the global `500` handler only if the Worker itself throws |
+
+### `GET /:shortCode`
+
+| Item | Behavior |
+| --- | --- |
+| Lookup | Queries D1 for `LOWER(short_code) = LOWER(?)` and `is_active = 1` |
+| Success | `302 Found` redirect to `original_url` |
+| `404` | Returned when no active short code is found |
+| `410` | Returned when the URL exists but `expires_at < Date.now()` |
+| Click tracking | `executionCtx.waitUntil(...)` records the click and increments `urls.click_count` asynchronously so the redirect is not delayed |
+| Errors | Unexpected failures fall into the Worker-level `500` JSON error handler |
+
+## Admin Worker Routes
+
+### `GET /health`
+
+| Item | Behavior |
+| --- | --- |
+| Success | `200 OK` with `{ status: "ok", service: "admin-api", timestamp }` |
+| Errors | Only unexpected Worker failures produce `500` |
+
+### `POST /api/shorten`
+
+| Item | Behavior |
+| --- | --- |
+| Auth | Optional |
+| Request body | `CreateUrlRequest` |
+| Success | `201 Created` with the URL resource |
+| Current validation behavior | Missing `original_url` is handled directly as `400`. Other create-time validation and uniqueness errors currently surface as `500` because the route catches thrown service errors and rewrites them to `Internal Server Error` |
+| DB configuration failure | Returns `500` with `{ error: "Configuration Error", ... }` when `DB` is missing |
+| Notes | `short_code` is required by current code even though older docs described it as optional |
+
+### `GET /api/urls`
+
+| Item | Behavior |
+| --- | --- |
+| Auth | Required |
+| Query parameters | `page` default `1`; `limit` default `20` |
+| Pagination behavior | Values are parsed with `parseInt(...)` and passed through without clamping; malformed values can propagate into a database error and produce `500` |
+| Success | `200 OK` with `{ data, pagination }` |
+| Ownership model | Returns only rows whose `user_id` matches the authenticated Entra user ID |
+| Errors | Missing auth yields `401`; missing `DB` yields `500`; unexpected service or D1 failures yield `500` |
+
+### `GET /api/urls/:id`
+
+| Item | Behavior |
+| --- | --- |
+| Auth | Required |
+| Success | `200 OK` with the URL resource |
+| Current response omission | The route builds its response inline and does not include `image_url`, even when the database row has one |
+| `404` | Returned when the URL ID does not exist |
+| `403` | Returned when the row exists but `user_id` belongs to another user |
+| Errors | Missing auth yields `401`; missing `DB` yields `500`; unexpected failures yield `500` |
+
+### `PUT /api/urls/:id`
+
+| Item | Behavior |
+| --- | --- |
+| Auth | Required |
+| Request body | `UpdateUrlRequest` |
+| Success | `200 OK` with the updated URL resource |
+| Current error behavior | Service-layer not-found, forbidden, and validation errors are currently caught and rewritten to `500 Internal Server Error` by the route handler |
+| Null vs undefined | `null` clears nullable columns; omitted properties leave existing values untouched |
+
+### `DELETE /api/urls/:id`
+
+| Item | Behavior |
+| --- | --- |
+| Auth | Required |
+| Success | `200 OK` with `{ message: "URL deleted successfully" }` |
+| Current error behavior | Service-layer not-found and forbidden errors currently surface as `500`, not semantic `404` or `403`, because the route rewrites thrown errors |
+
+### `GET /api/analytics/:shortCode`
+
+| Item | Behavior |
+| --- | --- |
+| Auth | Required |
+| Success | `200 OK` with the protected analytics shape |
+| `404` | Returned when the short code does not resolve to an active URL |
+| Current ownership error behavior | Ownership checks happen in the service layer; if another user's short code is requested, the thrown forbidden error is currently rewritten to `500` by the route catch block |
+| Range behavior | `clicks_by_date` covers only the last 30 days and omits zero-value dates |
+
+### `GET /api/public/analytics/:shortCode`
+
+| Item | Behavior |
+| --- | --- |
+| Auth | Public |
+| Success | `200 OK` with `{ short_code, total_clicks, created_at }` only |
+| `404` | Returned when the short code does not resolve to an active URL |
+| Notes | This route does not expose `recent_clicks`, country/device/browser breakdowns, or the destination URL |
+
+### `GET /api/stats/overall`
+
+| Item | Behavior |
+| --- | --- |
+| Auth | Required |
+| Query parameters | Optional `startDate` and `endDate` in `YYYY-MM-DD` |
+| Inclusive UTC behavior | The route expands `startDate` to `T00:00:00.000Z` and `endDate` to `T23:59:59.999Z` before querying |
+| Pairing rule | Both dates must be present together or both omitted |
+| Default range | When both are omitted, the current UTC month is used |
+| Success | `200 OK` with the overall stats shape |
+| `400` | Returned for one-sided date ranges, invalid date format, or `startDate > endDate` |
+| Errors | Other failures return `500` |
+
+### `POST /api/admin/cleanup`
+
+| Item | Behavior |
+| --- | --- |
+| Auth | Required |
+| Query parameter | Optional `days`, default `365` |
+| Success | `200 OK` with `{ message, deleted, cutoffDate, retentionDays }` |
+| `400` | Returned when `days` is not a positive integer or is greater than `3650` |
+| Access control note | The code comments mention a future admin-role check, but today any authenticated user can trigger cleanup |
+| Errors | Service failures return `500` with `{ error: "Cleanup failed", details }` |
+
+### `GET /api/storage/config`
+
+| Item | Behavior |
+| --- | --- |
+| Auth | Required |
+| Success | `200 OK` with storage configuration flags |
+| Meaning of `configured` | `true` only when the currently selected provider has the bindings/secrets that its factory requires |
+| Meaning of `hasPublicUrl` | Reflects whether the factory resolved a public URL after provider selection and `CDN_URL` precedence |
+
+### `POST /api/storage/upload`
+
+| Item | Behavior |
+| --- | --- |
+| Auth | Required |
+| Request body | `multipart/form-data` with a `file` part |
+| MIME allowlist | `image/jpeg`, `image/png`, `image/gif`, `image/webp`, `image/svg+xml` |
+| Max size | `10 MB` |
+| Generated key | `uploads/<user-id>/<timestamp>-<uuid>.<ext>` |
+| Success | `201 Created` with `{ key, url?, size?, contentType, originalName }` |
+| `400` | Returned for missing file, unsupported MIME type, or files over `10 MB` |
+| `500` | Returned when storage is not configured or upload processing fails |
+| Public URL note | `url` is optional because the provider may not have a resolved public URL |
+
+The following uses Windows Command Prompt continuation syntax. Replace `TOKEN_VALUE` with a Microsoft Entra access token.
+
+```bat
+curl -X POST "https://api.example.com/api/storage/upload" ^
+  -H "Authorization: Bearer TOKEN_VALUE" ^
+  -F "file=@cover.png"
+```
+
+POSIX equivalent:
+
 ```bash
-curl -X POST https://api.aka.money/api/shorten \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -d '{"original_url": "https://example.com"}'
+curl -X POST "https://api.example.com/api/storage/upload" -H "Authorization: Bearer TOKEN_VALUE" -F "file=@cover.png"
 ```
 
-### Python
-```python
-import requests
+### `GET /api/storage/files/:key{.+}`
 
-response = requests.post(
-    'https://api.aka.money/api/shorten',
-    headers={
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer YOUR_TOKEN'
-    },
-    json={
-        'original_url': 'https://example.com',
-        'short_code': 'my-link'
-    }
-)
+| Item | Behavior |
+| --- | --- |
+| Auth | Required |
+| Route shape | Catch-all key segment; the key may contain slashes |
+| Ownership rule | The key must start with `uploads/<user-id>/` |
+| Success | `200 OK` with metadata plus `url?` |
+| `403` | Returned for keys outside the caller's prefix |
+| `404` | Returned when the key is inside the caller's prefix but the object does not exist |
+| `500` | Returned when storage is not configured or provider access fails |
 
-data = response.json()
-print(data['short_url'])
-```
+### `GET /api/storage/files`
+
+| Item | Behavior |
+| --- | --- |
+| Auth | Required |
+| Query parameters | Optional `limit`, optional `cursor` |
+| Limit behavior | Defaults to `50`; values `<= 0` or non-numeric fall back to `50`; values above `100` are clamped to `100` |
+| Prefix scope | Always lists only `uploads/<user-id>/...` |
+| Success | `200 OK` with `{ files, hasMore, cursor? }` |
+| `500` | Returned when storage is not configured or provider listing fails |
+
+### `DELETE /api/storage/files/:key{.+}`
+
+| Item | Behavior |
+| --- | --- |
+| Auth | Required |
+| Ownership rule | The key must start with `uploads/<user-id>/` |
+| Success | `200 OK` with `{ message: "File deleted successfully" }` |
+| `403` | Returned for keys outside the caller's prefix |
+| `500` | Returned when storage is not configured or provider deletion fails |
+
+## Current Error Envelope Notes
+
+- `authMiddleware` returns `401` for missing/invalid bearer headers and invalid or expired Entra tokens.
+- Many route-level catch blocks return diagnostic JSON containing `error`, `message`, `details`, and sometimes `stack`.
+- The shared `errorMiddleware` and global `app.onError(...)` handlers exist, but several routes catch errors before those handlers can preserve specific status codes.
+
+## Related Documents
+
+- [README](../README.md)
+- [Architecture](ARCHITECTURE.md)
+- [Authentication](AUTHENTICATION.md)
+- [Database](DATABASE.md)
+- [Storage](STORAGE.md)

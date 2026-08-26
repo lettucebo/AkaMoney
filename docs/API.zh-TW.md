@@ -1,521 +1,369 @@
-# AkaMoney API 文件
-
 [English](API.md) | 繁體中文
 
-## 服務架構
+# AkaMoney API 參考文件
 
-AkaMoney 使用分離式服務架構：
+## 範圍與基礎 URL
 
-| 服務 | 基礎 URL | 驗證 |
-|------|----------|------|
-| **重定向服務** | `https://go.aka.money` | ❌ 無需驗證（公開存取） |
-| **管理 API** | `https://api.aka.money` | ✅ 需要 JWT |
+AkaMoney 對外提供兩個 HTTP 服務：
 
-## 身份驗證
+| 服務 | 執行環境 | 基礎 URL 角色 | 驗證 |
+| --- | --- | --- | --- |
+| 管理 API Worker | Cloudflare Workers 上的 Hono | 管理、分析、儲存、清理 | 依路由而定 |
+| 轉址 Worker | Cloudflare Workers 上的 Hono | 公開短網址解析 | 無 |
 
-大多數管理 API 端點需要 JWT 身份驗證。在 Authorization 標頭中包含 JWT 權杖：
+儲存庫本身沒有硬編碼唯一正式網域。以下範例使用 `https://api.example.com` 與 `https://go.example.com` 之類的占位值。
 
-```
-Authorization: Bearer <your_jwt_token>
-```
+## 線上協定慣例
 
----
+- 受保護的管理 API 請求使用 Microsoft Entra ID 簽發的 bearer token。
+- 所有持久化時間戳都使用 epoch 毫秒。
+- 總覽統計的日期篩選使用 `YYYY-MM-DD` 格式的 UTC 含首尾日期。
+- 管理 API 目前回傳的 `short_url` 是裸短碼，不是完整絕對 URL。
+- 路由處理器尚未把所有 service 層錯誤都轉成語意化 HTTP 狀態碼。部分路由目前會把驗證、衝突、找不到資源或擁有權失敗，都折疊成附帶診斷欄位的 `500 Internal Server Error`。
 
-## 重定向服務端點
-
-基礎 URL：`https://go.aka.money`（或您的重定向 worker URL）
-
-> **注意**：重定向服務為公開存取，無需驗證。
-
-### 健康檢查
 ```http
-GET /health
+Authorization: Bearer TOKEN_VALUE
 ```
 
-**回應：**
-```json
-{
-  "status": "ok",
-  "service": "redirect",
-  "timestamp": 1702834567890
-}
-```
+## 驗證矩陣
 
-### 重定向到原始網址
-```http
-GET /:shortCode
-```
+| 路由 | 驗證類型 | 目前行為 |
+| --- | --- | --- |
+| `GET /health`（管理端） | 公開 | 永遠不需驗證 |
+| `POST /api/shorten` | 可選驗證 | 可匿名呼叫；若 bearer token 有效，會把新短網址綁到已驗證的 Entra 使用者；若可選 token 無效，請求會忽略該 token 並以匿名方式繼續 |
+| `GET /api/urls` | 受保護 | 必須帶 Entra bearer token |
+| `GET /api/urls/:id` | 受保護 | 必須帶 Entra bearer token |
+| `PUT /api/urls/:id` | 受保護 | 必須帶 Entra bearer token |
+| `DELETE /api/urls/:id` | 受保護 | 必須帶 Entra bearer token |
+| `GET /api/analytics/:shortCode` | 受保護 | 必須帶 Entra bearer token |
+| `GET /api/public/analytics/:shortCode` | 公開 | 僅回傳受限欄位 |
+| `GET /api/stats/overall` | 受保護 | 必須帶 Entra bearer token |
+| `POST /api/admin/cleanup` | 受保護 | 必須帶 Entra bearer token；目前沒有角色檢查 |
+| `GET /api/storage/config` | 受保護 | 必須帶 Entra bearer token |
+| `POST /api/storage/upload` | 受保護 | 必須帶 Entra bearer token |
+| `GET /api/storage/files/:key{.+}` | 受保護 | 必須帶 Entra bearer token |
+| `GET /api/storage/files` | 受保護 | 必須帶 Entra bearer token |
+| `DELETE /api/storage/files/:key{.+}` | 受保護 | 必須帶 Entra bearer token |
+| `OPTIONS *`（轉址端） | 公開 | CORS 預檢輔助路由 |
+| `GET /health`（轉址端） | 公開 | 永遠不需驗證 |
+| `GET /:shortCode` | 公開 | 永遠不需驗證 |
 
-**回應：** 302 重定向到原始網址
+## 共用 Payload 形狀
 
-**錯誤回應：**
-- 404：找不到短網址
-- 410：短網址已過期
+### URL 資源
 
----
+| 欄位 | 型別 | 說明 |
+| --- | --- | --- |
+| `id` | `string` | 由伺服器產生 |
+| `short_code` | `string` | 建立時以不分大小寫方式檢查唯一性 |
+| `original_url` | `string` | 必須能解析為 `http:` 或 `https:` |
+| `short_url` | `string` | 目前實作回傳裸短碼 |
+| `title` | `string \| undefined` | 當資料庫值為 `NULL` 時省略 |
+| `description` | `string \| undefined` | 當資料庫值為 `NULL` 時省略 |
+| `image_url` | `string \| undefined` | 有儲存連結預覽圖時才會出現 |
+| `created_at` | `number` | Epoch 毫秒 |
+| `updated_at` | `number` | Epoch 毫秒 |
+| `expires_at` | `number \| undefined` | Epoch 毫秒；為 `NULL` 時省略 |
+| `is_active` | `boolean` | 由資料庫中的 `INTEGER` 旗標轉換而來 |
+| `click_count` | `number` | `urls` 表上的反正規化計數器 |
 
-## 管理 API 端點
+### `CreateUrlRequest`
 
-基礎 URL：`https://api.aka.money`（或您的管理 API worker URL）
-
-> **注意**：大多數端點需要 JWT 驗證。
-
-### 健康檢查
-```http
-GET /health
-```
-
-**回應：**
-```json
-{
-  "status": "ok",
-  "service": "admin-api",
-  "timestamp": 1702834567890
-}
-```
-
-### 建立短網址（公開）
-```http
-POST /api/shorten
-Content-Type: application/json
-```
-
-**請求主體：**
-```json
-{
-  "original_url": "https://example.com/very-long-url",
-  "short_code": "my-link",  // 選用：自訂短代碼
-  "title": "我的連結",        // 選用：標題
-  "description": "描述"  // 選用：描述
-}
-```
-
-**回應：** 201 Created
-```json
-{
-  "id": "abc123",
-  "short_code": "my-link",
-  "original_url": "https://example.com/very-long-url",
-  "short_url": "my-link",
-  "title": "我的連結",
-  "created_at": 1702834567890,
-  "updated_at": 1702834567890,
-  "is_active": true,
-  "click_count": 0
-}
-```
-
-**錯誤回應：**
-- 400：無效的網址或短代碼格式
-- 409：短代碼已存在
-
-#### 取得公開分析
-```http
-GET /api/public/analytics/:shortCode
-```
-
-**回應：** 200 OK
-```json
-{
-  "short_code": "my-link",
-  "total_clicks": 42,
-  "created_at": 1702834567890
-}
-```
-
-### 受保護端點（需要 JWT）
-
-#### 列出使用者網址
-```http
-GET /api/urls?page=1&limit=20
-Authorization: ******
-```
-
-**查詢參數：**
-- `page`（選用）：頁碼，預設 1
-- `limit`（選用）：每頁項目數，預設 20，最大 100
-
-**回應：** 200 OK
-```json
-{
-  "data": [
-    {
-      "id": "abc123",
-      "short_code": "my-link",
-      "original_url": "https://example.com",
-      "short_url": "my-link",
-      "title": "我的連結",
-      "created_at": 1702834567890,
-      "updated_at": 1702834567890,
-      "is_active": true,
-      "click_count": 42
-    }
-  ],
-  "pagination": {
-    "page": 1,
-    "limit": 20,
-    "total": 100,
-    "total_pages": 5
-  }
-}
-```
-
-#### 取得特定網址
-```http
-GET /api/urls/:id
-Authorization: ******
-```
-
-**回應：** 200 OK
-```json
-{
-  "id": "abc123",
-  "short_code": "my-link",
-  "original_url": "https://example.com",
-  "short_url": "my-link",
-  "title": "我的連結",
-  "description": "我的描述",
-  "created_at": 1702834567890,
-  "updated_at": 1702834567890,
-  "expires_at": 1735834567890,
-  "is_active": true,
-  "click_count": 42
-}
-```
-
-#### 更新網址
-```http
-PUT /api/urls/:id
-Authorization: ******
-Content-Type: application/json
-```
-
-**請求主體：**
-```json
-{
-  "original_url": "https://example.com/updated",  // 選用
-  "title": "更新後的標題",                        // 選用
-  "description": "更新後的描述",            // 選用
-  "is_active": false,                              // 選用
-  "expires_at": 1735834567890                      // 選用
-}
-```
-
-**回應：** 200 OK
-```json
-{
-  "id": "abc123",
-  "short_code": "my-link",
-  "original_url": "https://example.com/updated",
-  "short_url": "my-link",
-  "title": "更新後的標題",
-  "updated_at": 1702834600000,
-  "is_active": false,
-  "click_count": 42
-}
-```
-
-#### 刪除網址
-```http
-DELETE /api/urls/:id
-Authorization: ******
-```
-
-**回應：** 200 OK
-```json
-{
-  "message": "URL deleted successfully"
-}
-```
-
-#### 取得分析
-```http
-GET /api/analytics/:shortCode
-Authorization: ******
-```
-
-**回應：** 200 OK
-```json
-{
-  "url": {
-    "id": "abc123",
-    "short_code": "my-link",
-    "original_url": "https://example.com",
-    "short_url": "my-link",
-    "created_at": 1702834567890,
-    "click_count": 42
-  },
-  "total_clicks": 42,
-  "clicks_by_date": {
-    "2024-12-17": 10,
-    "2024-12-18": 15,
-    "2024-12-19": 17
-  },
-  "clicks_by_country": {
-    "US": 20,
-    "GB": 10,
-    "CA": 12
-  },
-  "clicks_by_device": {
-    "mobile": 25,
-    "desktop": 15,
-    "tablet": 2
-  },
-  "clicks_by_browser": {
-    "chrome": 30,
-    "safari": 8,
-    "firefox": 4
-  },
-  "recent_clicks": [
-    {
-      "id": "click123",
-      "clicked_at": 1702834567890,
-      "country": "US",
-      "city": "New York",
-      "device_type": "mobile",
-      "browser": "chrome",
-      "os": "ios"
-    }
-  ]
-}
-```
-
-### 儲存空間 API 端點（需要 JWT）
-
-儲存空間 API 提供上傳和管理圖片的端點。支援 Cloudflare R2 和 Azure Blob Storage 後端。
-
-#### 取得儲存空間配置
-```http
-GET /api/storage/config
-Authorization: Bearer <token>
-```
-
-**回應：** 200 OK
-```json
-{
-  "configured": true,
-  "provider": "r2",
-  "hasPublicUrl": true
-}
-```
-
-#### 上傳圖片
-```http
-POST /api/storage/upload
-Authorization: Bearer <token>
-Content-Type: multipart/form-data
-```
-
-**請求本體：**
-- `file`：圖片檔案（JPEG、PNG、GIF、WebP、SVG）
-- 最大檔案大小：10MB
-
-**回應：** 201 Created
-```json
-{
-  "key": "uploads/user123/1702834567890-uuid.jpg",
-  "url": "https://storage.example.com/uploads/user123/1702834567890-uuid.jpg",
-  "size": 102400,
-  "contentType": "image/jpeg",
-  "originalName": "my-image.jpg"
-}
-```
-
-**錯誤回應：**
-- 400：未提供檔案或檔案類型無效
-- 400：檔案過大（最大 10MB）
-- 500：儲存空間未配置
-
-#### 取得檔案資訊
-```http
-GET /api/storage/files/:key
-Authorization: Bearer <token>
-```
-
-**回應：** 200 OK
-```json
-{
-  "key": "uploads/user123/1702834567890-uuid.jpg",
-  "size": 102400,
-  "lastModified": "2024-12-17T12:34:56.789Z",
-  "contentType": "image/jpeg",
-  "url": "https://storage.example.com/uploads/user123/1702834567890-uuid.jpg"
-}
-```
-
-#### 列出使用者檔案
-```http
-GET /api/storage/files?limit=50&cursor=nextPageCursor
-Authorization: Bearer <token>
-```
-
-**查詢參數：**
-- `limit`（選用）：最大回傳檔案數量，預設 50
-- `cursor`（選用）：上一次回應的分頁游標
-
-**回應：** 200 OK
-```json
-{
-  "files": [
-    {
-      "key": "uploads/user123/1702834567890-uuid.jpg",
-      "size": 102400,
-      "lastModified": "2024-12-17T12:34:56.789Z",
-      "contentType": "image/jpeg",
-      "url": "https://storage.example.com/uploads/user123/1702834567890-uuid.jpg"
-    }
-  ],
-  "hasMore": true,
-  "cursor": "nextPageCursor"
-}
-```
-
-#### 刪除檔案
-```http
-DELETE /api/storage/files/:key
-Authorization: Bearer <token>
-```
-
-**回應：** 200 OK
-```json
-{
-  "message": "File deleted successfully"
-}
-```
-
-**錯誤回應：**
-- 403：無法刪除其他使用者的檔案
-- 404：找不到檔案
-
-## 錯誤回應
-
-所有錯誤回應遵循此格式：
+| 欄位 | 型別 | 必填 | 說明 |
+| --- | --- | --- | --- |
+| `original_url` | `string` | 是 | 必須是 `http` 或 `https` URL |
+| `short_code` | `string` | 是 | 先 `trim()`，再套用 `^[a-zA-Z0-9-_]{3,20}$` 驗證 |
+| `title` | `string` | 否 | 省略或 falsy 時會存成 `NULL` |
+| `description` | `string` | 否 | 省略或 falsy 時會存成 `NULL` |
+| `image_url` | `string` | 否 | 省略或 falsy 時會存成 `NULL` |
+| `expires_at` | `number` | 否 | Epoch 毫秒 |
 
 ```json
 {
-  "error": "錯誤類型",
-  "message": "詳細錯誤訊息"
+  "original_url": "https://example.com/articles/launch",
+  "short_code": "launch-2026",
+  "title": "Launch article",
+  "description": "Campaign landing page",
+  "image_url": "https://cdn.example.com/uploads/<user-id>/cover.png",
+  "expires_at": 1798761600000
 }
 ```
 
-### 常見 HTTP 狀態碼
+### `UpdateUrlRequest`
 
-- `200 OK`：請求成功
-- `201 Created`：資源建立成功
-- `400 Bad Request`：無效的請求參數
-- `401 Unauthorized`：缺少或無效的身份驗證
-- `404 Not Found`：找不到資源
-- `409 Conflict`：資源已存在
-- `410 Gone`：資源已過期
-- `500 Internal Server Error`：伺服器錯誤
+`updateUrl` 會把所有值不為 `undefined` 的欄位寫回資料庫。
 
-## 速率限制
+- 略過某欄位：保留原值不變。
+- 對 `title`、`description`、`image_url`、`expires_at` 傳 `null`：清空該欄位。
+- `original_url` 不能用 `null` 清空；只能省略，或改成另一個有效 URL 字串。
 
-目前尚未實施速率限制。建議在生產環境中實施速率限制：
-
-- 公開端點：每個 IP 每分鐘 100 個請求
-- 已驗證端點：每個使用者每分鐘 1000 個請求
-
-## CORS
-
-API 支援 CORS，配置如下：
-
-- 允許的來源：可在 `src/backend/src/middleware/cors.ts` 中配置
-- 允許的方法：GET、POST、PUT、DELETE、OPTIONS
-- 允許的標頭：Content-Type、Authorization
-- 憑證：支援
-
-## 短代碼格式
-
-短代碼必須遵循以下規則：
-- 長度：3-20 個字元
-- 允許的字元：a-z、A-Z、0-9、連字號（-）、底線（_）
-- 模式：`^[a-zA-Z0-9-_]{3,20}$`
-
-## 網址驗證
-
-原始網址必須：
-- 是有效的網址
-- 使用 HTTP 或 HTTPS 協定
-- 格式正確
-
-## 點擊追蹤
-
-當存取短網址時：
-1. 系統記錄點擊元資料（IP、使用者代理、引用來源、國家、設備、瀏覽器、作業系統）
-2. 點擊計數遞增
-3. 使用者被重定向到原始網址
-4. 所有資料都以非同步方式儲存以進行分析
-
-## 資料保留
-
-- 網址：無限期儲存，除非刪除或過期
-- 點擊記錄：無限期儲存
-- 使用者資料：在帳戶活動期間儲存
-
-## 最佳實踐
-
-1. **使用 HTTPS**：生產環境中始終使用 HTTPS
-2. **驗證輸入**：縮短前始終驗證網址
-3. **處理錯誤**：實施適當的錯誤處理
-4. **快取回應**：在可能的情況下快取靜態資料
-5. **監控使用情況**：追蹤 API 使用情況並設定警報
-6. **安全權杖**：安全地儲存 JWT 權杖
-7. **速率限制**：為生產環境實施速率限制
-8. **日誌記錄**：記錄重要事件以進行除錯
-
-## 使用範例
-
-### JavaScript/TypeScript
-```typescript
-const response = await fetch('https://api.aka.money/api/shorten', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'Authorization': '******'
-  },
-  body: JSON.stringify({
-    original_url: 'https://example.com/very-long-url',
-    short_code: 'my-link'
-  })
-});
-
-const data = await response.json();
-console.log(data.short_url);
+```json
+{
+  "title": null,
+  "description": "Updated copy",
+  "image_url": null,
+  "expires_at": null,
+  "is_active": false
+}
 ```
 
-### cURL
+### Analytics 形狀
+
+`GET /api/analytics/:shortCode` 會回傳：
+
+- `url`：上面的 URL 資源形狀
+- `total_clicks`：從 `click_records` 計出的總數
+- `clicks_by_date`：只涵蓋最近 30 天的稀疏日期 map
+- `clicks_by_country`：前 10 名國家，稀疏
+- `clicks_by_device`：裝置類型計數，稀疏
+- `clicks_by_browser`：前 5 名瀏覽器，稀疏
+- `recent_clicks`：最多 20 筆最近原始點擊紀錄
+
+`GET /api/public/analytics/:shortCode` 刻意只回傳：
+
+| 欄位 | 型別 |
+| --- | --- |
+| `short_code` | `string` |
+| `total_clicks` | `number` |
+| `created_at` | `number` |
+
+### 總覽統計形狀
+
+`GET /api/stats/overall` 會回傳：
+
+| 欄位 | 型別 | 說明 |
+| --- | --- | --- |
+| `total_clicks` | `number` | 所選含首尾區間內的點擊數 |
+| `active_links` | `number` | 該帳戶下仍為啟用狀態的連結數 |
+| `total_links` | `number` | 該帳戶下的全部連結數 |
+| `click_trend` | `Record<string, number>` | 稀疏的 `YYYY-MM-DD` map |
+| `top_links` | `Array<{ short_code, original_url, click_count, title? }>` | service 輸出已依點擊數排序 |
+| `country_distribution` | `Record<string, number>` | 稀疏 |
+| `device_distribution` | `Record<string, number>` | 稀疏 |
+| `date_range.start` | `string` | 含首尾的 UTC 日期 |
+| `date_range.end` | `string` | 含首尾的 UTC 日期 |
+
+### 儲存 API 形狀
+
+| 路由 | 成功回應形狀 |
+| --- | --- |
+| `GET /api/storage/config` | `{ configured, provider, hasPublicUrl }` |
+| `POST /api/storage/upload` | `{ key, url?, size?, contentType, originalName }` |
+| `GET /api/storage/files/:key{.+}` | `{ key, size, lastModified?, contentType?, url? }` |
+| `GET /api/storage/files` | `{ files: Array<{ key, size, lastModified?, contentType?, url? }>, hasMore, cursor? }` |
+| `DELETE /api/storage/files/:key{.+}` | `{ message }` |
+
+## 轉址 Worker 路由
+
+### `OPTIONS *`
+
+| 項目 | 行為 |
+| --- | --- |
+| 用途 | 公開 CORS 預檢輔助路由 |
+| 成功 | `204 No Content`，空字串 body |
+| 說明 | 轉址 Worker 也會在每個請求後附加 `Access-Control-Allow-Origin: *`、`Access-Control-Allow-Methods: GET, OPTIONS`、`Access-Control-Allow-Headers: Content-Type` |
+
+### `GET /health`
+
+| 項目 | 行為 |
+| --- | --- |
+| 成功 | `200 OK`，回傳 `{ status: "ok", service: "redirect", timestamp }` |
+| 錯誤 | 只有 Worker 本身丟出非預期錯誤時，才會落到全域 `500` 處理器 |
+
+### `GET /:shortCode`
+
+| 項目 | 行為 |
+| --- | --- |
+| 查詢方式 | 對 D1 查 `LOWER(short_code) = LOWER(?)` 且 `is_active = 1` |
+| 成功 | `302 Found` 轉址到 `original_url` |
+| `404` | 找不到啟用中的短碼時回傳 |
+| `410` | 找到網址但 `expires_at < Date.now()` 時回傳 |
+| 點擊追蹤 | 透過 `executionCtx.waitUntil(...)` 非同步寫入點擊並增加 `urls.click_count`，避免延後轉址 |
+| 錯誤 | 非預期失敗會落到 Worker 層級的 `500` JSON 錯誤處理器 |
+
+## 管理 Worker 路由
+
+### `GET /health`
+
+| 項目 | 行為 |
+| --- | --- |
+| 成功 | `200 OK`，回傳 `{ status: "ok", service: "admin-api", timestamp }` |
+| 錯誤 | 只有非預期 Worker 失敗才會出現 `500` |
+
+### `POST /api/shorten`
+
+| 項目 | 行為 |
+| --- | --- |
+| 驗證 | 可選 |
+| Request body | `CreateUrlRequest` |
+| 成功 | `201 Created`，回傳 URL 資源 |
+| 目前驗證錯誤行為 | 缺少 `original_url` 會直接回 `400`。其他建立時的驗證與唯一性錯誤，目前因為路由把 service 丟出的錯誤統一改寫，所以會回成 `500` |
+| DB 設定失敗 | 當 `DB` 綁定不存在時，回傳 `{ error: "Configuration Error", ... }` 的 `500` |
+| 說明 | 目前程式碼實際上把 `short_code` 視為必填，雖然舊文件曾寫成可選 |
+
+### `GET /api/urls`
+
+| 項目 | 行為 |
+| --- | --- |
+| 驗證 | 必填 |
+| 查詢參數 | `page` 預設 `1`；`limit` 預設 `20` |
+| 分頁行為 | 值會用 `parseInt(...)` 解析後直接往下傳，不會額外 clamp；格式錯誤時可能引發資料庫錯誤並變成 `500` |
+| 成功 | `200 OK`，回傳 `{ data, pagination }` |
+| 擁有權模型 | 只回傳 `user_id` 等於目前 Entra 使用者 ID 的資料列 |
+| 錯誤 | 缺少驗證會回 `401`；缺少 `DB` 會回 `500`；其他 service 或 D1 失敗會回 `500` |
+
+### `GET /api/urls/:id`
+
+| 項目 | 行為 |
+| --- | --- |
+| 驗證 | 必填 |
+| 成功 | `200 OK`，回傳 URL 資源 |
+| 目前回應缺漏 | 此 route 以 inline 方式組裝回應，即使資料列有值也不會包含 `image_url` |
+| `404` | 指定 URL ID 不存在時回傳 |
+| `403` | 該資料列存在，但 `user_id` 屬於其他使用者時回傳 |
+| 錯誤 | 缺少驗證會回 `401`；缺少 `DB` 會回 `500`；其他非預期失敗會回 `500` |
+
+### `PUT /api/urls/:id`
+
+| 項目 | 行為 |
+| --- | --- |
+| 驗證 | 必填 |
+| Request body | `UpdateUrlRequest` |
+| 成功 | `200 OK`，回傳更新後的 URL 資源 |
+| 目前錯誤行為 | Service 層的找不到、禁止存取與驗證錯誤，目前都會被路由 catch 後改寫成 `500 Internal Server Error` |
+| `null` 與 `undefined` | `null` 會清空 nullable 欄位；省略欄位則保留原值 |
+
+### `DELETE /api/urls/:id`
+
+| 項目 | 行為 |
+| --- | --- |
+| 驗證 | 必填 |
+| 成功 | `200 OK`，回傳 `{ message: "URL deleted successfully" }` |
+| 目前錯誤行為 | Service 層的找不到與禁止存取錯誤，目前會變成 `500`，而不是語意化的 `404` 或 `403`，因為路由把丟出的錯誤重新包裝了 |
+
+### `GET /api/analytics/:shortCode`
+
+| 項目 | 行為 |
+| --- | --- |
+| 驗證 | 必填 |
+| 成功 | `200 OK`，回傳受保護的 analytics 形狀 |
+| `404` | 短碼無法解析成啟用中的 URL 時回傳 |
+| 目前擁有權錯誤行為 | 擁有權檢查在 service 層進行；若查的是別人的 short code，丟出的 forbidden 錯誤目前會被 catch 後改寫成 `500` |
+| 區間行為 | `clicks_by_date` 只涵蓋最近 30 天，且不會補零日期 |
+
+### `GET /api/public/analytics/:shortCode`
+
+| 項目 | 行為 |
+| --- | --- |
+| 驗證 | 公開 |
+| 成功 | `200 OK`，僅回傳 `{ short_code, total_clicks, created_at }` |
+| `404` | 短碼無法解析成啟用中的 URL 時回傳 |
+| 說明 | 此路由不會暴露 `recent_clicks`、國家／裝置／瀏覽器分佈，也不會回傳目標網址 |
+
+### `GET /api/stats/overall`
+
+| 項目 | 行為 |
+| --- | --- |
+| 驗證 | 必填 |
+| 查詢參數 | 可選 `startDate` 與 `endDate`，格式為 `YYYY-MM-DD` |
+| UTC 含首尾行為 | 路由會把 `startDate` 擴成 `T00:00:00.000Z`，把 `endDate` 擴成 `T23:59:59.999Z` 再查詢 |
+| 成對規則 | 兩個日期必須一起提供，或一起省略 |
+| 預設區間 | 兩者都省略時，使用目前 UTC 月份 |
+| 成功 | `200 OK`，回傳總覽統計形狀 |
+| `400` | 只提供單邊日期、日期格式錯誤、或 `startDate > endDate` 時回傳 |
+| 錯誤 | 其他失敗回 `500` |
+
+### `POST /api/admin/cleanup`
+
+| 項目 | 行為 |
+| --- | --- |
+| 驗證 | 必填 |
+| 查詢參數 | 可選 `days`，預設 `365` |
+| 成功 | `200 OK`，回傳 `{ message, deleted, cutoffDate, retentionDays }` |
+| `400` | `days` 不是正整數，或大於 `3650` 時回傳 |
+| 權限說明 | 程式碼註解提到未來可加上 admin 角色檢查，但目前任何已驗證使用者都能觸發 cleanup |
+| 錯誤 | Service 失敗時回傳 `{ error: "Cleanup failed", details }` 的 `500` |
+
+### `GET /api/storage/config`
+
+| 項目 | 行為 |
+| --- | --- |
+| 驗證 | 必填 |
+| 成功 | `200 OK`，回傳儲存設定旗標 |
+| `configured` 的意思 | 只有在目前選定 provider 需要的 binding / secret 都存在時才為 `true` |
+| `hasPublicUrl` 的意思 | 代表 provider 選定後，再套用 `CDN_URL` 優先權後，是否成功解析到公開 URL |
+
+### `POST /api/storage/upload`
+
+| 項目 | 行為 |
+| --- | --- |
+| 驗證 | 必填 |
+| Request body | `multipart/form-data`，必須包含 `file` 欄位 |
+| MIME allowlist | `image/jpeg`、`image/png`、`image/gif`、`image/webp`、`image/svg+xml` |
+| 大小上限 | `10 MB` |
+| 產生的 key | `uploads/<user-id>/<timestamp>-<uuid>.<ext>` |
+| 成功 | `201 Created`，回傳 `{ key, url?, size?, contentType, originalName }` |
+| `400` | 缺少檔案、不支援的 MIME type、或檔案超過 `10 MB` |
+| `500` | 儲存服務未設定，或上傳處理失敗 |
+| 公開 URL 說明 | `url` 是可選欄位，因為 provider 可能沒有可解析的公開 URL |
+
+以下使用 Windows 命令提示字元的續行語法。請將 `TOKEN_VALUE` 替換為 Microsoft Entra 存取權杖。
+
+```bat
+curl -X POST "https://api.example.com/api/storage/upload" ^
+  -H "Authorization: Bearer TOKEN_VALUE" ^
+  -F "file=@cover.png"
+```
+
+POSIX 等效指令：
+
 ```bash
-curl -X POST https://api.aka.money/api/shorten \
-  -H "Content-Type: application/json" \
-  -H "Authorization: ******" \
-  -d '{"original_url": "https://example.com"}'
+curl -X POST "https://api.example.com/api/storage/upload" -H "Authorization: Bearer TOKEN_VALUE" -F "file=@cover.png"
 ```
 
-### Python
-```python
-import requests
+### `GET /api/storage/files/:key{.+}`
 
-response = requests.post(
-    'https://api.aka.money/api/shorten',
-    headers={
-        'Content-Type': 'application/json',
-        'Authorization': '******'
-    },
-    json={
-        'original_url': 'https://example.com',
-        'short_code': 'my-link'
-    }
-)
+| 項目 | 行為 |
+| --- | --- |
+| 驗證 | 必填 |
+| 路由形狀 | `key` 是 catch-all 片段，因此可以包含 `/` |
+| 擁有權規則 | `key` 必須以 `uploads/<user-id>/` 開頭 |
+| 成功 | `200 OK`，回傳 metadata 與可選 `url` |
+| `403` | `key` 不屬於目前使用者前綴時回傳 |
+| `404` | `key` 屬於目前使用者前綴，但物件不存在時回傳 |
+| `500` | 儲存服務未設定，或 provider 存取失敗 |
 
-data = response.json()
-print(data['short_url'])
-```
+### `GET /api/storage/files`
 
-## 支援
+| 項目 | 行為 |
+| --- | --- |
+| 驗證 | 必填 |
+| 查詢參數 | 可選 `limit`、可選 `cursor` |
+| `limit` 行為 | 預設 `50`；`<= 0` 或非數字時退回 `50`；大於 `100` 時 clamp 到 `100` |
+| 前綴範圍 | 永遠只列出 `uploads/<user-id>/...` |
+| 成功 | `200 OK`，回傳 `{ files, hasMore, cursor? }` |
+| `500` | 儲存服務未設定，或 provider 列表操作失敗 |
 
-如有問題：
-- 查看[設定指南](SETUP.zh-TW.md)
-- 閱讀[完整文件](../README.zh-TW.md)
-- 在 GitHub 上提出 Issue
-- 查看 [Cloudflare Workers 文件](https://developers.cloudflare.com/workers/)
+### `DELETE /api/storage/files/:key{.+}`
+
+| 項目 | 行為 |
+| --- | --- |
+| 驗證 | 必填 |
+| 擁有權規則 | `key` 必須以 `uploads/<user-id>/` 開頭 |
+| 成功 | `200 OK`，回傳 `{ message: "File deleted successfully" }` |
+| `403` | `key` 不屬於目前使用者前綴時回傳 |
+| `500` | 儲存服務未設定，或 provider 刪除失敗 |
+
+## 目前錯誤封包說明
+
+- `authMiddleware` 對缺少／無效 bearer header 與無效或過期的 Entra token 會回 `401`。
+- 許多路由層 catch block 目前都會回傳帶有 `error`、`message`、`details`，有時還包含 `stack` 的診斷 JSON。
+- 專案雖然有共用 `errorMiddleware` 與全域 `app.onError(...)`，但多個路由在那之前就先把錯誤 catch 掉，因此保不住更細緻的狀態碼。
+
+## 相關文件
+
+- [專案 README](../README.zh-TW.md)
+- [架構](ARCHITECTURE.zh-TW.md)
+- [驗證](AUTHENTICATION.zh-TW.md)
+- [資料庫](DATABASE.zh-TW.md)
+- [儲存](STORAGE.zh-TW.md)

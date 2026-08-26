@@ -1,7 +1,5 @@
 # Contributing to AkaMoney
 
-English | [繁體中文](CONTRIBUTING.zh-TW.md)
-
 Thank you for your interest in contributing to AkaMoney! This document provides guidelines and instructions for contributing.
 
 ## Getting Started
@@ -11,19 +9,18 @@ Thank you for your interest in contributing to AkaMoney! This document provides 
 3. Create a new branch: `git checkout -b feature/your-feature-name`
 4. Make your changes
 5. Test your changes thoroughly
-6. Commit your changes: `git commit -am 'Add some feature'`
+6. Commit your changes with a conventional message, for example: `git commit -am 'feat: add some feature'`
 7. Push to the branch: `git push origin feature/your-feature-name`
 8. Create a Pull Request
 
 ## Development Setup
 
-Follow the [SETUP.md](SETUP.md) guide to set up your development environment.
+Follow the [setup guide](docs/SETUP.md) to configure your development environment.
 
 ## Code Style
 
 ### TypeScript/JavaScript
 - Use TypeScript for type safety
-- Follow ESLint rules (if configured)
 - Use meaningful variable and function names
 - Add comments for complex logic
 - Keep functions small and focused
@@ -35,10 +32,13 @@ Follow the [SETUP.md](SETUP.md) guide to set up your development environment.
 - Use props and emits for component communication
 
 ### CSS
-- Use Bootstrap classes when possible
-- Keep custom CSS minimal
-- Use scoped styles in Vue components
-- Follow mobile-first approach
+
+AkaMoney uses **Tailwind CSS v4** with a CSS-first configuration — there is no `tailwind.config.js`. All design tokens are defined in `src/frontend/src/assets/css/main.css` using `@theme`. Follow these practices:
+
+- **Add tokens in `@theme`**, not as one-off class overrides
+- **Use `data-theme` for runtime theming** — the theme store writes a `data-theme` attribute on `<html>` (values: `light` or `dark`); use the `dark:` Tailwind variant accordingly
+- **Reuse existing `@layer components` classes and tokens** before adding new CSS; component-scoped CSS is appropriate when the existing views use it
+- **Match the existing responsive system** — the application shell uses an `860px` media-query breakpoint; use Tailwind responsive variants only when they fit the component's established pattern
 
 ## Commit Messages
 
@@ -109,7 +109,6 @@ Here are some areas where contributions are welcome:
 - UI/UX improvements
 - Accessibility enhancements
 - Mobile responsiveness
-- Dark mode
 - Internationalization (i18n)
 
 ### Backend
