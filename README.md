@@ -1,19 +1,19 @@
+English | [繁體中文](README.zh-TW.md)
+
 # AkaMoney - URL Shortening Service
 
 A modern URL shortening service built with Vue 3, TypeScript, and Cloudflare Workers.
-
-English | [繁體中文](README.zh-TW.md)
 
 ## Features
 
 - 🔗 URL Shortening with custom short codes
 - 📊 Analytics and click tracking
 - 🧹 Automatic cleanup of old click records (365-day retention)
-- 🔐 JWT Authentication for API
-- 👤 Entra ID integration for management dashboard
+- 🔐 Microsoft Entra ID authentication for management dashboard
+- 👤 Entra ID integration with automatic user provisioning
 - 💾 D1 Database for data storage
 - 📦 R2 Storage for file management
-- 🎨 Bootstrap 5 responsive design
+- 🎨 Tailwind CSS v4 responsive design with dark/light theme
 - ⚡ Fast redirects with Cloudflare Workers
 
 ## Architecture
@@ -23,12 +23,12 @@ AkaMoney uses a **separated services architecture** for better security and scal
 | Service | Purpose | Authentication | Domain Example |
 |---------|---------|----------------|----------------|
 | **Redirect Service** (`akamoney-redirect`) | Public URL redirection | ❌ None required | `go.aka.money` |
-| **Admin API** (`akamoney-admin-api`) | URL management, analytics | ✅ JWT required | `api.aka.money` |
+| **Admin API** (`akamoney-admin-api`) | URL management, analytics | ✅ Microsoft Entra access token required | `api.aka.money` |
 | **Frontend** | Management dashboard | ✅ Entra ID | `admin.aka.money` |
 
 ### Service Separation Benefits
 
-- **Security**: Admin API protected by JWT, redirect service is public
+- **Security**: Admin API verifies Microsoft Entra access tokens; redirect service is public
 - **Scalability**: Services can be scaled independently
 - **Reliability**: Issues in admin API don't affect redirects
 - **Performance**: Redirect service is optimized for speed
@@ -39,13 +39,14 @@ AkaMoney uses a **separated services architecture** for better security and scal
 - Vue 3
 - Vite
 - TypeScript
-- Bootstrap 5
+- Tailwind CSS v4
+- Chart.js
 
 ### Backend
 - Cloudflare Workers
 - D1 Database
 - R2 Storage
-- JWT Authentication
+- Microsoft Entra ID authentication
 
 ### Requirements
 - Node.js 24.x (LTS)
@@ -64,7 +65,7 @@ AkaMoney uses a **separated services architecture** for better security and scal
 │   │   │   ├── stores/
 │   │   │   └── services/
 │   │   └── package.json
-│   ├── backend/           # Admin API (Cloudflare Workers) - JWT protected
+│   ├── backend/           # Admin API (Cloudflare Workers) - Entra protected
 │   │   ├── src/
 │   │   │   ├── middleware/
 │   │   │   ├── services/
@@ -75,12 +76,9 @@ AkaMoney uses a **separated services architecture** for better security and scal
 │   │   ├── src/
 │   │   ├── wrangler.toml
 │   │   └── package.json
-│   └── shared/            # Shared types and utilities
+│   └── shared/            # Unwired type declarations (not imported by services)
 │       └── types/
-└── docs/              # Documentation
-    ├── API.md
-    ├── SETUP.md
-    └── SCREENSHOTS.md
+└── docs/                  # Complete bilingual documentation; see docs/README.md
 ```
 
 ## Getting Started
@@ -108,29 +106,27 @@ npm run setup
 3. Configure environment variables:
 ```bash
 cp src/frontend/.env.example src/frontend/.env
-cp src/backend/.env.example src/backend/.env
 ```
 
 4. Update configuration files with your Cloudflare credentials
 
 ### Development
 
-Start both frontend and backend in development mode:
-```bash
-npm run dev
-```
-
-Or start them separately:
+Run the three services in separate terminals. This is the reliable workflow on Windows and also avoids port collisions:
 ```bash
 # Frontend (http://localhost:5173)
 npm run dev:frontend
 
 # Admin API (http://localhost:8787)
-npm run dev:backend
+cd src/backend
+npx wrangler dev --config wrangler.local.toml --port 8787
 
 # Redirect Service (http://localhost:8788)
-npm run dev:redirect
+cd src/redirect
+npx wrangler dev --config wrangler.local.toml --port 8788
 ```
+
+See the [setup guide](docs/SETUP.md) for the complete local configuration and health checks.
 
 ### Building
 
@@ -166,9 +162,10 @@ cp src/backend/wrangler.local.toml.example src/backend/wrangler.local.toml
 
 Edit `src/backend/wrangler.local.toml` with your D1 database ID:
 ```toml
-name = "akamoney-admin-api"
+name = "akamoney-api"
 main = "src/index.ts"
-compatibility_date = "2024-01-01"
+compatibility_date = "2024-12-17"
+compatibility_flags = ["nodejs_compat"]
 
 [[d1_databases]]
 binding = "DB"
@@ -196,7 +193,8 @@ Edit `src/redirect/wrangler.local.toml` with your D1 database ID:
 ```toml
 name = "akamoney-redirect"
 main = "src/index.ts"
-compatibility_date = "2024-01-01"
+compatibility_date = "2024-12-17"
+node_compat = true
 
 [[d1_databases]]
 binding = "DB"
@@ -217,7 +215,7 @@ Base URL: `https://go.aka.money` (or your redirect worker URL)
 | `GET /health` | Health check |
 | `GET /:shortCode` | Redirect to original URL |
 
-### Admin API (JWT Authentication Required)
+### Admin API (Microsoft Entra Access Token Required)
 
 Base URL: `https://api.aka.money` (or your admin API worker URL)
 
@@ -225,16 +223,24 @@ Base URL: `https://api.aka.money` (or your admin API worker URL)
 |----------|------|-------------|
 | `GET /health` | ❌ | Health check |
 | `POST /api/shorten` | Optional | Create short URL |
-| `GET /api/urls` | ✅ JWT | List all URLs |
-| `GET /api/urls/:id` | ✅ JWT | Get URL details |
-| `PUT /api/urls/:id` | ✅ JWT | Update URL |
-| `DELETE /api/urls/:id` | ✅ JWT | Delete URL |
-| `GET /api/analytics/:shortCode` | ✅ JWT | Get analytics |
+| `GET /api/urls` | ✅ Entra | List all URLs |
+| `GET /api/urls/:id` | ✅ Entra | Get URL details |
+| `PUT /api/urls/:id` | ✅ Entra | Update URL |
+| `DELETE /api/urls/:id` | ✅ Entra | Delete URL |
+| `GET /api/analytics/:shortCode` | ✅ Entra | Get analytics |
 | `GET /api/public/analytics/:shortCode` | ❌ | Get public analytics (limited) |
-| `POST /api/admin/cleanup` | ✅ JWT | Manually trigger cleanup of old click records |
+| `GET /api/stats/overall` | ✅ Entra | Get overall dashboard statistics |
+| `POST /api/storage/upload` | ✅ Entra | Upload an image |
+| `GET /api/storage/config` | ✅ Entra | Get the active storage configuration |
+| `GET /api/storage/files` | ✅ Entra | List uploaded files |
+| `GET /api/storage/files/:key` | ✅ Entra | Get uploaded-file metadata |
+| `DELETE /api/storage/files/:key` | ✅ Entra | Delete an uploaded file |
+| `POST /api/admin/cleanup` | ✅ Entra | Manually trigger cleanup of old click records |
 
 ### Authentication
-- `POST /api/auth/login` - Get JWT token
+
+The frontend obtains a Microsoft Entra access token through MSAL and sends it as
+a bearer token. See the [authentication guide](docs/AUTHENTICATION.md).
 
 ### Automatic Data Cleanup
 
@@ -247,76 +253,49 @@ The system automatically cleans up old click records to maintain database effici
 
 To manually trigger cleanup for testing:
 
+Replace `TOKEN_VALUE` in the examples with a Microsoft Entra access token.
+
 ```bash
 curl -X POST "https://your-api.workers.dev/api/admin/cleanup" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+  -H "Authorization: Bearer TOKEN_VALUE"
 ```
 
 You can specify a custom retention period (in days):
 
 ```bash
 curl -X POST "https://your-api.workers.dev/api/admin/cleanup?days=180" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+  -H "Authorization: Bearer TOKEN_VALUE"
 ```
 
 **Testing locally:**
 
 ```bash
-# Option 1: Use the manual cleanup endpoint
-cd src/backend && wrangler dev
-# Then in another terminal:
+cd src/backend && npx wrangler dev --config wrangler.local.toml --port 8787
+# In another terminal:
 curl -X POST "http://localhost:8787/api/admin/cleanup" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN"
-
-# Option 2: Test the cron trigger
-# Note: Cloudflare Workers cron triggers run in production/remote environment
-# For local testing, use the manual endpoint or deploy to a test environment
+  -H "Authorization: Bearer TOKEN_VALUE"
 ```
 
 ## Database Schema
 
-### URLs Table
-```sql
-CREATE TABLE urls (
-  id TEXT PRIMARY KEY,
-  short_code TEXT UNIQUE NOT NULL,
-  original_url TEXT NOT NULL,
-  user_id TEXT,
-  created_at INTEGER NOT NULL,
-  updated_at INTEGER NOT NULL,
-  expires_at INTEGER,
-  is_active INTEGER DEFAULT 1
-);
-```
-
-### Click Records Table
-```sql
-CREATE TABLE click_records (
-  id TEXT PRIMARY KEY,
-  url_id TEXT NOT NULL,
-  clicked_at INTEGER NOT NULL,
-  ip_address TEXT,
-  user_agent TEXT,
-  referer TEXT,
-  country TEXT,
-  FOREIGN KEY (url_id) REFERENCES urls(id)
-);
-```
+The schema evolves through D1 migrations. See the [database guide](docs/DATABASE.md) for the current tables, columns, indexes, migration order, and local/remote commands.
 
 ## Features Roadmap
 
 - [x] Basic URL shortening
-- [x] JWT Authentication
+- [x] Microsoft Entra ID authentication
 - [x] Management Dashboard
 - [x] Click Analytics
 - [ ] Custom domains
 - [ ] QR Code generation
-- [ ] Link expiration
+- [x] Link expiration
 - [ ] Password protected links
 - [ ] Bulk URL import
 - [ ] API rate limiting
 
-## Screenshots
+## Historical Screenshots
+
+The images below show the pre-Proposal-F interface and are retained as historical references, not as proof of the current runtime UI. See the [current UI walkthrough](docs/SCREENSHOTS.md) for the Monē design and an explanation of design-reference versus runtime captures.
 
 ### Home Page - URL Shortening Interface
 ![Home Page](https://github.com/user-attachments/assets/fb6c649e-b8f3-4cb4-9817-a49de28f8cd5)
@@ -340,11 +319,13 @@ CREATE TABLE click_records (
 
 ## Documentation
 
-Complete documentation is available in both English and Traditional Chinese:
+Full documentation is available in [English](docs/README.md) and [繁體中文](docs/README.zh-TW.md). Quick links:
 
+- [Documentation Index (English)](docs/README.md) | [文件目錄（繁體中文）](docs/README.zh-TW.md)
 - [Setup Guide (English)](docs/SETUP.md) | [設定指南（繁體中文）](docs/SETUP.zh-TW.md)
 - [API Documentation (English)](docs/API.md) | [API 文件（繁體中文）](docs/API.zh-TW.md)
-- [Contributing Guide (English)](CONTRIBUTING.md) | [貢獻指南（繁體中文）](CONTRIBUTING.zh-TW.md)
+- [Configuration Reference (English)](docs/CONFIGURATION.md) | [配置參考（繁體中文）](docs/CONFIGURATION.zh-TW.md)
+- [Contributing Guide](CONTRIBUTING.md) (English)
 - [Changelog (English)](CHANGELOG.md) | [更新日誌（繁體中文）](CHANGELOG.zh-TW.md)
 - [Screenshots & UI Guide (English)](docs/SCREENSHOTS.md) | [截圖與介面指南（繁體中文）](docs/SCREENSHOTS.zh-TW.md)
 
@@ -352,8 +333,30 @@ Complete documentation is available in both English and Traditional Chinese:
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
-For detailed contribution guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md) or [CONTRIBUTING.zh-TW.md](CONTRIBUTING.zh-TW.md).
+For detailed contribution guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Support
+
+For issues or questions:
+- Check the [Setup Guide](docs/SETUP.md)
+- Read the [API Documentation](docs/API.md)
+- Open an issue on GitHub
+- Review the [Cloudflare Workers documentation](https://developers.cloudflare.com/workers/)
+
+## Acknowledgements
+
+Thanks to the following projects and resources:
+
+- [Vue 3](https://vuejs.org/) - Progressive JavaScript framework
+- [Cloudflare Workers](https://workers.cloudflare.com/) - Serverless platform
+- [Hono](https://hono.dev/) - Lightweight web framework
+- [Tailwind CSS](https://tailwindcss.com/) - CSS framework
+- [TypeScript](https://www.typescriptlang.org/) - Typed JavaScript
+
+## Author
+
+Built with ❤️ by [@lettucebo](https://github.com/lettucebo)

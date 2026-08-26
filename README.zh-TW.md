@@ -1,18 +1,19 @@
+[English](README.md) | 繁體中文
+
 # AkaMoney - 網址縮短服務
 
 一個使用 Vue 3、TypeScript 和 Cloudflare Workers 建構的現代化網址縮短服務。
-
-[English](README.md) | 繁體中文
 
 ## 功能特色
 
 - 🔗 支援自訂短代碼的網址縮短
 - 📊 分析和點擊追蹤
-- 🔐 API 的 JWT 身份驗證
-- 👤 管理儀表板的 Entra ID 整合
+- 🧹 自動清理舊點擊記錄（365 天保留）
+- 🔐 管理儀表板的 Microsoft Entra ID 驗證
+- 👤 Entra ID 整合與自動使用者建立
 - 💾 資料儲存的 D1 資料庫
 - 📦 檔案管理的 R2 儲存
-- 🎨 Bootstrap 5 響應式設計
+- 🎨 Tailwind CSS v4 響應式設計，支援深色/淺色主題
 - ⚡ 使用 Cloudflare Workers 的快速重定向
 
 ## 架構
@@ -22,12 +23,12 @@ AkaMoney 使用**分離式服務架構**以提供更好的安全性和可擴展�
 | 服務 | 用途 | 驗證 | 域名範例 |
 |------|------|------|----------|
 | **重定向服務** (`akamoney-redirect`) | 公開網址重定向 | ❌ 無需驗證 | `go.aka.money` |
-| **管理 API** (`akamoney-admin-api`) | 網址管理、分析 | ✅ 需要 JWT | `api.aka.money` |
+| **管理 API** (`akamoney-admin-api`) | 網址管理、分析 | ✅ 需要 Microsoft Entra 存取權杖 | `api.aka.money` |
 | **前端** | 管理儀表板 | ✅ Entra ID | `admin.aka.money` |
 
 ### 服務分離的優點
 
-- **安全性**：管理 API 受 JWT 保護，重定向服務為公開存取
+- **安全性**：管理 API 驗證 Microsoft Entra 存取權杖，重定向服務為公開存取
 - **可擴展性**：服務可以獨立擴展
 - **可靠性**：管理 API 問題不會影響重定向功能
 - **效能**：重定向服務針對速度進行優化
@@ -38,13 +39,14 @@ AkaMoney 使用**分離式服務架構**以提供更好的安全性和可擴展�
 - Vue 3
 - Vite
 - TypeScript
-- Bootstrap 5
+- Tailwind CSS v4
+- Chart.js
 
 ### 後端
 - Cloudflare Workers
 - D1 資料庫
 - R2 儲存
-- JWT 身份驗證
+- Microsoft Entra ID 身份驗證
 
 ### 需求
 - Node.js 24.x（LTS）
@@ -63,7 +65,7 @@ AkaMoney 使用**分離式服務架構**以提供更好的安全性和可擴展�
 │   │   │   ├── stores/
 │   │   │   └── services/
 │   │   └── package.json
-│   ├── backend/           # 管理 API（Cloudflare Workers）- JWT 保護
+│   ├── backend/           # 管理 API（Cloudflare Workers）- Entra 保護
 │   │   ├── src/
 │   │   │   ├── middleware/
 │   │   │   ├── services/
@@ -74,12 +76,9 @@ AkaMoney 使用**分離式服務架構**以提供更好的安全性和可擴展�
 │   │   ├── src/
 │   │   ├── wrangler.toml
 │   │   └── package.json
-│   └── shared/            # 共享型別和工具
+│   └── shared/            # 尚未接線的型別宣告（服務目前未匯入）
 │       └── types/
-└── docs/              # 文件
-    ├── API.md
-    ├── SETUP.md
-    └── SCREENSHOTS.md
+└── docs/                  # 完整雙語文件；請參閱 docs/README.zh-TW.md
 ```
 
 ## 快速開始
@@ -107,29 +106,27 @@ npm run setup
 3. 配置環境變數：
 ```bash
 cp src/frontend/.env.example src/frontend/.env
-cp src/backend/.env.example src/backend/.env
 ```
 
 4. 使用您的 Cloudflare 憑證更新配置檔案
 
 ### 開發
 
-同時啟動前端和後端的開發模式：
-```bash
-npm run dev
-```
-
-或分別啟動：
+請在三個獨立終端機啟動服務；此方式在 Windows 最可靠，也能避免通訊埠衝突：
 ```bash
 # 前端（http://localhost:5173）
 npm run dev:frontend
 
 # 管理 API（http://localhost:8787）
-npm run dev:backend
+cd src/backend
+npx wrangler dev --config wrangler.local.toml --port 8787
 
 # 重定向服務（http://localhost:8788）
-npm run dev:redirect
+cd src/redirect
+npx wrangler dev --config wrangler.local.toml --port 8788
 ```
+
+完整本機設定與健康檢查請參閱[設定指南](docs/SETUP.zh-TW.md)。
 
 ### 建置
 
@@ -165,9 +162,10 @@ cp src/backend/wrangler.local.toml.example src/backend/wrangler.local.toml
 
 編輯 `src/backend/wrangler.local.toml` 並填入您的 D1 資料庫 ID：
 ```toml
-name = "akamoney-admin-api"
+name = "akamoney-api"
 main = "src/index.ts"
-compatibility_date = "2024-01-01"
+compatibility_date = "2024-12-17"
+compatibility_flags = ["nodejs_compat"]
 
 [[d1_databases]]
 binding = "DB"
@@ -195,7 +193,8 @@ cp src/redirect/wrangler.local.toml.example src/redirect/wrangler.local.toml
 ```toml
 name = "akamoney-redirect"
 main = "src/index.ts"
-compatibility_date = "2024-01-01"
+compatibility_date = "2024-12-17"
+node_compat = true
 
 [[d1_databases]]
 binding = "DB"
@@ -216,7 +215,7 @@ database_id = "your-database-id"
 | `GET /health` | 健康檢查 |
 | `GET /:shortCode` | 重定向到原始網址 |
 
-### 管理 API（需要 JWT 驗證）
+### 管理 API（需要 Microsoft Entra 存取權杖）
 
 基礎 URL：`https://api.aka.money`（或您的管理 API worker URL）
 
@@ -224,60 +223,79 @@ database_id = "your-database-id"
 |------|------|------|
 | `GET /health` | ❌ | 健康檢查 |
 | `POST /api/shorten` | 選用 | 建立短網址 |
-| `GET /api/urls` | ✅ JWT | 列出所有網址 |
-| `GET /api/urls/:id` | ✅ JWT | 取得網址詳細資訊 |
-| `PUT /api/urls/:id` | ✅ JWT | 更新網址 |
-| `DELETE /api/urls/:id` | ✅ JWT | 刪除網址 |
-| `GET /api/analytics/:shortCode` | ✅ JWT | 取得分析 |
+| `GET /api/urls` | ✅ Entra | 列出所有網址 |
+| `GET /api/urls/:id` | ✅ Entra | 取得網址詳細資訊 |
+| `PUT /api/urls/:id` | ✅ Entra | 更新網址 |
+| `DELETE /api/urls/:id` | ✅ Entra | 刪除網址 |
+| `GET /api/analytics/:shortCode` | ✅ Entra | 取得分析 |
 | `GET /api/public/analytics/:shortCode` | ❌ | 取得公開分析（有限） |
+| `GET /api/stats/overall` | ✅ Entra | 取得儀表板總覽統計 |
+| `POST /api/storage/upload` | ✅ Entra | 上傳圖片 |
+| `GET /api/storage/config` | ✅ Entra | 取得目前儲存設定 |
+| `GET /api/storage/files` | ✅ Entra | 列出已上傳檔案 |
+| `GET /api/storage/files/:key` | ✅ Entra | 取得上傳檔案 metadata |
+| `DELETE /api/storage/files/:key` | ✅ Entra | 刪除上傳檔案 |
+| `POST /api/admin/cleanup` | ✅ Entra | 手動清理舊點擊記錄 |
 
 ### 驗證
-- `POST /api/auth/login` - 取得 JWT 權杖
+
+前端透過 MSAL 取得 Microsoft Entra 存取權杖，並以 bearer token 傳送。
+詳見[身份驗證指南](docs/AUTHENTICATION.zh-TW.md)。
+
+### 自動資料清理
+
+系統會自動清理舊的點擊記錄以維持資料庫效率：
+
+- **排程**：每天 UTC 02:00（台灣時間 10:00）
+- **保留期**：365 天（1 年的歷史資料）
+- **方法**：Cloudflare Cron Triggers
+- **資料庫影響**：維持資料庫大小在 D1 免費方案限制內
+
+手動觸發清理以進行測試：
+
+請將範例中的 `TOKEN_VALUE` 替換為 Microsoft Entra 存取權杖。
+
+```bash
+curl -X POST "https://your-api.workers.dev/api/admin/cleanup" \
+  -H "Authorization: Bearer TOKEN_VALUE"
+```
+
+您可以指定自訂保留期（天數）：
+
+```bash
+curl -X POST "https://your-api.workers.dev/api/admin/cleanup?days=180" \
+  -H "Authorization: Bearer TOKEN_VALUE"
+```
+
+**本地測試：**
+
+```bash
+cd src/backend && npx wrangler dev --config wrangler.local.toml --port 8787
+# 在另一個終端：
+curl -X POST "http://localhost:8787/api/admin/cleanup" \
+  -H "Authorization: Bearer TOKEN_VALUE"
+```
 
 ## 資料庫結構
 
-### URLs 表
-```sql
-CREATE TABLE urls (
-  id TEXT PRIMARY KEY,
-  short_code TEXT UNIQUE NOT NULL,
-  original_url TEXT NOT NULL,
-  user_id TEXT,
-  created_at INTEGER NOT NULL,
-  updated_at INTEGER NOT NULL,
-  expires_at INTEGER,
-  is_active INTEGER DEFAULT 1
-);
-```
-
-### Click Records 表
-```sql
-CREATE TABLE click_records (
-  id TEXT PRIMARY KEY,
-  url_id TEXT NOT NULL,
-  clicked_at INTEGER NOT NULL,
-  ip_address TEXT,
-  user_agent TEXT,
-  referer TEXT,
-  country TEXT,
-  FOREIGN KEY (url_id) REFERENCES urls(id)
-);
-```
+Schema 會透過 D1 migration 持續演進。現行資料表、欄位、索引、migration 順序與本地／遠端指令請參閱[資料庫指南](docs/DATABASE.zh-TW.md)。
 
 ## 功能路線圖
 
 - [x] 基本網址縮短
-- [x] JWT 身份驗證
+- [x] Microsoft Entra ID 身份驗證
 - [x] 管理儀表板
 - [x] 點擊分析
 - [ ] 自訂域名
 - [ ] QR 碼生成
-- [ ] 連結過期
+- [x] 連結過期
 - [ ] 密碼保護連結
 - [ ] 批量網址匯入
 - [ ] API 速率限制
 
-## 螢幕截圖
+## 歷史螢幕截圖
+
+以下圖片是 Proposal F 之前的介面，僅保留作歷史參考，不能視為現行 runtime UI 的證明。Monē 現行 UI 導覽，以及設計 reference 與 runtime capture 的差異，請參閱[現行 UI 導覽](docs/SCREENSHOTS.zh-TW.md)。
 
 ### 首頁 - 網址縮短介面
 ![首頁](https://github.com/user-attachments/assets/fb6c649e-b8f3-4cb4-9817-a49de28f8cd5)
@@ -301,24 +319,21 @@ CREATE TABLE click_records (
 
 ## 文件
 
-完整文件請參閱：
+完整文件提供 [English](docs/README.md) 和 [繁體中文](docs/README.zh-TW.md) 版本。快速連結：
 
-- [設定指南（繁體中文）](docs/SETUP.zh-TW.md) - 詳細的設定和部署說明
-- [設定指南（英文）](docs/SETUP.md)
-- [API 文件（繁體中文）](docs/API.zh-TW.md) - 完整的 API 參考
-- [API 文件（英文）](docs/API.md)
-- [貢獻指南（繁體中文）](CONTRIBUTING.zh-TW.md) - 如何為專案做出貢獻
-- [貢獻指南（英文）](CONTRIBUTING.md)
-- [更新日誌（繁體中文）](CHANGELOG.zh-TW.md) - 版本歷史和更改
-- [更新日誌（英文）](CHANGELOG.md)
-- [截圖與介面指南（繁體中文）](docs/SCREENSHOTS.zh-TW.md) - 管理後台詳細截圖
-- [截圖與介面指南（英文）](docs/SCREENSHOTS.md)
+- [文件目錄（繁體中文）](docs/README.zh-TW.md) | [Documentation Index (English)](docs/README.md)
+- [設定指南（繁體中文）](docs/SETUP.zh-TW.md) | [Setup Guide (English)](docs/SETUP.md)
+- [API 文件（繁體中文）](docs/API.zh-TW.md) | [API Documentation (English)](docs/API.md)
+- [配置參考（繁體中文）](docs/CONFIGURATION.zh-TW.md) | [Configuration Reference (English)](docs/CONFIGURATION.md)
+- [貢獻指南](CONTRIBUTING.md)（English）
+- [更新日誌（繁體中文）](CHANGELOG.zh-TW.md) | [Changelog (English)](CHANGELOG.md)
+- [截圖與介面指南（繁體中文）](docs/SCREENSHOTS.zh-TW.md) | [Screenshots & UI Guide (English)](docs/SCREENSHOTS.md)
 
 ## 貢獻
 
 歡迎貢獻！請隨時提交 Pull Request。
 
-詳細資訊請參閱 [CONTRIBUTING.zh-TW.md](CONTRIBUTING.zh-TW.md)。
+詳細資訊請參閱 [CONTRIBUTING.md](CONTRIBUTING.md)（英文）。
 
 ## 授權條款
 
@@ -339,7 +354,7 @@ CREATE TABLE click_records (
 - [Vue 3](https://vuejs.org/) - 漸進式 JavaScript 框架
 - [Cloudflare Workers](https://workers.cloudflare.com/) - 無伺服器平台
 - [Hono](https://hono.dev/) - 輕量級 Web 框架
-- [Bootstrap](https://getbootstrap.com/) - CSS 框架
+- [Tailwind CSS](https://tailwindcss.com/) - CSS 框架
 - [TypeScript](https://www.typescriptlang.org/) - JavaScript 的型別超集
 
 ## 作者
