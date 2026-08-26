@@ -7,6 +7,33 @@ All notable changes to the AkaMoney project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-08-26
+
+### Added
+- Redesigned the management application with the Monē interface system
+  - Replaced Bootstrap with Tailwind CSS v4 and CSS-first design tokens
+  - Added the responsive application shell, sidebar, topbar, KPI summary, inline URL workflows, reusable UI primitives, and light/dark themes
+  - Added theme-aware Chart.js analytics components and composables
+- Added URL-formatting, trend, short-link, and redirect-validation utilities with test coverage
+- Added bilingual project documentation for architecture, authentication, configuration, database, deployment, development, storage, testing, troubleshooting, and documentation navigation
+- Added GitHub Copilot repository guidance
+- Archived the UI proposal bake-off, including fourteen interactive proposals, screenshots, manifests, and comparison materials
+
+### Fixed
+- Fixed authentication bootstrap races through single-flight initialization and removal of duplicate initialization callers
+- Hardened login redirect validation by normalizing paths and rejecting external and protocol-relative redirect targets
+- Fixed URL list consistency during concurrent loading and mutations, including correct page recovery after deleting the only item on the last page
+
+### Changed
+- Documented the existing partial URL update contract in frontend and backend types: explicit `null` clears nullable fields while omitted fields remain unchanged
+- Updated dependencies across applications, including Hono, Wrangler, Axios, Happy DOM, and Vitest
+- Updated CI to require Node.js 24, matching the repository engine requirement
+- Configured the release workflow to supply `VITE_API_URL` from repository variables
+
+### Documentation
+- Updated the English and Traditional Chinese READMEs and contribution guidance for the Tailwind interface and Microsoft Entra authentication flow
+- Corrected deployment tag examples to match the repository's no-`v` tag convention
+
 ## [1.1.6] - 2026-01-03
 
 ### Fixed
