@@ -7,6 +7,33 @@ AkaMoney 專案的所有重要變更都將記錄在此檔案中。
 格式基於 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 此專案遵循 [語義化版本](https://semver.org/spec/v2.0.0.html)。
 
+## [1.2.0] - 2026-08-26
+
+### 新增
+- 以 Monē 介面系統重新設計管理後台
+  - 以 Tailwind CSS v4 與 CSS-first 設計 token 取代 Bootstrap
+  - 新增響應式應用程式殼層、側邊欄、頂欄、KPI 摘要、內嵌 URL 工作流程、可重用 UI 基礎元件與亮／暗主題
+  - 新增具主題感知能力的 Chart.js 分析元件與 composable
+- 新增 URL 格式化、趨勢、短連結與轉址驗證工具，並補齊測試覆蓋
+- 新增涵蓋架構、驗證、設定、資料庫、部署、開發、儲存、測試、疑難排解與文件索引的中英雙語專案文件
+- 新增 GitHub Copilot 儲存庫指引
+- 封存 UI 設計提案比較成果，包含十四個互動式提案、截圖、manifest 與比較資料
+
+### 修正
+- 透過 single-flight 初始化與移除重複初始化呼叫端，修正認證啟動競態問題
+- 透過正規化路徑並拒絕外部與 protocol-relative 轉址目標，強化登入轉址驗證
+- 修正並行載入與變更期間的 URL 清單一致性，包含刪除最後一頁唯一項目後正確回復頁面的行為
+
+### 變更
+- 在前後端型別中記錄既有的局部 URL 更新契約：明確傳入 `null` 會清空 nullable 欄位，省略欄位則維持原值
+- 更新各應用程式相依套件，包括 Hono、Wrangler、Axios、Happy DOM 與 Vitest
+- 更新 CI，要求 Node.js 24 以符合儲存庫的 engine 規範
+- 設定發布 workflow 從 repository variables 提供 `VITE_API_URL`
+
+### 文件
+- 更新英文與繁體中文 README 及貢獻指引，以符合 Tailwind 介面與 Microsoft Entra 驗證流程
+- 修正部署 tag 範例，使其符合儲存庫不使用 `v` 前綴的慣例
+
 ## [1.1.6] - 2026-01-03
 
 ### 修正
