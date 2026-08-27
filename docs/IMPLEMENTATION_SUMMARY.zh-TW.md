@@ -46,7 +46,7 @@ Vue 3（`<script setup>`）、Vite 與 **Tailwind CSS v4** 建置，採用 CSS �
 
 - **可收合側邊欄外殼**——`AppShell`、`AppSidebar`、`AppTopbar`。
 - **高密度、易掃視的短網址表格**——`UrlTable` 搭配 `UrlTableToolbar` 與 `DashboardPagination`。
-- **行內快速建立**——`QuickCreatePanel` 取代舊有以彈窗為主的建立流程。
+- **按需建立短網址**——`UrlCreateModal` 由儀表板操作按鈕開啟，不會常駐占用連結管理空間。
 - **KPI 摘要**——`KpiSummary`，由 `useKpiSummary` composable 供給資料。
 - **比較式分析**——`AnalyticsView` 與 `OverallStatsView`，使用 `BaseChart` 及來自
   `useChartTheme` 的共用分類色盤。

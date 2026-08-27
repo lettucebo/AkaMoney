@@ -18,7 +18,7 @@ AkaMoney 由三個可獨立部署的服務，加上鏡像契約、D1 migrations�
 
 - `views/` — 一條路由一個畫面（`LoginView`、`DashboardView`、`OverallStatsView`、`AnalyticsView`、`NotFoundView`）
 - `components/layout/` — `AppShell`、`AppSidebar`、`AppTopbar`
-- `components/dashboard/` — KPI、行內建立、表格、工具列、分頁、編輯／確認／toast
+- `components/dashboard/` — KPI、按需建立彈窗、表格、工具列、分頁、編輯／確認／toast
 - `components/common/` — `BaseButton`、`BaseBadge`、`BaseModal`、`BaseChart`、`EmptyState`、`StateBlock`
 - `stores/` — `auth`、`theme`、`url`
 - `services/` — `api.ts`（Admin API 用戶端）、`auth.ts`（MSAL）

@@ -1089,46 +1089,7 @@
     flex: none;
   }
 
-  /* ===== Forms + inline quick create ===== */
-  .palette {
-    width: 100%;
-    background: var(--color-surface);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-xl);
-    box-shadow: var(--shadow-1);
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    margin-bottom: 16px;
-  }
-
-  .palette-head {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 13px 16px;
-    border-bottom: 1px solid var(--color-border);
-    min-width: 0;
-  }
-
-  .palette-head .pi {
-    width: 17px;
-    height: 17px;
-    color: var(--color-muted);
-    flex: none;
-  }
-
-  .palette-head .pt {
-    font-size: 13px;
-    font-weight: 600;
-  }
-
-  .palette-body {
-    padding: 16px;
-    min-width: 0;
-  }
-
+  /* ===== Forms ===== */
   .form {
     display: grid;
     gap: 13px;
@@ -1235,17 +1196,6 @@
     font-size: 11px;
     color: var(--color-danger);
   }
-
-  .palette-foot {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 16px;
-    border-top: 1px solid var(--color-border);
-    background: var(--color-surface);
-  }
-
-  .palette-foot .grow { flex: 1; }
 
   .upload-area {
     display: grid;

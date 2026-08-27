@@ -151,7 +151,7 @@ export const CHART_SERIES = [
 ## 元件慣例
 
 1. 使用語意代幣（`var(--color-text)`、`var(--color-accent)` …），不要硬編碼 hex；唯一例外是 `useChartTheme`，因為 canvas 看不到 CSS 變數。
-2. 優先使用 `main.css` `@layer components` 的 class：`.btn` / `.btn.primary|.ghost|.danger|.sm`、`.icon-btn`、`.badge.on|.off|.exp`、`.kpi`、`.table` / `.row`、`.palette`（行內建立）、`.state`、`.card`、`.modal-scrim` / `.modal-panel`。
+2. 優先使用 `main.css` `@layer components` 的 class：`.btn` / `.btn.primary|.ghost|.danger|.sm`、`.icon-btn`、`.badge.on|.off|.exp`、`.kpi`、`.table` / `.row`、`.state`、`.card`、`.modal-scrim` / `.modal-panel`。
 3. Vue 封裝：`BaseButton`、`BaseBadge`、`BaseModal`、`BaseChart`、`EmptyState`、`StateBlock`。
 4. 深色覆寫用 `:root[data-theme="dark"]` 或由 `@custom-variant` 接上的 Tailwind `dark:`。不要使用 `data-bs-theme` 或 Bootstrap utility。
 5. Shell 斷點：`@media (max-width: 860px)` 把側欄改成抽屜。

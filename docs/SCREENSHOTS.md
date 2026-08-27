@@ -20,8 +20,8 @@ The shipped visual system is **`m2-mone-dense`** (Proposal F / Monē dense data 
 
 - `src/frontend/src/assets/css/main.css` header: “Proposal F (Mone 高密度資料工具變體)” and tokens that match `design-mockups/proposals/m2-mone-dense.manifest.json`
 - `useChartTheme.ts` cites that same manifest for `CHART_SERIES`
-- `DashboardView.vue` and `UrlTable.vue` comments: Proposal F vertical slice — KPI → inline quick-create → dense table
-- Manifest DNA: `collapsible-sidebar`, `dense-table`, `inline-quick-create` — implemented by `AppShell` / `UrlTable` / `QuickCreatePanel`
+- `DashboardView.vue` and `UrlTable.vue` comments: Proposal F vertical slice — KPI → on-demand create modal → dense table
+- Manifest DNA: `collapsible-sidebar`, `dense-table`, `inline-quick-create` — `AppShell` implements `collapsible-sidebar`; `UrlTable` implements `dense-table`; the shipped create flow intentionally diverges from `inline-quick-create` by opening `UrlCreateModal` (a centered `BaseModal`) instead of an inline panel.
 
 See [THEME](THEME.md) for tokens. See [PROJECT_STRUCTURE](PROJECT_STRUCTURE.md) for where mockups vs runtime live.
 
@@ -49,11 +49,11 @@ Centered card: brand mark, “登入 AkaMoney”, Microsoft Entra ID button. Sta
 Composition (not a single modal-first page):
 
 1. `KpiSummary` — independent 30-day overall-stats fetch (clicks, active, total, average). Own loading / error + retry.
-2. `QuickCreatePanel` — inline create (`original_url`, required alias, optional title / description / preview image).
+2. Page-header primary action (+ button) opens `UrlCreateModal` — centered `BaseModal` with `original_url`, required alias, optional title / description / preview image. The genuine empty state ("尚未建立任何短網址") also offers a second create action.
 3. `UrlTableToolbar` — search, click-count sort, status tabs. **Current server page only** (`page` / `limit`).
 4. List states: loading (`StateBlock`), list error, empty (“尚未建立任何短網址”), no-results for the current page, or `UrlTable`.
 5. Table columns: short link (display host `aka.money`), original URL, clicks, status (`作用中` / `已封存` / `已過期`), actions (copy, analytics, edit, archive or restore).
-6. `DashboardPagination`, `UrlEditModal`, archive/restore `ConfirmActionModal`, `DashboardToastStack`.
+6. `DashboardPagination`, `UrlCreateModal`, `UrlEditModal`, archive/restore `ConfirmActionModal`, `DashboardToastStack`.
 
 There is no delete-forever UI in this view. Archive stops redirects; restore brings them back.
 
@@ -79,7 +79,7 @@ Do not infer extra keyboard shortcuts, WCAG claims, or browser support from the 
 
 ## Design mockup captures
 
-The following files exist and are **design mockups / references**, not current runtime proof. They show the `m2-mone-dense` HTML proposal’s **連結** screen (dense table, chip-style filters, mock “建立連結” button). They differ from the shipped app in several visible ways: extra sidebar items (成效分析 / 建立連結 / 登入頁 / 找不到頁面), no inline `QuickCreatePanel`, mobile chip nav instead of the 860px drawer, and `/` · `⌘K` decorations that the Vue app does not ship.
+The following files exist and are **design mockups / references**, not current runtime proof. They show the `m2-mone-dense` HTML proposal’s **連結** screen (dense table, chip-style filters, mock “建立連結” button). They differ from the shipped app in several visible ways: extra sidebar items (成效分析 / 建立連結 / 登入頁 / 找不到頁面), mobile chip nav instead of the 860px drawer, and `/` · `⌘K` decorations that the Vue app does not ship. Both the mockup and the shipped app show a compact dashboard create action; the shipped form opens in `BaseModal` rather than as an inline panel.
 
 **Desktop light — design mockup / reference**
 
