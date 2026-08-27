@@ -9,7 +9,7 @@
       </div>
     </div>
 
-    <QuickCreatePanel @created="handleCreated" />
+    <UrlCreateModal :open="true" @created="handleCreated" />
 
     <UrlTableToolbar
       :search="search"
@@ -109,7 +109,7 @@ import { shortLinkTarget } from '@/utils/shortLink';
 import { rollingWindow } from '@/utils/trend';
 import { deriveVisibleUrls, type SortOption, type StatusFilter } from '@/components/dashboard/dashboardUrlList';
 import KpiSummary from '@/components/dashboard/KpiSummary.vue';
-import QuickCreatePanel from '@/components/dashboard/QuickCreatePanel.vue';
+import UrlCreateModal from '@/components/dashboard/UrlCreateModal.vue';
 import UrlTableToolbar from '@/components/dashboard/UrlTableToolbar.vue';
 import UrlTable from '@/components/dashboard/UrlTable.vue';
 import DashboardPagination from '@/components/dashboard/DashboardPagination.vue';

@@ -1,15 +1,9 @@
 <template>
-  <section class="palette" aria-labelledby="quick-create-heading">
-    <div class="palette-head">
-      <svg class="pi" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
-        <rect x="2" y="2.5" width="12" height="11" rx="2" />
-        <path d="M5.5 6.5 7.5 8l-2 1.5M8.8 9.8H11" />
-      </svg>
-      <span id="quick-create-heading" class="pt">快速建立短網址</span>
-    </div>
+  <BaseModal :open="open" title="新增短網址" wide @close="handleClose">
+    <form id="url-create-form" novalidate @submit.prevent="handleSubmit">
+      <div class="form">
+        <p class="field-hint field wide">建立後會顯示於清單最前面。</p>
 
-    <form novalidate @submit.prevent="handleSubmit">
-      <div class="palette-body form">
         <div class="field wide">
           <label class="fl" for="qc-original-url">原始網址 <span class="req">必填</span></label>
           <input
@@ -97,49 +91,54 @@
 
         <StateBlock v-if="formError" state="error" class="field wide" :message="formError" />
       </div>
-
-      <div class="palette-foot">
-        <span class="field-hint">建立後將立即出現在下方清單最前面</span>
-        <span class="grow" />
-        <BaseButton type="button" variant="ghost" :disabled="submitting" @click="resetForm">重設</BaseButton>
-        <BaseButton
-          type="submit"
-          variant="primary"
-          :disabled="imageUploading"
-          :loading="submitting"
-          loading-label="建立中…"
-        >
-          建立短網址
-        </BaseButton>
-      </div>
     </form>
-  </section>
+
+    <template #footer>
+      <BaseButton
+        variant="ghost"
+        data-testid="create-cancel"
+        :disabled="submitting"
+        @click="handleClose"
+      >
+        取消
+      </BaseButton>
+      <BaseButton
+        type="submit"
+        form="url-create-form"
+        variant="primary"
+        data-testid="create-submit"
+        :disabled="imageUploading"
+        :loading="submitting"
+        loading-label="建立中…"
+        @click="handleSubmit"
+      >
+        建立短網址
+      </BaseButton>
+    </template>
+  </BaseModal>
 </template>
 
 <script setup lang="ts">
 /**
- * Inline quick-create panel - the Proposal F dashboard replaces the old
- * modal-triggered UrlCreateForm.vue with an always-visible inline panel.
- *
- * This preserves every capability the old form had: a required custom
- * alias (validated client-side, 3-20 chars) with a random-code generator,
- * optional title/description/expiry, and image upload (drag & drop or
- * click, with an allow-listed type/10MB check, object-URL preview, and
- * removal). It intentionally does NOT add password/delete/QR fields, and
- * does not add a raw image-URL text input - the original form only ever
- * populated `image_url` via a successful upload.
+ * URL creation modal - wraps the create form in BaseModal so the draft is
+ * lifecycle-scoped to each open/close cycle. The submit button uses the HTML
+ * form-owner attribute (`form="url-create-form"`) because it lives in the
+ * BaseModal footer slot, which is a sibling of the body slot; this preserves
+ * Enter-key implicit submission without a duplicate @click handler.
  */
-import { computed, onBeforeUnmount, ref } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { nanoid } from 'nanoid';
 import { useUrlStore } from '@/stores/url';
 import apiService from '@/services/api';
 import type { CreateUrlRequest, UrlResponse } from '@/types';
 import { extractErrorMessage } from '@/utils/format';
 import { validateImageFile, validateShortCode } from './dashboardFormValidation';
+import BaseModal from '@/components/common/BaseModal.vue';
 import BaseButton from '@/components/common/BaseButton.vue';
 import StateBlock from '@/components/common/StateBlock.vue';
 
-const emit = defineEmits<{ created: [url: UrlResponse] }>();
+const props = defineProps<{ open: boolean }>();
+const emit = defineEmits<{ close: []; created: [url: UrlResponse] }>();
 
 const urlStore = useUrlStore();
 
@@ -269,6 +268,22 @@ const resetForm = (): void => {
   formError.value = null;
   clearImage();
 };
+
+const handleClose = (): void => {
+  if (submitting.value) {
+    return;
+  }
+  emit('close');
+};
+
+watch(
+  () => props.open,
+  (open) => {
+    if (!open) {
+      resetForm();
+    }
+  }
+);
 
 const handleSubmit = async (): Promise<void> => {
   if (submitting.value) {

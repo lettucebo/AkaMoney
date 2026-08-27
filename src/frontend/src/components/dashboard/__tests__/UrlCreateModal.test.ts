@@ -10,7 +10,11 @@ const apiMock = vi.hoisted(() => ({
 
 vi.mock('@/services/api', () => ({ default: apiMock }));
 
-import QuickCreatePanel from '../QuickCreatePanel.vue';
+import UrlCreateModal from '../UrlCreateModal.vue';
+
+function mountCreateModal(open = true) {
+  return mount(UrlCreateModal, { props: { open } });
+}
 
 function buildUrl(overrides: Partial<UrlResponse> = {}): UrlResponse {
   return {
@@ -57,7 +61,7 @@ async function fillRequiredFields(wrapper: ReturnType<typeof mount>, alias: stri
   await wrapper.find('.prefix-input input[type="text"]').setValue(alias);
 }
 
-describe('QuickCreatePanel', () => {
+describe('UrlCreateModal', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     vi.clearAllMocks();
@@ -69,8 +73,34 @@ describe('QuickCreatePanel', () => {
     vi.restoreAllMocks();
   });
 
+  it('does not render the dialog while closed', () => {
+    const wrapper = mountCreateModal(false);
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false);
+    expect(wrapper.find('form').exists()).toBe(false);
+  });
+
+  it('renders the create dialog while open', () => {
+    const wrapper = mountCreateModal();
+    expect(wrapper.get('[role="dialog"]').text()).toContain('新增短網址');
+    expect(wrapper.find('form').exists()).toBe(true);
+  });
+
+  it('emits close from the cancel button', async () => {
+    const wrapper = mountCreateModal();
+    await wrapper.get('[data-testid="create-cancel"]').trigger('click');
+    expect(wrapper.emitted('close')).toEqual([[]]);
+  });
+
+  it('discards an abandoned draft before the modal is reopened', async () => {
+    const wrapper = mountCreateModal();
+    await wrapper.get('#qc-original-url').setValue('https://example.com/draft');
+    await wrapper.setProps({ open: false });
+    await wrapper.setProps({ open: true });
+    expect((wrapper.get('#qc-original-url').element as HTMLInputElement).value).toBe('');
+  });
+
   it('renders the required original URL and short code fields', () => {
-    const wrapper = mount(QuickCreatePanel);
+    const wrapper = mountCreateModal();
 
     expect(wrapper.find('input[type="url"]').exists()).toBe(true);
     expect(wrapper.find('.prefix-input input[type="text"]').exists()).toBe(true);
@@ -78,7 +108,7 @@ describe('QuickCreatePanel', () => {
   });
 
   it('rejects submission with an invalid short code and does not call the API', async () => {
-    const wrapper = mount(QuickCreatePanel);
+    const wrapper = mountCreateModal();
 
     await wrapper.find('input[type="url"]').setValue('https://example.com/target');
     await wrapper.find('.prefix-input input[type="text"]').setValue('ab');
@@ -90,7 +120,7 @@ describe('QuickCreatePanel', () => {
   });
 
   it('fills a random valid short code when the random button is clicked', async () => {
-    const wrapper = mount(QuickCreatePanel);
+    const wrapper = mountCreateModal();
     const randomButton = wrapper.findAll('button').find((b) => b.text().includes('隨機'))!;
 
     await randomButton.trigger('click');
@@ -103,7 +133,7 @@ describe('QuickCreatePanel', () => {
   it('creates a url with the entered fields and emits created, then resets the form', async () => {
     const created = buildUrl();
     apiMock.createUrl.mockResolvedValue(created);
-    const wrapper = mount(QuickCreatePanel);
+    const wrapper = mountCreateModal();
 
     await wrapper.find('input[type="url"]').setValue('https://example.com/target');
     await wrapper.find('.prefix-input input[type="text"]').setValue('new-link');
@@ -124,7 +154,7 @@ describe('QuickCreatePanel', () => {
 
   it('shows a server error and does not emit created when creation fails', async () => {
     apiMock.createUrl.mockRejectedValue({ response: { data: { message: '短代碼已存在' } } });
-    const wrapper = mount(QuickCreatePanel);
+    const wrapper = mountCreateModal();
 
     await wrapper.find('input[type="url"]').setValue('https://example.com/target');
     await wrapper.find('.prefix-input input[type="text"]').setValue('taken-code');
@@ -138,7 +168,7 @@ describe('QuickCreatePanel', () => {
   it('uploads a selected image file, previews it, and includes the url on submit', async () => {
     apiMock.uploadImage.mockResolvedValue({ url: 'https://storage.example.com/cover.jpg' });
     apiMock.createUrl.mockResolvedValue(buildUrl({ image_url: 'https://storage.example.com/cover.jpg' }));
-    const wrapper = mount(QuickCreatePanel);
+    const wrapper = mountCreateModal();
 
     const fileInput = wrapper.get('input[type="file"]');
     const file = buildFile('cover.jpg', 'image/jpeg');
@@ -160,7 +190,7 @@ describe('QuickCreatePanel', () => {
   });
 
   it('rejects an oversized or disallowed image file before uploading', async () => {
-    const wrapper = mount(QuickCreatePanel);
+    const wrapper = mountCreateModal();
     const fileInput = wrapper.get('input[type="file"]');
 
     const badType = buildFile('doc.pdf', 'application/pdf');
@@ -174,7 +204,7 @@ describe('QuickCreatePanel', () => {
 
   it('removes the uploaded image preview and revokes the object URL', async () => {
     apiMock.uploadImage.mockResolvedValue({ url: 'https://storage.example.com/cover.jpg' });
-    const wrapper = mount(QuickCreatePanel);
+    const wrapper = mountCreateModal();
     const fileInput = wrapper.get('input[type="file"]');
     Object.defineProperty(fileInput.element, 'files', { value: [buildFile('cover.jpg', 'image/jpeg')] });
     await fileInput.trigger('change');
@@ -189,32 +219,17 @@ describe('QuickCreatePanel', () => {
     expect(wrapper.find('.preview-thumb').exists()).toBe(false);
   });
 
-  it('resets the whole form when the reset button is clicked', async () => {
-    const wrapper = mount(QuickCreatePanel);
-
-    await wrapper.find('input[type="url"]').setValue('https://example.com/target');
-    await wrapper.find('.prefix-input input[type="text"]').setValue('some-code');
-    await wrapper.find('#qc-title').setValue('Title');
-
-    const resetButton = wrapper.findAll('button').find((b) => b.text() === '重設')!;
-    await resetButton.trigger('click');
-
-    expect((wrapper.find('input[type="url"]').element as HTMLInputElement).value).toBe('');
-    expect((wrapper.get('.prefix-input input[type="text"]').element as HTMLInputElement).value).toBe('');
-    expect((wrapper.find('#qc-title').element as HTMLInputElement).value).toBe('');
-  });
-
   it('shows a loading state on the submit button while creating', async () => {
     let resolveCreate: (value: UrlResponse) => void = () => {};
     apiMock.createUrl.mockReturnValue(new Promise((resolve) => { resolveCreate = resolve; }));
-    const wrapper = mount(QuickCreatePanel);
+    const wrapper = mountCreateModal();
 
     await wrapper.find('input[type="url"]').setValue('https://example.com/target');
     await wrapper.find('.prefix-input input[type="text"]').setValue('slow-code');
     await wrapper.find('form').trigger('submit');
     await flushPromises();
 
-    const submitButton = wrapper.get('button[type="submit"]');
+    const submitButton = wrapper.get('[data-testid="create-submit"]');
     expect(submitButton.attributes('aria-busy')).toBe('true');
 
     resolveCreate(buildUrl());
@@ -226,12 +241,12 @@ describe('QuickCreatePanel', () => {
       const upload = deferred<{ url: string }>();
       apiMock.uploadImage.mockReturnValue(upload.promise);
       apiMock.createUrl.mockResolvedValue(buildUrl({ image_url: 'https://storage.example.com/cover.jpg' }));
-      const wrapper = mount(QuickCreatePanel);
+      const wrapper = mountCreateModal();
 
       await selectFile(wrapper, buildFile('cover.jpg', 'image/jpeg'));
       await fillRequiredFields(wrapper, 'with-image');
 
-      expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeDefined();
+      expect(wrapper.get('[data-testid="create-submit"]').attributes('disabled')).toBeDefined();
       await wrapper.find('form').trigger('submit');
       await flushPromises();
 
@@ -242,7 +257,7 @@ describe('QuickCreatePanel', () => {
       upload.resolve({ url: 'https://storage.example.com/cover.jpg' });
       await flushPromises();
 
-      expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeUndefined();
+      expect(wrapper.get('[data-testid="create-submit"]').attributes('disabled')).toBeUndefined();
       await wrapper.find('form').trigger('submit');
       await flushPromises();
 
@@ -256,7 +271,7 @@ describe('QuickCreatePanel', () => {
       const second = deferred<{ url: string }>();
       apiMock.uploadImage.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
       apiMock.createUrl.mockResolvedValue(buildUrl());
-      const wrapper = mount(QuickCreatePanel);
+      const wrapper = mountCreateModal();
 
       await selectFile(wrapper, buildFile('first.jpg', 'image/jpeg'));
       await selectFile(wrapper, buildFile('second.jpg', 'image/jpeg'));
@@ -279,7 +294,7 @@ describe('QuickCreatePanel', () => {
       const first = deferred<{ url: string }>();
       const second = deferred<{ url: string }>();
       apiMock.uploadImage.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
-      const wrapper = mount(QuickCreatePanel);
+      const wrapper = mountCreateModal();
 
       await selectFile(wrapper, buildFile('first.jpg', 'image/jpeg'));
       await selectFile(wrapper, buildFile('second.jpg', 'image/jpeg'));
@@ -288,20 +303,20 @@ describe('QuickCreatePanel', () => {
       await flushPromises();
 
       expect(wrapper.text()).toContain('上傳圖片中');
-      expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeDefined();
+      expect(wrapper.get('[data-testid="create-submit"]').attributes('disabled')).toBeDefined();
 
       second.resolve({ url: 'https://storage.example.com/second.jpg' });
       await flushPromises();
 
       expect(wrapper.text()).not.toContain('上傳圖片中');
-      expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeUndefined();
+      expect(wrapper.get('[data-testid="create-submit"]').attributes('disabled')).toBeUndefined();
     });
 
     it('does not surface a stale upload failure over the newest upload', async () => {
       const first = deferred<{ url: string }>();
       const second = deferred<{ url: string }>();
       apiMock.uploadImage.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
-      const wrapper = mount(QuickCreatePanel);
+      const wrapper = mountCreateModal();
 
       await selectFile(wrapper, buildFile('first.jpg', 'image/jpeg'));
       await selectFile(wrapper, buildFile('second.jpg', 'image/jpeg'));
@@ -315,34 +330,31 @@ describe('QuickCreatePanel', () => {
       expect(wrapper.find('.preview-thumb').exists()).toBe(true);
     });
 
-    it('prevents a reset-away upload from attaching to the next submission', async () => {
+    it('prevents an upload abandoned by modal close from attaching after reopen', async () => {
       const upload = deferred<{ url: string }>();
       apiMock.uploadImage.mockReturnValue(upload.promise);
       apiMock.createUrl.mockResolvedValue(buildUrl());
-      const wrapper = mount(QuickCreatePanel);
+      const wrapper = mountCreateModal();
 
       await selectFile(wrapper, buildFile('cover.jpg', 'image/jpeg'));
-      const resetButton = wrapper.findAll('button').find((b) => b.text() === '重設')!;
-      await resetButton.trigger('click');
-
-      expect(wrapper.text()).not.toContain('上傳圖片中');
+      await wrapper.setProps({ open: false });
+      await wrapper.setProps({ open: true });
 
       upload.resolve({ url: 'https://storage.example.com/stale.jpg' });
       await flushPromises();
 
-      await fillRequiredFields(wrapper, 'after-reset');
-      await wrapper.find('form').trigger('submit');
+      await fillRequiredFields(wrapper, 'fresh-modal');
+      await wrapper.get('[data-testid="create-submit"]').trigger('click');
       await flushPromises();
 
-      const payload = apiMock.createUrl.mock.calls[0][0];
-      expect(payload.image_url).toBeUndefined();
+      expect(apiMock.createUrl.mock.calls[0][0].image_url).toBeUndefined();
     });
 
     it('prevents a cleared upload from attaching to the next submission', async () => {
       const upload = deferred<{ url: string }>();
       apiMock.uploadImage.mockReturnValue(upload.promise);
       apiMock.createUrl.mockResolvedValue(buildUrl());
-      const wrapper = mount(QuickCreatePanel);
+      const wrapper = mountCreateModal();
 
       await selectFile(wrapper, buildFile('cover.jpg', 'image/jpeg'));
       const removeButton = wrapper.findAll('button').find((b) => b.text().includes('移除'))!;
@@ -362,7 +374,7 @@ describe('QuickCreatePanel', () => {
     it('ignores an upload that resolves after the panel is unmounted', async () => {
       const upload = deferred<{ url: string }>();
       apiMock.uploadImage.mockReturnValue(upload.promise);
-      const wrapper = mount(QuickCreatePanel);
+      const wrapper = mountCreateModal();
 
       await selectFile(wrapper, buildFile('cover.jpg', 'image/jpeg'));
       wrapper.unmount();
@@ -385,7 +397,7 @@ describe('QuickCreatePanel', () => {
         contentType: 'image/jpeg',
         originalName: 'cover.jpg'
       });
-      const wrapper = mount(QuickCreatePanel);
+      const wrapper = mountCreateModal();
 
       await selectFile(wrapper, buildFile('cover.jpg', 'image/jpeg'));
       await flushPromises();
@@ -401,7 +413,7 @@ describe('QuickCreatePanel', () => {
         originalName: 'cover.jpg'
       });
       apiMock.createUrl.mockResolvedValue(buildUrl());
-      const wrapper = mount(QuickCreatePanel);
+      const wrapper = mountCreateModal();
 
       await selectFile(wrapper, buildFile('cover.jpg', 'image/jpeg'));
       await flushPromises();
