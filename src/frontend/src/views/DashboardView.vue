@@ -9,7 +9,7 @@
       </div>
     </div>
 
-    <UrlCreateModal :open="true" @created="handleCreated" />
+    <UrlCreateModal :open="showCreateModal" @close="showCreateModal = false" @created="handleCreated" />
 
     <UrlTableToolbar
       :search="search"
@@ -235,6 +235,7 @@ const handleCopy = async (url: UrlResponse): Promise<void> => {
 };
 
 // --- Create. ---
+const showCreateModal = ref(true);
 const handleCreated = (url: UrlResponse): void => {
   pushToast(`已建立短網址：${url.short_code}`, 'ok');
   loadKpiSummary();

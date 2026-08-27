@@ -121,10 +121,13 @@
 <script setup lang="ts">
 /**
  * URL creation modal - wraps the create form in BaseModal so the draft is
- * lifecycle-scoped to each open/close cycle. The submit button uses the HTML
- * form-owner attribute (`form="url-create-form"`) because it lives in the
- * BaseModal footer slot, which is a sibling of the body slot; this preserves
- * Enter-key implicit submission without a duplicate @click handler.
+ * lifecycle-scoped to each open/close cycle. The submit button carries both
+ * `form="url-create-form"` (HTML form-owner for Enter-key implicit submission
+ * in real browsers) and `@click="handleSubmit"` (required because happy-dom
+ * does not activate form-submission behaviour for form-owner buttons that live
+ * outside the `<form>` element). In real browsers, both paths may fire; the
+ * `if (submitting.value) return` guard at the top of `handleSubmit` absorbs
+ * any second invocation without consequence.
  */
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { nanoid } from 'nanoid';

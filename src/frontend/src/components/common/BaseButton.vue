@@ -1,8 +1,8 @@
 <template>
   <button
     :type="type"
-      :form="form"
-      class="btn"
+    :form="form"
+    class="btn"
     :class="[variant === 'default' ? null : variant, size === 'sm' ? 'sm' : null]"
     :disabled="disabled || loading"
     :aria-busy="loading ? 'true' : undefined"
