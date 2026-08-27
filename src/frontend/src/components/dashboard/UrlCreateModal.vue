@@ -60,10 +60,15 @@
             v-else
             class="upload-area"
             :class="{ 'is-dragging': isDragging }"
+            role="button"
+            tabindex="0"
+            aria-label="上傳預覽圖片，拖曳圖片到此處，或按 Enter 鍵選擇檔案"
             @dragover.prevent="isDragging = true"
             @dragleave.prevent="isDragging = false"
             @drop.prevent="handleDrop"
             @click="triggerFileInput"
+            @keydown.enter.prevent="triggerFileInput"
+            @keydown.space.prevent="triggerFileInput"
           >
             <svg viewBox="0 0 16 16" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
               <path d="M8 11V3M8 3 5.5 5.5M8 3l2.5 2.5" />

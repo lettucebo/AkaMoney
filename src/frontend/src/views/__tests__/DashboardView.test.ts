@@ -170,6 +170,10 @@ describe('DashboardView', () => {
 
     expect(wrapper.text()).toContain('尚未建立任何短網址');
     expect(wrapper.find('[data-testid="empty-open-create"]').exists()).toBe(true);
+
+    await wrapper.get('[data-testid="empty-open-create"]').trigger('click');
+    expect(wrapper.get('[role="dialog"]').text()).toContain('新增短網址');
+    expect(wrapper.find('input[type="url"]').exists()).toBe(true);
   });
 
   it('shows a distinct no-results state when the current page has urls but none match the filter', async () => {

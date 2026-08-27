@@ -107,6 +107,35 @@ describe('UrlCreateModal', () => {
     expect(wrapper.text()).toContain('aka.money/');
   });
 
+  describe('keyboard-operable upload area', () => {
+    it('exposes button semantics, focusability, and an accessible label', () => {
+      const wrapper = mountCreateModal();
+      const uploadArea = wrapper.get('.upload-area');
+
+      expect(uploadArea.attributes('role')).toBe('button');
+      expect(uploadArea.attributes('tabindex')).toBe('0');
+      expect(uploadArea.attributes('aria-label')).toBeTruthy();
+    });
+
+    it('activates the hidden file input when Enter is pressed', async () => {
+      const wrapper = mountCreateModal();
+      const clickSpy = vi.spyOn(wrapper.get('input[type="file"]').element as HTMLInputElement, 'click');
+
+      await wrapper.get('.upload-area').trigger('keydown.enter');
+
+      expect(clickSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('activates the hidden file input when Space is pressed', async () => {
+      const wrapper = mountCreateModal();
+      const clickSpy = vi.spyOn(wrapper.get('input[type="file"]').element as HTMLInputElement, 'click');
+
+      await wrapper.get('.upload-area').trigger('keydown.space');
+
+      expect(clickSpy).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it('rejects submission with an invalid short code and does not call the API', async () => {
     const wrapper = mountCreateModal();
 
@@ -234,6 +263,52 @@ describe('UrlCreateModal', () => {
 
     resolveCreate(buildUrl());
     await flushPromises();
+  });
+
+  describe('submission guards', () => {
+    it('does not emit close when the modal-close control is used while a create request is pending', async () => {
+      const create = deferred<UrlResponse>();
+      apiMock.createUrl.mockReturnValue(create.promise);
+      const wrapper = mountCreateModal();
+
+      await fillRequiredFields(wrapper, 'pending-code');
+      await wrapper.get('[data-testid="create-submit"]').trigger('click');
+      await flushPromises();
+
+      expect(wrapper.get('[data-testid="create-submit"]').attributes('aria-busy')).toBe('true');
+
+      await wrapper.get('[data-testid="modal-close"]').trigger('click');
+      expect(wrapper.emitted('close')).toBeUndefined();
+
+      create.resolve(buildUrl({ short_code: 'pending-code' }));
+      await flushPromises();
+
+      expect(wrapper.emitted('created')).toBeDefined();
+    });
+
+    it('calls createUrl exactly once when the footer button click and the form submit fire in immediate succession', async () => {
+      const create = deferred<UrlResponse>();
+      apiMock.createUrl.mockReturnValue(create.promise);
+      const wrapper = mountCreateModal();
+
+      await fillRequiredFields(wrapper, 'dual-submit');
+
+      // Models a real browser where clicking a `form="..."`-owned submit button
+      // both fires its own click handler and submits the owning form; both event
+      // dispatches are triggered here without awaiting in between so the
+      // `submitting` guard in `handleSubmit` is exercised the same way it would
+      // be if a browser dispatched both in the same task.
+      await Promise.all([
+        wrapper.get('[data-testid="create-submit"]').trigger('click'),
+        wrapper.get('form').trigger('submit')
+      ]);
+      await flushPromises();
+
+      expect(apiMock.createUrl).toHaveBeenCalledTimes(1);
+
+      create.resolve(buildUrl({ short_code: 'dual-submit' }));
+      await flushPromises();
+    });
   });
 
   describe('image upload races', () => {
