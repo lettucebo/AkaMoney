@@ -151,7 +151,7 @@ Supported types: `line`, `bar`, `doughnut`. `prefers-reduced-motion: reduce` dis
 ## Component conventions
 
 1. Use semantic tokens (`var(--color-text)`, `var(--color-accent)`, …), not hardcoded hex, except inside `useChartTheme` where canvas cannot see CSS variables.
-2. Prefer the `@layer components` classes in `main.css`: `.btn` / `.btn.primary|.ghost|.danger|.sm`, `.icon-btn`, `.badge.on|.off|.exp`, `.kpi`, `.table` / `.row`, `.palette` (inline create), `.state`, `.card`, `.modal-scrim` / `.modal-panel`.
+2. Prefer the `@layer components` classes in `main.css`: `.btn` / `.btn.primary|.ghost|.danger|.sm`, `.icon-btn`, `.badge.on|.off|.exp`, `.kpi`, `.table` / `.row`, `.state`, `.card`, `.modal-scrim` / `.modal-panel`.
 3. Vue wrappers: `BaseButton`, `BaseBadge`, `BaseModal`, `BaseChart`, `EmptyState`, `StateBlock`.
 4. Select dark overrides with `:root[data-theme="dark"]` or the Tailwind `dark:` variant wired by `@custom-variant`. Never `data-bs-theme` or Bootstrap utility classes.
 5. Shell breakpoint: `@media (max-width: 860px)` turns the sidebar into an off-canvas drawer.

@@ -18,7 +18,7 @@ Root `package.json` orchestrates `dev` / `build` / `test` / `deploy` per package
 
 - `views/` — one view per route (`LoginView`, `DashboardView`, `OverallStatsView`, `AnalyticsView`, `NotFoundView`)
 - `components/layout/` — `AppShell`, `AppSidebar`, `AppTopbar`
-- `components/dashboard/` — KPI, inline create, table, toolbar, pagination, edit/confirm/toasts
+- `components/dashboard/` — KPI, on-demand create modal, table, toolbar, pagination, edit/confirm/toasts
 - `components/common/` — `BaseButton`, `BaseBadge`, `BaseModal`, `BaseChart`, `EmptyState`, `StateBlock`
 - `stores/` — `auth`, `theme`, `url`
 - `services/` — `api.ts` (Admin API client), `auth.ts` (MSAL)

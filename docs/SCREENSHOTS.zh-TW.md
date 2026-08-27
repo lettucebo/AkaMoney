@@ -20,8 +20,8 @@
 
 - `src/frontend/src/assets/css/main.css` 檔頭：「Proposal F (Mone 高密度資料工具變體)」，代幣與 `design-mockups/proposals/m2-mone-dense.manifest.json` 一致
 - `useChartTheme.ts` 以同一份 manifest 作為 `CHART_SERIES` 來源
-- `DashboardView.vue` 與 `UrlTable.vue` 註解：Proposal F 垂直切片 — KPI → 行內快速建立 → 高密度表格
-- Manifest DNA：`collapsible-sidebar`、`dense-table`、`inline-quick-create` — 分別由 `AppShell` / `UrlTable` / `QuickCreatePanel` 實作
+- `DashboardView.vue` 與 `UrlTable.vue` 註解：Proposal F 垂直切片 — KPI → 按需建立彈窗 → 高密度表格
+- Manifest DNA：`collapsible-sidebar`、`dense-table`、`inline-quick-create` — `AppShell` 實作 `collapsible-sidebar`；`UrlTable` 實作 `dense-table`；已上線的建立流程刻意偏離 `inline-quick-create`，改以置中的 `BaseModal`（即 `UrlCreateModal`）取代行內面板。
 
 代幣見 [主題系統](THEME.zh-TW.md)。比稿與執行期的位置見 [專案結構](PROJECT_STRUCTURE.zh-TW.md)。
 
@@ -49,11 +49,11 @@
 組成（不是以 modal 為主的單頁）：
 
 1. `KpiSummary` — 獨立的 30 天總覽統計（點擊、作用中、全部、平均）。自己的載入／錯誤 + 重試。
-2. `QuickCreatePanel` — 行內建立（`original_url`、必填短代碼、選填標題／描述／預覽圖）。
+2. 頁面標題列主要操作（新增按鈕）開啟 `UrlCreateModal` — 置中的 `BaseModal`，包含 `original_url`、必填短代碼、選填標題／描述／預覽圖。真實空白狀態（「尚未建立任何短網址」）也提供第二個建立動作。
 3. `UrlTableToolbar` — 搜尋、點擊數排序、狀態分頁。**只作用於目前伺服器頁**（`page` / `limit`）。
 4. 清單狀態：載入中（`StateBlock`）、清單錯誤、空白（「尚未建立任何短網址」）、目前頁無結果，或 `UrlTable`。
 5. 表格欄：短連結（顯示主機 `aka.money`）、原始網址、點擊、狀態（`作用中` / `已封存` / `已過期`）、操作（複製、成效、編輯、封存或還原）。
-6. `DashboardPagination`、`UrlEditModal`、封存／還原 `ConfirmActionModal`、`DashboardToastStack`。
+6. `DashboardPagination`、`UrlCreateModal`、`UrlEditModal`、封存／還原 `ConfirmActionModal`、`DashboardToastStack`。
 
 此畫面沒有永久刪除 UI。封存會停止轉址；還原後恢復。
 
@@ -79,7 +79,7 @@
 
 ## 設計比稿截圖
 
-下列檔案存在，且皆為**設計比稿／參考**，不是目前執行期證明。它們呈現 `m2-mone-dense` HTML 提案的**連結**畫面（高密度表、chip 篩選、示意用「建立連結」按鈕）。與已上線應用有多處可見差異：側欄多了成效分析／建立連結／登入頁／找不到頁面、沒有行內 `QuickCreatePanel`、行動版是 chip 導覽而非 860px 抽屜，以及 Vue 應用並未實作的 `/` · `⌘K` 裝飾。
+下列檔案存在，且皆為**設計比稿／參考**，不是目前執行期證明。它們呈現 `m2-mone-dense` HTML 提案的**連結**畫面（高密度表、chip 篩選、示意用「建立連結」按鈕）。與已上線應用有多處可見差異：側欄多了成效分析／建立連結／登入頁／找不到頁面、行動版是 chip 導覽而非 860px 抽屜，以及 Vue 應用並未實作的 `/` · `⌘K` 裝飾。比稿與已上線應用都呈現精簡的儀表板建立動作；已上線的表單在 `BaseModal` 中開啟，而不是以行內面板呈現。
 
 **桌面淺色 — 設計比稿／參考**
 

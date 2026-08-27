@@ -1,6 +1,7 @@
 <template>
   <button
     :type="type"
+    :form="form"
     class="btn"
     :class="[variant === 'default' ? null : variant, size === 'sm' ? 'sm' : null]"
     :disabled="disabled || loading"
@@ -33,6 +34,7 @@ withDefaults(
     variant?: ButtonVariant;
     size?: 'sm' | 'md';
     type?: 'button' | 'submit' | 'reset';
+    form?: string;
     disabled?: boolean;
     loading?: boolean;
     loadingLabel?: string;

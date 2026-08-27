@@ -50,7 +50,7 @@ Shipped capabilities that exist as components/views:
 
 - **Collapsible sidebar shell** — `AppShell`, `AppSidebar`, `AppTopbar`.
 - **Dense, scannable URL table** — `UrlTable` with `UrlTableToolbar` and `DashboardPagination`.
-- **Inline quick-create** — `QuickCreatePanel` replaces the old modal-first create flow.
+- **On-demand URL creation** — `UrlCreateModal` opens from dashboard actions without occupying the normal link-management workspace.
 - **KPI summary** — `KpiSummary` fed by the `useKpiSummary` composable.
 - **Comparative analytics** — `AnalyticsView` and `OverallStatsView` with `BaseChart` and a
   shared categorical palette from `useChartTheme`.

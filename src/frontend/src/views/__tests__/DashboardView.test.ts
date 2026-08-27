@@ -169,6 +169,11 @@ describe('DashboardView', () => {
     const wrapper = await mountDashboard();
 
     expect(wrapper.text()).toContain('尚未建立任何短網址');
+    expect(wrapper.find('[data-testid="empty-open-create"]').exists()).toBe(true);
+
+    await wrapper.get('[data-testid="empty-open-create"]').trigger('click');
+    expect(wrapper.get('[role="dialog"]').text()).toContain('新增短網址');
+    expect(wrapper.find('input[type="url"]').exists()).toBe(true);
   });
 
   it('shows a distinct no-results state when the current page has urls but none match the filter', async () => {
@@ -215,21 +220,33 @@ describe('DashboardView', () => {
     expect(wrapper.findAll('.row')).toHaveLength(1);
   });
 
-  it('creates a new URL via the inline quick-create panel, refreshes KPI, and shows a success toast', async () => {
+  it('keeps creation hidden until the page-header action opens the modal', async () => {
+    apiMock.getUrls.mockResolvedValue(buildPage([buildUrl()]));
+    apiMock.getOverallStats.mockResolvedValue(buildStats());
+    const wrapper = await mountDashboard();
+
+    expect(wrapper.find('input[type="url"]').exists()).toBe(false);
+    await wrapper.get('[data-testid="open-create"]').trigger('click');
+    expect(wrapper.get('[role="dialog"]').text()).toContain('新增短網址');
+    expect(wrapper.find('input[type="url"]').exists()).toBe(true);
+  });
+
+  it('creates from the modal, closes it, refreshes KPI, and shows the new row', async () => {
     apiMock.getUrls.mockResolvedValue(buildPage([]));
     apiMock.getOverallStats.mockResolvedValue(buildStats());
     apiMock.createUrl.mockResolvedValue(buildUrl({ id: 'new-1', short_code: 'new-link', click_count: 0 }));
-
     const wrapper = await mountDashboard();
 
-    await wrapper.find('input[type="url"]').setValue('https://example.com/target');
-    await wrapper.find('.prefix-input input[type="text"]').setValue('new-link');
-    await wrapper.find('form').trigger('submit');
+    await wrapper.get('[data-testid="open-create"]').trigger('click');
+    await wrapper.get('input[type="url"]').setValue('https://example.com/target');
+    await wrapper.get('.prefix-input input[type="text"]').setValue('new-link');
+    await wrapper.get('[data-testid="create-submit"]').trigger('click');
     await flushPromises();
 
     expect(apiMock.createUrl).toHaveBeenCalledWith(
       expect.objectContaining({ original_url: 'https://example.com/target', short_code: 'new-link' })
     );
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false);
     expect(wrapper.text()).toContain('已建立短網址');
     expect(wrapper.findAll('.row')[0].text()).toContain('new-link');
     expect(apiMock.getOverallStats).toHaveBeenCalledTimes(2);
@@ -354,9 +371,10 @@ describe('DashboardView', () => {
       buildPage([buildUrl({ id: 'new-1', short_code: 'new-link' })], { page: 1, total: 46, total_pages: 3 })
     );
 
-    await wrapper.find('input[type="url"]').setValue('https://example.com/target');
-    await wrapper.find('.prefix-input input[type="text"]').setValue('new-link');
-    await wrapper.find('form').trigger('submit');
+    await wrapper.get('[data-testid="open-create"]').trigger('click');
+    await wrapper.get('input[type="url"]').setValue('https://example.com/target');
+    await wrapper.get('.prefix-input input[type="text"]').setValue('new-link');
+    await wrapper.get('[data-testid="create-submit"]').trigger('click');
     await flushPromises();
 
     expect(apiMock.getUrls).toHaveBeenLastCalledWith(1, 20);
@@ -438,9 +456,10 @@ describe('DashboardView', () => {
       expect(wrapper.findAll('.kpi')).toHaveLength(0);
 
       apiMock.getOverallStats.mockResolvedValueOnce(buildStats({ total_clicks: 999 }));
-      await wrapper.find('input[type="url"]').setValue('https://example.com/target');
-      await wrapper.find('.prefix-input input[type="text"]').setValue('new-link');
-      await wrapper.find('form').trigger('submit');
+      await wrapper.get('[data-testid="open-create"]').trigger('click');
+      await wrapper.get('input[type="url"]').setValue('https://example.com/target');
+      await wrapper.get('.prefix-input input[type="text"]').setValue('new-link');
+      await wrapper.get('[data-testid="create-submit"]').trigger('click');
       await flushPromises();
 
       // The mutation-triggered (newer) request already resolved and rendered.
@@ -464,9 +483,10 @@ describe('DashboardView', () => {
       const wrapper = await mountDashboard();
 
       apiMock.getOverallStats.mockResolvedValueOnce(buildStats({ total_clicks: 777 }));
-      await wrapper.find('input[type="url"]').setValue('https://example.com/target');
-      await wrapper.find('.prefix-input input[type="text"]').setValue('new-link');
-      await wrapper.find('form').trigger('submit');
+      await wrapper.get('[data-testid="open-create"]').trigger('click');
+      await wrapper.get('input[type="url"]').setValue('https://example.com/target');
+      await wrapper.get('.prefix-input input[type="text"]').setValue('new-link');
+      await wrapper.get('[data-testid="create-submit"]').trigger('click');
       await flushPromises();
 
       expect(wrapper.findAll('.kpi')).toHaveLength(4);

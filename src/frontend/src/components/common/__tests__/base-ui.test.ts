@@ -49,6 +49,13 @@ describe('BaseButton', () => {
 
     expect(wrapper.get('button').attributes('disabled')).toBeDefined();
   });
+
+  it('associates a submit button with an external form', () => {
+    const wrapper = mount(BaseButton, { props: { type: 'submit', form: 'url-create-form' } });
+
+    expect(wrapper.get('button').attributes('type')).toBe('submit');
+    expect(wrapper.get('button').attributes('form')).toBe('url-create-form');
+  });
 });
 
 describe('BaseBadge', () => {
