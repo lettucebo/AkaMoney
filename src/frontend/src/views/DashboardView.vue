@@ -5,11 +5,12 @@
     <div class="page-head">
       <div>
         <h1>連結</h1>
-        <div class="sub">建立、搜尋並管理所有短網址與即時成效。</div>
+        <div class="sub">搜尋並管理所有短網址與即時成效。</div>
       </div>
+      <BaseButton variant="primary" data-testid="open-create" @click="openCreateModal">
+        新增短網址
+      </BaseButton>
     </div>
-
-    <UrlCreateModal :open="showCreateModal" @close="showCreateModal = false" @created="handleCreated" />
 
     <UrlTableToolbar
       :search="search"
@@ -26,8 +27,14 @@
     <EmptyState
       v-else-if="isEmpty"
       title="尚未建立任何短網址"
-      description="使用上方的建立短網址面板建立你的第一個短網址。"
-    />
+      description="建立第一個短網址後，就能在這裡管理連結與查看成效。"
+    >
+      <template #action>
+        <BaseButton variant="primary" data-testid="empty-open-create" @click="openCreateModal">
+          新增短網址
+        </BaseButton>
+      </template>
+    </EmptyState>
     <EmptyState
       v-else-if="isNoResults"
       title="目前頁面沒有符合條件的短網址"
@@ -48,6 +55,12 @@
       :total-pages="urlStore.pagination.total_pages"
       :total="urlStore.pagination.total"
       @change="goToPage"
+    />
+
+    <UrlCreateModal
+      :open="showCreateModal"
+      @close="closeCreateModal"
+      @created="handleCreated"
     />
 
     <UrlEditModal :open="showEditModal" :url="editingUrl" @close="closeEdit" @saved="handleEditSaved" />
@@ -81,7 +94,7 @@
 
 <script setup lang="ts">
 /**
- * Dashboard vertical slice (Proposal F): KPI summary -> inline quick-create
+ * Dashboard vertical slice (Proposal F): KPI summary -> on-demand create modal
  * -> dense URL table, composed entirely from src/components/dashboard/**.
  *
  * Search/status/sort in the toolbar operate ONLY on the currently loaded
@@ -110,6 +123,7 @@ import { rollingWindow } from '@/utils/trend';
 import { deriveVisibleUrls, type SortOption, type StatusFilter } from '@/components/dashboard/dashboardUrlList';
 import KpiSummary from '@/components/dashboard/KpiSummary.vue';
 import UrlCreateModal from '@/components/dashboard/UrlCreateModal.vue';
+import BaseButton from '@/components/common/BaseButton.vue';
 import UrlTableToolbar from '@/components/dashboard/UrlTableToolbar.vue';
 import UrlTable from '@/components/dashboard/UrlTable.vue';
 import DashboardPagination from '@/components/dashboard/DashboardPagination.vue';
@@ -235,8 +249,18 @@ const handleCopy = async (url: UrlResponse): Promise<void> => {
 };
 
 // --- Create. ---
-const showCreateModal = ref(true);
+const showCreateModal = ref(false);
+
+const openCreateModal = (): void => {
+  showCreateModal.value = true;
+};
+
+const closeCreateModal = (): void => {
+  showCreateModal.value = false;
+};
+
 const handleCreated = (url: UrlResponse): void => {
+  closeCreateModal();
   pushToast(`已建立短網址：${url.short_code}`, 'ok');
   loadKpiSummary();
 };
