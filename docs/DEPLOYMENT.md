@@ -34,7 +34,7 @@ on:
   workflow_dispatch:
 ```
 
-1. **Tag Push (`push: tags: ['*']`)**: Recommended for standard production releases (e.g. `git tag 1.2.0 && git push origin 1.2.0`).
+1. **Tag Push (`push: tags: ['*']`)**: Recommended for standard production releases (e.g. `git tag 1.3.0 && git push origin 1.3.0`).
 2. **Manual Dispatch (`workflow_dispatch`)**: Triggerable from the GitHub Actions tab by repository maintainers.
 3. **PR Labeled Release (`pull_request_target`)**: Triggers when the label `run-release` is added to a pull request.
 
