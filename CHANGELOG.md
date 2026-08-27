@@ -7,6 +7,21 @@ All notable changes to the AkaMoney project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-08-27
+
+### Added
+- Added on-demand short URL creation from the dashboard page header and empty state
+- Added keyboard support for opening the preview-image picker with Enter or Space
+- Added GitHub Copilot skills for documentation lookup, commits, releases, worktrees, Cloudflare and Wrangler tasks, issue management, and browser testing
+
+### Changed
+- Replaced the always-visible URL creation panel with a centered modal so the link list and filters remain immediately accessible
+- Preserved URL validation, optional metadata, image upload, expiration, list refresh, KPI refresh, and stale-response protection in the modal workflow
+
+### Documentation
+- Updated the English and Traditional Chinese implementation, visual-reference, project-structure, and theme documentation for the on-demand creation flow
+- Documented that the shipped dashboard intentionally uses a modal instead of the historical `inline-quick-create` design axis
+
 ## [1.2.0] - 2026-08-26
 
 ### Added

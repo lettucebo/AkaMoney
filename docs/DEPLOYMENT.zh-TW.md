@@ -34,7 +34,7 @@ on:
   workflow_dispatch:
 ```
 
-1. **Tag Push (`push: tags: ['*']`)**：標準正式環境發布推薦方式（例如 `git tag 1.2.0 && git push origin 1.2.0`）。
+1. **Tag Push (`push: tags: ['*']`)**：標準正式環境發布推薦方式（例如 `git tag 1.3.0 && git push origin 1.3.0`）。
 2. **手動觸發 (`workflow_dispatch`)**：專案維護者可從 GitHub Actions 介面直接手動觸發。
 3. **PR 標籤發布 (`pull_request_target`)**：當 Pull Request 被加上 `run-release` 標籤時觸發。
 
