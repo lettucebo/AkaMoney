@@ -26,41 +26,28 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
-          cache-dependency-path: |
-            package-lock.json
-            src/frontend/package-lock.json
-            src/backend/package-lock.json
-            src/redirect/package-lock.json
+          cache-dependency-path: package-lock.json
 
-      - name: Install root dependencies
+      - name: Install workspace dependencies
         run: npm ci
 
-      - name: Install backend dependencies
-        run: cd src/backend && npm ci
-
-      - name: Install frontend dependencies
-        run: cd src/frontend && npm ci
-
-      - name: Install redirect dependencies
-        run: cd src/redirect && npm ci
-
       - name: Run backend tests with coverage
-        run: cd src/backend && npm run test:coverage
+        run: npm run test:coverage -w akamoney-backend
 
       - name: Run frontend tests with coverage
-        run: cd src/frontend && npm run test:coverage
+        run: npm run test:coverage -w akamoney-frontend
 
       - name: Run redirect tests with coverage
-        run: cd src/redirect && npm run test:coverage
+        run: npm run test:coverage -w akamoney-redirect
 
       - name: Build frontend
-        run: cd src/frontend && npm run build
+        run: npm run build -w akamoney-frontend
 
       - name: Build backend (dry run)
-        run: cd src/backend && npm run build
+        run: npm run build -w akamoney-backend
 
       - name: Build redirect (dry run)
-        run: cd src/redirect && npm run build
+        run: npm run build -w akamoney-redirect
 
       - name: Upload backend coverage report
         uses: actions/upload-artifact@v4

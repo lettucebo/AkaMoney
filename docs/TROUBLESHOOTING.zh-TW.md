@@ -12,13 +12,13 @@ AkaMoney 由三個獨立的子系統所組成（前端、管理 API 與重定向
 
 ## 本地開發與環境問題
 
-### 1. 子專案遺漏依賴套件
+### 1. 安裝後仍缺少依賴套件
 
 - **現象**：執行 `npm install` 後出現 `Cannot find module '@azure/msal-browser'`、`hono not found` 或 TypeScript 編譯錯誤。
-- **原因**：AkaMoney 在 `src/frontend`、`src/backend` 與 `src/redirect` 中分別維護獨立的 `package.json`。僅在根目錄執行 `npm install` 不會安裝子專案的依賴套件。
-- **解決方案**：執行根目錄的 setup 腳本或分別進入各目錄安裝：
+- **原因**：本儲存庫是 npm workspace（`src/frontend`、`src/backend`、`src/redirect`），三者共用同一份根目錄 `package-lock.json`。若在過期或不完整的簽出狀態下安裝，或使用 `--workspaces=false`／僅在單一 workspace 目錄內安裝，可能導致其他 workspace 缺少依賴。
+- **解決方案**：執行根目錄的 setup 腳本，從儲存庫根目錄一次安裝所有 workspace：
   ```bash
-  # 安裝根目錄與所有子專案的依賴套件
+  # 安裝根目錄與所有 workspace 套件的依賴
   npm run setup
   ```
 
@@ -51,7 +51,7 @@ AkaMoney 由三個獨立的子系統所組成（前端、管理 API 與重定向
 ### 4. 後端本地 Wrangler 設定殘留舊版 node_compat
 
 - **現象**：Wrangler v4 顯示棄用警告或錯誤：`ExperimentalNodeCompatError: node_compat is deprecated`。
-- **原因**：舊版 `wrangler.local.toml.example` 包含 `node_compat = true`。後端目前已採用 Wrangler v4（`^4.59.1`），需要使用現代相容性標籤。
+- **原因**：舊版 `wrangler.local.toml.example` 包含 `node_compat = true`。後端目前已採用 Wrangler v4（精確版本 `4.90.0`），需要使用現代相容性標籤。
 - **解決方案**：更新本地 `src/backend/wrangler.local.toml`，將 `node_compat` 替換為：
   ```toml
   # 於 src/backend/wrangler.local.toml

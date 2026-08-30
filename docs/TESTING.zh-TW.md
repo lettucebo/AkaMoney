@@ -147,7 +147,7 @@ npx vue-tsc --noEmit
 持續整合管線在向 `main` 或 `master` 分支發送 Push 或 Pull Request 時觸發：
 - **執行環境**：`ubuntu-latest`
 - **Node.js**：`24.x`（透過 `actions/setup-node@v4` 管理並啟用 npm 快取）
-- **依賴隔離**：依序於根目錄、`src/backend`、`src/frontend` 與 `src/redirect` 執行 `npm ci`。
+- **依賴安裝**：只執行一次根目錄 `npm ci`，依照唯一的根目錄 `package-lock.json` 解析三個 workspace 套件。
 
 ### CI 工作步驟
 
@@ -155,24 +155,20 @@ CI 管線執行下列驗證步驟：
 
 ```yaml
 # CI 驗證管線步驟摘要
-- name: Install dependencies
-  run: |
-    npm ci
-    cd src/backend && npm ci
-    cd ../frontend && npm ci
-    cd ../redirect && npm ci
+- name: Install workspace dependencies
+  run: npm ci
 
 - name: Run test suites with coverage
   run: |
-    cd src/backend && npm run test:coverage
-    cd ../frontend && npm run test:coverage
-    cd ../redirect && npm run test:coverage
+    npm run test:coverage -w akamoney-backend
+    npm run test:coverage -w akamoney-frontend
+    npm run test:coverage -w akamoney-redirect
 
 - name: Compile and build (frontend & dry-run workers)
   run: |
-    cd src/frontend && npm run build
-    cd ../backend && npm run build
-    cd ../redirect && npm run build
+    npm run build -w akamoney-frontend
+    npm run build -w akamoney-backend
+    npm run build -w akamoney-redirect
 ```
 
 各套件產生的測試覆蓋率報告會被封裝並上傳為 GitHub Actions Artifacts（`backend-coverage-report`、`frontend-coverage-report`、`redirect-coverage-report`），保留期限為 30 天。

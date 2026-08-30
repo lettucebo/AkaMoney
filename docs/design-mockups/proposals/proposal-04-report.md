@@ -9,7 +9,7 @@
 
 - 僅修改 `04-bento.html`；`04-bento.manifest.json` 內容不變（`direction`、`stack`、`dna` 皆為 BRIEF §13／§14.3 凍結欄位）。
 - 指派方向 **Bento Grid（Apple 式）** 與 DNA `可收合側欄；Bento 磚牆；右側 drawer；即時監控；逐層 drill-down；監控` 全數保留（見 §4 驗證證據末段 DNA 檢查）。
-- 未進行任何 git commit；`design-mockups/` 於本 repo 為 gitignore 範圍，`git status --porcelain` 未出現本次任何檔案。
+- 未進行任何 git commit；當時（本目錄尚位於根目錄 `design-mockups/`，遷移至 `docs/design-mockups/` 之前）`design-mockups/` 於本 repo 為 gitignore 範圍，`git status --porcelain` 未出現本次任何檔案。此為歷史狀態描述——現行 repo 中 `docs/design-mockups/` 已納入版控，並非目前的 gitignore 規則。
 
 ## 2. 逐項修正對照
 

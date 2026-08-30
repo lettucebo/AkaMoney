@@ -12,7 +12,7 @@ AkaMoney 由三個可獨立部署的服務，加上鏡像契約、D1 migrations�
 | 管理 API | `src/backend/` | Cloudflare Worker `akamoney-admin-api` | 需 Entra 權杖的管理與分析 |
 | 轉址 | `src/redirect/` | Cloudflare Worker `akamoney-redirect` | 公開 `GET /:shortCode` → 302，並記錄點擊 |
 
-根目錄 `package.json` 協調各套件的 `dev` / `build` / `test` / `deploy`。每個套件有自己的 `package.json` 與 lockfile。前端在 Vite 開發時把 `/api` 代理到 `http://localhost:8787`。
+根目錄 `package.json` 針對 `src/frontend`、`src/backend` 與 `src/redirect` 宣告 npm workspace，透過 workspace 選擇器（`-w <name>`）協調各套件的 `dev` / `build` / `test` / `deploy`。三個應用程式 workspace 共用同一份根目錄 `package-lock.json`；`docs/design-mockups/validation` 則是刻意獨立、擁有自己 lockfile 的 npm 套件，不屬於此 workspace。前端在 Vite 開發時把 `/api` 代理到 `http://localhost:8787`。
 
 **前端邊界**（`src/frontend/src/`）：
 
@@ -98,7 +98,7 @@ D1 schema 只放在 `src/backend/migrations/`：
 
 `.github/workflows/`：
 
-- `ci.yml` — Node 24、安裝三個套件、coverage、建置
+- `ci.yml` — Node 24、一次根目錄 `npm ci`，各 workspace 透過 `-w` 執行 coverage 與建置
 - `release.yml` — tag／受信任的 `run-release` 部署到 Cloudflare Pages + Workers
 
 ## 相關文件

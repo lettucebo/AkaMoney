@@ -22,7 +22,7 @@
 
 - **禁止**修改 `docs/design-mockups/shared/` 內任何檔案（唯讀共用資產）。
 - **禁止**新增第三個檔案（不得拆出獨立 `.css` / `.js`；所有樣式與腳本內嵌於 HTML）。
-- **禁止** commit。`design-mockups/` 已列入 repo 的 `.gitignore`（`.gitignore:178`），產出不進版控。
+- **禁止**自行 `git commit`。`docs/design-mockups/` 是 repo 中已納入版控的一般追蹤目錄（並未列入 `.gitignore`）；產出仍會進版控，只是不由實作代理人直接提交——所有變更一律由協調工作流程（coordinating workflow）審查後彙整提交。
 - **禁止**動到 repo 內 `docs/design-mockups/` 以外的任何檔案。
 
 ---

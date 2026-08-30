@@ -56,6 +56,8 @@ AkaMoney 使用**分離式服務架構**以提供更好的安全性和可擴展�
 
 ```
 .
+├── package.json            # 根目錄：npm workspaces（src/frontend、src/backend、src/redirect）
+├── package-lock.json       # 三個 workspace 共用的單一 lockfile
 ├── src/
 │   ├── frontend/          # Vue 3 應用程式（管理儀表板）
 │   │   ├── src/
@@ -79,7 +81,13 @@ AkaMoney 使用**分離式服務架構**以提供更好的安全性和可擴展�
 │   └── shared/            # 尚未接線的型別宣告（服務目前未匯入）
 │       └── types/
 └── docs/                  # 完整雙語文件；請參閱 docs/README.zh-TW.md
+    └── design-mockups/    # 凍結的設計評選樹；請參閱 docs/PROJECT_STRUCTURE.zh-TW.md
 ```
+
+根目錄 `package.json` 針對 `src/frontend`、`src/backend` 與 `src/redirect` 宣告了
+npm workspace，並擁有唯一的根目錄 `package-lock.json`。它的存在純粹是為了協調共用的
+`dev` / `build` / `test` / `deploy` 腳本與依賴安裝——本身並非應用程式碼的來源；
+可部署的產品原始碼仍位於各 workspace 自己的 `src/` 之下。
 
 ## 快速開始
 
@@ -98,7 +106,8 @@ git clone https://github.com/lettucebo/AkaMoney.git
 cd AkaMoney
 ```
 
-2. 安裝相依套件：
+2. 安裝相依套件（此為 npm workspace，於根目錄執行一次即可安裝 `src/` 下所有三個應用程式；
+   `npm run setup` 是 `npm install` 的別名）：
 ```bash
 npm run setup
 ```
