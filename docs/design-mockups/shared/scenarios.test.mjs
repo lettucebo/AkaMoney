@@ -21,7 +21,7 @@ const expectedScenarioNames = [
 function assertScenariosFileExists() {
   assert.ok(
     existsSync(scenariosPath),
-    '預期 design-mockups/shared/scenarios.js 已存在並提供共用情境資料。',
+    '預期 docs/design-mockups/shared/scenarios.js 已存在並提供共用情境資料。',
   );
 }
 

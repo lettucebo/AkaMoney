@@ -82,7 +82,7 @@ Theme, tokens, and Chart.js rules: [THEME](THEME.md). Shipped screens vs design 
 
 ## Design mockups
 
-`design-mockups/` is the frozen design-bakeoff tree, not a deployable:
+`docs/design-mockups/` is the frozen design-bakeoff tree, not a deployable:
 
 - `BRIEF.md` — proposal contract
 - `proposals/` — HTML + `*.manifest.json` (current visual ancestor: **`m2-mone-dense`**)

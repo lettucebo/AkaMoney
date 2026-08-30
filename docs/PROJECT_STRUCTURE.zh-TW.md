@@ -82,7 +82,7 @@ D1 schema 只放在 `src/backend/migrations/`：
 
 ## 設計比稿
 
-`design-mockups/` 是凍結的設計評選樹，不是可部署單元：
+`docs/design-mockups/` 是凍結的設計評選樹，不是可部署單元：
 
 - `BRIEF.md` — 提案契約
 - `proposals/` — HTML + `*.manifest.json`（目前視覺祖先：**`m2-mone-dense`**）

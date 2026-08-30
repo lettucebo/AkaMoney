@@ -1,8 +1,8 @@
 # 提案 04-bento 修復報告
 
 - 提案：`04-bento`（方向：**Bento Grid（Apple 式）**；Stack：**Tailwind v4**）
-- 修復檔案：`design-mockups/proposals/04-bento.html`
-- 未修改：`design-mockups/proposals/04-bento.manifest.json`（理由見下方「疑慮與備註」第 1 點）
+- 修復檔案：`docs/design-mockups/proposals/04-bento.html`
+- 未修改：`docs/design-mockups/proposals/04-bento.manifest.json`（理由見下方「疑慮與備註」第 1 點）
 - 日期：2026-08-24
 
 ## 1. 範圍與限制

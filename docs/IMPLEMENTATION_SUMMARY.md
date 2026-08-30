@@ -41,7 +41,7 @@ src/
 ## Frontend (Proposal F / m2-mone-dense)
 
 The dashboard implements the **Proposal F** design direction (manifest
-`design-mockups/proposals/m2-mone-dense.manifest.json`, "Monē 高密度資料工具變體"). It is
+`docs/design-mockups/proposals/m2-mone-dense.manifest.json`, "Monē 高密度資料工具變體"). It is
 built with Vue 3 (`<script setup>`), Vite, and **Tailwind CSS v4** using a CSS-first
 `@theme` configuration (no `tailwind.config.js`); there is no Bootstrap. Runtime light/dark
 theming is driven by a `data-theme` attribute on `<html>` and a Pinia theme store.

@@ -4,10 +4,10 @@
 
 ### Scope and BRIEF evidence
 
-- Dashboard chart is optional: `design-mockups/BRIEF.md:162` marks `dashboard-sparkline` as `dashboard（選用）`.
-- Analytics/stats charts remain mandatory: `design-mockups/BRIEF.md:150-165`.
-- `large250` requires a real browse path, not a literal total label: `design-mockups/BRIEF.md:306`.
-- Locked external resources remain exact: `design-mockups/BRIEF.md:682-711`.
+- Dashboard chart is optional: `docs/design-mockups/BRIEF.md:162` marks `dashboard-sparkline` as `dashboard（選用）`.
+- Analytics/stats charts remain mandatory: `docs/design-mockups/BRIEF.md:150-165`.
+- `large250` requires a real browse path, not a literal total label: `docs/design-mockups/BRIEF.md:306`.
+- Locked external resources remain exact: `docs/design-mockups/BRIEF.md:682-711`.
 
 ### RED evidence
 
@@ -95,7 +95,7 @@ Added/green coverage:
 
 ### Notes / concerns
 
-- No prior `design-mockups/validation/task-3-validation-report.md` existed in the workspace, so this entry initializes the report file before appending future sections.
+- No prior `docs/design-mockups/validation/task-3-validation-report.md` existed in the workspace, so this entry initializes the report file before appending future sections.
 
 ### Re-verification after report update
 
@@ -121,7 +121,7 @@ Added/green coverage:
 ### Validation evidence
 
 ```text
-> node .\design-mockups\validation\static-validator.mjs .\design-mockups\proposals\06-brutalist.html
+> node .\docs\design-mockups\validation\static-validator.mjs .\docs\design-mockups\proposals\06-brutalist.html
 PASS 06-brutalist
 1/1 proposal contracts passed
 
@@ -144,7 +144,7 @@ The targeted browser run covered both desktop and mobile, all view/dataset overf
 ### Validation evidence
 
 ```text
-> node .\design-mockups\validation\static-validator.mjs .\design-mockups\proposals\08-glass.html
+> node .\docs\design-mockups\validation\static-validator.mjs .\docs\design-mockups\proposals\08-glass.html
 PASS 08-glass
 1/1 proposal contracts passed
 
@@ -164,7 +164,7 @@ The browser tests passed 22/22 checks on `08-glass` confirming resolution of lay
 ### Validation evidence
 
 ```text
-> node .\design-mockups\validation\static-validator.mjs .\design-mockups\proposals\08-glass.html
+> node .\docs\design-mockups\validation\static-validator.mjs .\docs\design-mockups\proposals\08-glass.html
 PASS 08-glass
 1/1 proposal contracts passed
 

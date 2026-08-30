@@ -6,9 +6,9 @@
 
 本次僅修改下列三個檔案，未更動 validator / shared / BRIEF / 其他 proposal，且未提交（no commit）：
 
-- `design-mockups/proposals/01-linear.html`
-- `design-mockups/proposals/01-linear.manifest.json`
-- `design-mockups/proposals/proposal-01-report.md`（本檔，新建）
+- `docs/design-mockups/proposals/01-linear.html`
+- `docs/design-mockups/proposals/01-linear.manifest.json`
+- `docs/design-mockups/proposals/proposal-01-report.md`（本檔，新建）
 
 保留 Linear 視覺方向與 DNA 不變：`01-linear.manifest.json` 的 `dna`（`fixed-sidebar` / `dense-table` / `command-palette` / `exploration-workbench` / `priority-column-summary-row` / `scan`）、`tokens`（色票、字體、圓角、間距）、`provider`/`model` 皆維持原值，僅替換 `capabilities` 陣列使其誠實化。所有新增互動沿用既有 Linear 樣式語彙（極簡邊框、`--accent #5e6ad2`、dense 表格列、命令面板）。
 

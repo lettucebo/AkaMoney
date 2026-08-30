@@ -1,6 +1,6 @@
 AkaMoney 設計提案比較中心
 
-官方啟動方式（從 design-mockups 目錄執行）：
+官方啟動方式（從 docs/design-mockups 目錄執行）：
 
   node validation/server.mjs --port 41739
 
