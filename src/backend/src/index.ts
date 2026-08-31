@@ -17,7 +17,7 @@ import { createStorageProvider, isStorageConfigured, getStorageConfig } from './
 import { createSentryOptions } from './services/sentry';
 import type { CreateUrlRequest, UpdateUrlRequest } from './types';
 import { HttpError } from './types/errors';
-import type { ExecutionContext, ExportedHandler, ScheduledEvent } from '@cloudflare/workers-types';
+import type { ExportedHandler } from '@cloudflare/workers-types';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -698,12 +698,17 @@ app.onError((err, c) => {
 // Export app for testing
 export { app };
 
-const handler = {
+type AdminApiHandler = ExportedHandler<Env> & {
+  fetch: NonNullable<ExportedHandler<Env>['fetch']>;
+  scheduled: NonNullable<ExportedHandler<Env>['scheduled']>;
+};
+
+const handler: AdminApiHandler = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     return app.fetch(request, env, ctx);
   },
 
-  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+  async scheduled(event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
     console.log('Cron trigger fired:', new Date(event.scheduledTime).toISOString());
     
     try {
@@ -721,6 +726,8 @@ const handler = {
       // which could lead to duplicate cleanup attempts or cascading failures
     }
   }
-} satisfies ExportedHandler<Env>;
+};
 
-export default Sentry.withSentry((env: Env) => createSentryOptions(env), handler);
+const instrumentedHandler: AdminApiHandler = Sentry.withSentry((env: Env) => createSentryOptions(env), handler);
+
+export default instrumentedHandler;
