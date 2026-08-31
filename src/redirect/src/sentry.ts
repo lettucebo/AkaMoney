@@ -113,6 +113,7 @@ export function createSentryOptions(env: Env): CloudflareOptions {
     environment: env.ENVIRONMENT || 'development',
     tracesSampleRate: 0.01,
     traceLifecycle: 'stream',
+    enableLogs: true,
     sendDefaultPii: true,
     beforeSend: scrubCredentialHeaders,
     beforeSendTransaction: scrubCredentialHeaders,

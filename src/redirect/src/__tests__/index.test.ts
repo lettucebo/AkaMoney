@@ -58,6 +58,23 @@ function createEnv(url: Url | null, clickRunResult?: Promise<unknown>) {
 }
 
 describe('redirect routes', () => {
+  it('returns 204 and expected CORS headers for OPTIONS requests', async () => {
+    const { env, executionCtx } = createEnv(null);
+
+    const response = await app.fetch(
+      new Request('https://aka.money/abc123', { method: 'OPTIONS' }),
+      env,
+      executionCtx
+    );
+
+    expect(response.status).toBe(204);
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe('*');
+    expect(response.headers.get('Access-Control-Allow-Methods')).toBe('GET, OPTIONS');
+    expect(response.headers.get('Access-Control-Allow-Headers')).toBe('Content-Type');
+    expect(await response.text()).toBe('');
+    expect(executionCtx.waitUntil).not.toHaveBeenCalled();
+  });
+
   it('returns a 302 immediately and schedules click recording without awaiting analytics', async () => {
     const pendingClickWrite = new Promise(() => {});
     const { env, executionCtx, insertStatement } = createEnv(createUrl(), pendingClickWrite);

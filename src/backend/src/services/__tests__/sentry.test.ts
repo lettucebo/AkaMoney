@@ -154,6 +154,7 @@ describe('Sentry service', () => {
       expect(options.dsn).toBe('https://public@example.ingest.sentry.io/1');
       expect(options.environment).toBe('production');
       expect(options.tracesSampleRate).toBe(0.2);
+      expect(options.enableLogs).toBe(true);
       expect(options.sendDefaultPii).toBe(true);
       expect(options.beforeSend).toBe(scrubSentryEventCredentials);
       expect(options.beforeSendTransaction).toBe(scrubSentryEventCredentials);

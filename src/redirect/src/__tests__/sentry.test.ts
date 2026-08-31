@@ -137,6 +137,7 @@ describe('Sentry configuration', () => {
     expect(options.environment).toBe('production');
     expect(options.tracesSampleRate).toBe(0.01);
     expect(options.traceLifecycle).toBe('stream');
+    expect(options.enableLogs).toBe(true);
     expect(options.sendDefaultPii).toBe(true);
     expect(options.beforeSend).toBe(scrubCredentialHeaders);
     expect(options.beforeSendTransaction).toBe(scrubCredentialHeaders);

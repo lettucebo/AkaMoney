@@ -103,6 +103,7 @@ export function createSentryOptions(env: Env): CloudflareOptions {
     dsn: env.SENTRY_DSN || undefined,
     environment: env.ENVIRONMENT || 'development',
     tracesSampleRate: 0.2,
+    enableLogs: true,
     sendDefaultPii: true,
     beforeSend: scrubSentryEventCredentials,
     beforeSendTransaction: scrubSentryEventCredentials,
