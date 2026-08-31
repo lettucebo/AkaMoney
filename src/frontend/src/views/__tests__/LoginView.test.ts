@@ -33,6 +33,11 @@ vi.mock('@/services/auth', () => ({
   isAuthSkipped: vi.fn(() => false)
 }));
 
+vi.mock('@/utils/sentry', () => ({
+  setSentryUser: vi.fn(async () => {}),
+  clearSentryUser: vi.fn()
+}));
+
 describe('LoginView', () => {
   let router: ReturnType<typeof createRouter>;
   let pinia: ReturnType<typeof createPinia>;

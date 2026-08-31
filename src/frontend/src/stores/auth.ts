@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import type { AccountInfo } from '@azure/msal-browser';
 import authService from '@/services/auth';
+import { clearSentryUser, setSentryUser } from '@/utils/sentry';
 
 interface AuthState {
   user: AccountInfo | null;
@@ -43,6 +44,7 @@ export const useAuthStore = defineStore('auth', {
           if (account) {
             this.user = account;
             this.isAuthenticated = true;
+            await setSentryUser(account.homeAccountId);
           }
         } catch (error) {
           console.error('Auth initialization error:', error);
@@ -69,6 +71,7 @@ export const useAuthStore = defineStore('auth', {
         if (account) {
           this.user = account;
           this.isAuthenticated = true;
+          await setSentryUser(account.homeAccountId);
         }
       } catch (error) {
         console.error('Login error:', error);
@@ -96,6 +99,7 @@ export const useAuthStore = defineStore('auth', {
         await authService.logout();
         this.user = null;
         this.isAuthenticated = false;
+        clearSentryUser();
       } catch (error) {
         console.error('Logout error:', error);
       } finally {

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { setActivePinia, createPinia } from 'pinia';
 import { useAuthStore } from '../auth';
 import authService, { AuthConfigurationError } from '@/services/auth';
+import { clearSentryUser, setSentryUser } from '@/utils/sentry';
 
 const createDeferred = <T>() => {
   let resolve!: (value: T | PromiseLike<T>) => void;
@@ -27,6 +28,11 @@ vi.mock('@/services/auth', () => ({
       this.name = 'AuthConfigurationError';
     }
   }
+}));
+
+vi.mock('@/utils/sentry', () => ({
+  setSentryUser: vi.fn(async () => {}),
+  clearSentryUser: vi.fn()
 }));
 
 describe('Auth Store', () => {
@@ -83,7 +89,7 @@ describe('Auth Store', () => {
 
   describe('initialize', () => {
     it('should initialize and set user if account exists', async () => {
-      const mockAccount = { name: 'John', username: 'john@example.com' };
+      const mockAccount = { homeAccountId: 'home-account-id', name: 'John', username: 'john@example.com' };
       vi.mocked(authService.initialize).mockResolvedValue(undefined);
       vi.mocked(authService.getAccount).mockReturnValue(mockAccount as any);
       
@@ -93,6 +99,7 @@ describe('Auth Store', () => {
       expect(authService.initialize).toHaveBeenCalled();
       expect(store.user).toEqual(mockAccount);
       expect(store.isAuthenticated).toBe(true);
+      expect(setSentryUser).toHaveBeenCalledWith('home-account-id');
       expect(store.loading).toBe(false);
       expect(store.initialized).toBe(true);
     });
@@ -107,6 +114,7 @@ describe('Auth Store', () => {
       expect(store.user).toBeNull();
       expect(store.isAuthenticated).toBe(false);
       expect(store.initialized).toBe(true);
+      expect(setSentryUser).not.toHaveBeenCalled();
     });
 
     it('should handle initialization error', async () => {
@@ -119,6 +127,7 @@ describe('Auth Store', () => {
       expect(store.loading).toBe(false);
       expect(store.user).toBeNull();
       expect(store.initialized).toBe(true);
+      expect(setSentryUser).not.toHaveBeenCalled();
     });
 
     it('should not initialize again if already initialized', async () => {
@@ -130,10 +139,11 @@ describe('Auth Store', () => {
       await store.initialize(); // Call again
       
       expect(authService.initialize).toHaveBeenCalledTimes(1);
+      expect(setSentryUser).not.toHaveBeenCalled();
     });
 
     it('should share one in-flight initialization between concurrent callers on the same store', async () => {
-      const mockAccount = { name: 'John', username: 'john@example.com' };
+      const mockAccount = { homeAccountId: 'home-account-id', name: 'John', username: 'john@example.com' };
       const deferred = createDeferred<void>();
       vi.mocked(authService.initialize).mockReturnValue(deferred.promise);
       vi.mocked(authService.getAccount).mockReturnValue(mockAccount as any);
@@ -163,6 +173,8 @@ describe('Auth Store', () => {
       expect(secondCompleted).toBe(true);
       expect(store.user).toEqual(mockAccount);
       expect(store.isAuthenticated).toBe(true);
+      expect(setSentryUser).toHaveBeenCalledTimes(1);
+      expect(setSentryUser).toHaveBeenCalledWith('home-account-id');
       expect(store.initialized).toBe(true);
       expect(store.loading).toBe(false);
     });
@@ -170,7 +182,7 @@ describe('Auth Store', () => {
 
   describe('login', () => {
     it('should login successfully', async () => {
-      const mockAccount = { name: 'John', username: 'john@example.com' };
+      const mockAccount = { homeAccountId: 'home-account-id', name: 'John', username: 'john@example.com' };
       vi.mocked(authService.login).mockResolvedValue(mockAccount as any);
       
       const store = useAuthStore();
@@ -179,6 +191,7 @@ describe('Auth Store', () => {
       expect(authService.login).toHaveBeenCalled();
       expect(store.user).toEqual(mockAccount);
       expect(store.isAuthenticated).toBe(true);
+      expect(setSentryUser).toHaveBeenCalledWith('home-account-id');
       expect(store.loading).toBe(false);
     });
 
@@ -190,6 +203,7 @@ describe('Auth Store', () => {
       
       expect(store.user).toBeNull();
       expect(store.isAuthenticated).toBe(false);
+      expect(setSentryUser).not.toHaveBeenCalled();
     });
 
     it('should handle login error', async () => {
@@ -201,6 +215,7 @@ describe('Auth Store', () => {
       
       await expect(store.login()).rejects.toThrow('Login failed');
       expect(store.loading).toBe(false);
+      expect(setSentryUser).not.toHaveBeenCalled();
     });
 
     it('should handle AuthConfigurationError', async () => {
@@ -276,6 +291,7 @@ describe('Auth Store', () => {
       expect(authService.logout).toHaveBeenCalled();
       expect(store.user).toBeNull();
       expect(store.isAuthenticated).toBe(false);
+      expect(clearSentryUser).toHaveBeenCalledOnce();
       expect(store.loading).toBe(false);
     });
 
@@ -289,6 +305,7 @@ describe('Auth Store', () => {
       await store.logout();
       
       expect(store.loading).toBe(false);
+      expect(clearSentryUser).not.toHaveBeenCalled();
     });
   });
 });

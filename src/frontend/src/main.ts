@@ -3,6 +3,7 @@ import { createPinia } from 'pinia';
 import App from './App.vue';
 import router from './router';
 import { useThemeStore } from './stores/theme';
+import { initSentry } from './utils/sentry';
 
 import './assets/css/main.css';
 
@@ -11,6 +12,8 @@ const pinia = createPinia();
 
 app.use(pinia);
 app.use(router);
+
+initSentry(app, router);
 
 // Initialize theme before mounting to prevent flash of unstyled content
 const themeStore = useThemeStore();
