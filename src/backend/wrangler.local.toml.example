@@ -9,6 +9,14 @@ compatibility_flags = ["nodejs_compat"]
 
 # Workers configuration
 workers_dev = true
+upload_source_maps = true
+
+[version_metadata]
+binding = "CF_VERSION_METADATA"
+
+[observability]
+enabled = true
+head_sampling_rate = 1
 
 # D1 Database binding
 # Get your database ID by running: wrangler d1 create akamoney-clicks
@@ -29,6 +37,9 @@ preview_bucket_name = "akamoney-storage-preview"
 [vars]
 ENVIRONMENT = "development"
 JWT_EXPIRES_IN = "7d"
+# Public Sentry DSN placeholder. This is not a secret; use wrangler.local.toml for a local test DSN.
+# Do not put Sentry auth tokens in Wrangler config; store tokens only in CI/secrets.
+SENTRY_DSN = ""
 
 # Storage provider configuration
 # Options: "r2" (default) or "azure"
