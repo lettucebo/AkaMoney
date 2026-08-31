@@ -29,6 +29,7 @@
     "wrangler": "3.114.17"
   },
   "dependencies": {
+    "@sentry/cloudflare": "^10.71.0",
     "hono": "^4.12.7"
   }
 }
