@@ -40,6 +40,7 @@ describe('Sentry frontend utility', () => {
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
     vi.clearAllMocks();
     sentryIntegrationCalls.browserTracing = [];
     sentryIntegrationCalls.replay = [];
@@ -121,9 +122,77 @@ describe('Sentry frontend utility', () => {
     expect(options.replaysOnErrorSampleRate).toBe(0);
   });
 
-  it('sets only a deterministic SHA-256 user ID and clears it', async () => {
-    const { setSentryUser, clearSentryUser } = await loadSentry();
+  it('does not hash or set a user when Sentry is not initialized without a DSN', async () => {
+    vi.stubEnv('VITE_SENTRY_DSN', '');
+    const digest = vi.spyOn(globalThis.crypto.subtle, 'digest');
+    const { initSentry, setSentryUser, clearSentryUser } = await loadSentry();
 
+    initSentry({ name: 'app' } as never, { name: 'router' } as never);
+    await setSentryUser('entra-account-id');
+    clearSentryUser();
+
+    expect(digest).not.toHaveBeenCalled();
+    expect(sentrySetUser).not.toHaveBeenCalled();
+  });
+
+  it('resolves and logs a safe warning when hashing a Sentry user fails', async () => {
+    const rawUserId = 'raw-entra-account-id';
+    vi.stubEnv('VITE_SENTRY_DSN', 'https://public@example.ingest.sentry.io/123');
+    vi.spyOn(globalThis.crypto.subtle, 'digest').mockRejectedValueOnce(
+      new Error(`digest failed for ${rawUserId}`)
+    );
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const { initSentry, setSentryUser } = await loadSentry();
+
+    initSentry({ name: 'app' } as never, { name: 'router' } as never);
+    await expect(setSentryUser(rawUserId)).resolves.toBeUndefined();
+
+    expect(sentrySetUser).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledOnce();
+    expect(JSON.stringify(warn.mock.calls)).not.toContain(rawUserId);
+  });
+
+  it('resolves and logs a safe warning when Sentry rejects setting a user', async () => {
+    const rawUserId = 'raw-entra-account-id';
+    vi.stubEnv('VITE_SENTRY_DSN', 'https://public@example.ingest.sentry.io/123');
+    sentrySetUser.mockImplementationOnce(() => {
+      throw new Error(`Sentry failed for ${rawUserId}`);
+    });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const { initSentry, setSentryUser } = await loadSentry();
+
+    initSentry({ name: 'app' } as never, { name: 'router' } as never);
+    await expect(setSentryUser(rawUserId)).resolves.toBeUndefined();
+
+    expect(sentrySetUser).toHaveBeenCalledWith({
+      id: 'f782b8bc41d015ac1ad32d0a5d3a1f5327bbf0f47a9b71913f947211c60826de'
+    });
+    expect(warn).toHaveBeenCalledOnce();
+    expect(JSON.stringify(warn.mock.calls)).not.toContain(rawUserId);
+  });
+
+  it('does not throw or expose identifiers when Sentry rejects clearing a user', async () => {
+    const rawUserId = 'raw-entra-account-id';
+    vi.stubEnv('VITE_SENTRY_DSN', 'https://public@example.ingest.sentry.io/123');
+    sentrySetUser.mockImplementationOnce(() => {
+      throw new Error(`Sentry failed for ${rawUserId}`);
+    });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const { initSentry, clearSentryUser } = await loadSentry();
+
+    initSentry({ name: 'app' } as never, { name: 'router' } as never);
+
+    expect(() => clearSentryUser()).not.toThrow();
+    expect(sentrySetUser).toHaveBeenCalledWith(null);
+    expect(warn).toHaveBeenCalledOnce();
+    expect(JSON.stringify(warn.mock.calls)).not.toContain(rawUserId);
+  });
+
+  it('sets only a deterministic SHA-256 user ID and clears it', async () => {
+    vi.stubEnv('VITE_SENTRY_DSN', 'https://public@example.ingest.sentry.io/123');
+    const { initSentry, setSentryUser, clearSentryUser } = await loadSentry();
+
+    initSentry({ name: 'app' } as never, { name: 'router' } as never);
     await setSentryUser('entra-account-id');
     clearSentryUser();
 

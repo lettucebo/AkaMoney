@@ -50,12 +50,28 @@ const toHex = (buffer: ArrayBuffer): string =>
   Array.from(new Uint8Array(buffer), (byte) => byte.toString(16).padStart(2, '0')).join('');
 
 export const setSentryUser = async (userId: string): Promise<void> => {
-  const encodedUserId = new TextEncoder().encode(userId);
-  const hashedUserId = await crypto.subtle.digest('SHA-256', encodedUserId);
+  if (!sentryInitialized) {
+    return;
+  }
 
-  Sentry.setUser({ id: toHex(hashedUserId) });
+  try {
+    const encodedUserId = new TextEncoder().encode(userId);
+    const hashedUserId = await crypto.subtle.digest('SHA-256', encodedUserId);
+
+    Sentry.setUser({ id: toHex(hashedUserId) });
+  } catch {
+    console.warn('Unable to update Sentry user context.');
+  }
 };
 
 export const clearSentryUser = (): void => {
-  Sentry.setUser(null);
+  if (!sentryInitialized) {
+    return;
+  }
+
+  try {
+    Sentry.setUser(null);
+  } catch {
+    console.warn('Unable to clear Sentry user context.');
+  }
 };
