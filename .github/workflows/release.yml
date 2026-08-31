@@ -44,23 +44,10 @@ jobs:
         with:
           node-version: '24.x'
           cache: 'npm'
-          cache-dependency-path: |
-            package-lock.json
-            src/frontend/package-lock.json
-            src/backend/package-lock.json
-            src/redirect/package-lock.json
+          cache-dependency-path: package-lock.json
 
-      - name: Install root dependencies
+      - name: Install workspace dependencies
         run: npm ci
-
-      - name: Install backend dependencies
-        run: cd src/backend && npm ci
-
-      - name: Install frontend dependencies
-        run: cd src/frontend && npm ci
-
-      - name: Install redirect dependencies
-        run: cd src/redirect && npm ci
 
       - name: Build frontend
         env:
@@ -71,13 +58,13 @@ jobs:
           VITE_APP_NAME: AkaMoney
           VITE_SHORT_DOMAIN: ${{ vars.SHORT_DOMAIN }}
           VITE_ARCHIVED_REDIRECT_URL: ${{ vars.ARCHIVED_REDIRECT_URL }}
-        run: cd src/frontend && npm run build
+        run: npm run build -w akamoney-frontend
 
       - name: Build backend (dry run)
-        run: cd src/backend && npm run build
+        run: npm run build -w akamoney-backend
 
       - name: Build redirect (dry run)
-        run: cd src/redirect && npm run build
+        run: npm run build -w akamoney-redirect
 
       - name: Upload frontend build artifacts
         uses: actions/upload-artifact@v4
@@ -103,10 +90,20 @@ jobs:
         with:
           node-version: '24.x'
           cache: 'npm'
-          cache-dependency-path: src/backend/package-lock.json
+          cache-dependency-path: package-lock.json
 
-      - name: Install backend dependencies
-        run: cd src/backend && npm ci
+      - name: Install workspace dependencies
+        run: npm ci
+
+      - name: Verify pinned Wrangler version
+        run: |
+          set -euo pipefail
+          VERSION=$(cd src/backend && npx --no-install wrangler --version)
+          echo "Resolved Wrangler version: $VERSION"
+          if [ "$VERSION" != "4.90.0" ]; then
+            echo "Error: expected Wrangler 4.90.0 for the Admin API, got '$VERSION'"
+            exit 1
+          fi
 
       - name: Ensure D1 database exists
         env:
@@ -116,11 +113,11 @@ jobs:
           cd src/backend
           DB_NAME="akamoney-clicks"
           echo "Checking if D1 database '$DB_NAME' exists..."
-          if npx wrangler d1 list 2>/dev/null | grep -qw "$DB_NAME"; then
+          if npx --no-install wrangler d1 list 2>/dev/null | grep -qw "$DB_NAME"; then
             echo "Database '$DB_NAME' already exists"
           else
             echo "Creating D1 database '$DB_NAME'..."
-            npx wrangler d1 create "$DB_NAME"
+            npx --no-install wrangler d1 create "$DB_NAME"
             echo "Database '$DB_NAME' created successfully"
           fi
 
@@ -133,7 +130,7 @@ jobs:
           cd src/backend
           DB_NAME="akamoney-clicks"
           # Get the database ID from wrangler d1 list output using JSON format for reliable parsing
-          DB_ID=$(npx wrangler d1 list --json 2>/dev/null | jq -r --arg name "$DB_NAME" '.[] | select(.name == $name) | .uuid')
+          DB_ID=$(npx --no-install wrangler d1 list --json 2>/dev/null | jq -r --arg name "$DB_NAME" '.[] | select(.name == $name) | .uuid')
           if [ -z "$DB_ID" ] || [ "$DB_ID" = "null" ]; then
             echo "Error: Could not retrieve database ID for '$DB_NAME'"
             exit 1
@@ -173,11 +170,11 @@ jobs:
           cd src/backend
           BUCKET_NAME="akamoney-storage"
           echo "Checking if R2 bucket '$BUCKET_NAME' exists..."
-          if npx wrangler r2 bucket list 2>/dev/null | grep -qw "$BUCKET_NAME"; then
+          if npx --no-install wrangler r2 bucket list 2>/dev/null | grep -qw "$BUCKET_NAME"; then
             echo "Bucket '$BUCKET_NAME' already exists"
           else
             echo "Creating R2 bucket '$BUCKET_NAME'..."
-            npx wrangler r2 bucket create "$BUCKET_NAME"
+            npx --no-install wrangler r2 bucket create "$BUCKET_NAME"
             echo "Bucket '$BUCKET_NAME' created successfully"
           fi
 
@@ -313,21 +310,21 @@ jobs:
           echo "Configuring Worker secrets..."
 
           if [ -n "$SECRET_ENTRA_ID_CLIENT_SECRET" ]; then
-            npx wrangler secret put ENTRA_ID_CLIENT_SECRET <<< "$SECRET_ENTRA_ID_CLIENT_SECRET"
+            npx --no-install wrangler secret put ENTRA_ID_CLIENT_SECRET <<< "$SECRET_ENTRA_ID_CLIENT_SECRET"
           else
             echo "Warning: ENTRA_ID_CLIENT_SECRET is not set, skipping..."
           fi
 
           # Configure Cloudflare D1 Analytics API token (optional - this is a secret)
           if [ -n "$SECRET_D1_ANALYTICS_API_TOKEN" ]; then
-            npx wrangler secret put D1_ANALYTICS_API_TOKEN <<< "$SECRET_D1_ANALYTICS_API_TOKEN"
+            npx --no-install wrangler secret put D1_ANALYTICS_API_TOKEN <<< "$SECRET_D1_ANALYTICS_API_TOKEN"
           else
             echo "Warning: D1_ANALYTICS_API_TOKEN for D1 analytics is not set, D1 stats will use estimation mode..."
           fi
 
           # Configure Azure Storage SAS token (optional - only needed if using Azure instead of R2)
           if [ -n "$SECRET_AZURE_STORAGE_SAS_TOKEN" ]; then
-            npx wrangler secret put AZURE_STORAGE_SAS_TOKEN <<< "$SECRET_AZURE_STORAGE_SAS_TOKEN"
+            npx --no-install wrangler secret put AZURE_STORAGE_SAS_TOKEN <<< "$SECRET_AZURE_STORAGE_SAS_TOKEN"
           else
             echo "Info: AZURE_STORAGE_SAS_TOKEN is not set (only needed for Azure storage)..."
           fi
@@ -341,6 +338,7 @@ jobs:
           accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: src/backend
           command: deploy
+          wranglerVersion: '4.90.0'
 
       - name: Add deployment summary
         if: always()
@@ -389,10 +387,20 @@ jobs:
         with:
           node-version: '24.x'
           cache: 'npm'
-          cache-dependency-path: src/redirect/package-lock.json
+          cache-dependency-path: package-lock.json
 
-      - name: Install redirect dependencies
-        run: cd src/redirect && npm ci
+      - name: Install workspace dependencies
+        run: npm ci
+
+      - name: Verify pinned Wrangler version
+        run: |
+          set -euo pipefail
+          VERSION=$(cd src/redirect && npx --no-install wrangler --version)
+          echo "Resolved Wrangler version: $VERSION"
+          if [ "$VERSION" != "3.114.17" ]; then
+            echo "Error: expected Wrangler 3.114.17 for the redirect Worker, got '$VERSION'"
+            exit 1
+          fi
 
       - name: Get D1 Database ID
         id: d1-database
@@ -403,7 +411,7 @@ jobs:
           cd src/redirect
           DB_NAME="akamoney-clicks"
           # Get the database ID from wrangler d1 list output using JSON format for reliable parsing
-          DB_ID=$(npx wrangler d1 list --json 2>/dev/null | jq -r --arg name "$DB_NAME" '.[] | select(.name == $name) | .uuid')
+          DB_ID=$(npx --no-install wrangler d1 list --json 2>/dev/null | jq -r --arg name "$DB_NAME" '.[] | select(.name == $name) | .uuid')
           if [ -z "$DB_ID" ] || [ "$DB_ID" = "null" ]; then
             echo "Error: Could not retrieve database ID for '$DB_NAME'"
             exit 1
@@ -442,6 +450,7 @@ jobs:
           accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: src/redirect
           command: deploy
+          wranglerVersion: '3.114.17'
 
       - name: Add deployment summary
         if: always()

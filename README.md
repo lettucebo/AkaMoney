@@ -56,6 +56,8 @@ AkaMoney uses a **separated services architecture** for better security and scal
 
 ```
 .
+├── package.json            # Root: npm workspaces (src/frontend, src/backend, src/redirect)
+├── package-lock.json       # Single lockfile shared by all three workspaces
 ├── src/
 │   ├── frontend/          # Vue 3 application (management dashboard)
 │   │   ├── src/
@@ -79,7 +81,14 @@ AkaMoney uses a **separated services architecture** for better security and scal
 │   └── shared/            # Unwired type declarations (not imported by services)
 │       └── types/
 └── docs/                  # Complete bilingual documentation; see docs/README.md
+    └── design-mockups/    # Frozen design-bakeoff tree; see docs/PROJECT_STRUCTURE.md
 ```
+
+The root `package.json` declares an npm workspace over `src/frontend`, `src/backend`,
+and `src/redirect` and owns the single root `package-lock.json`. It exists purely to
+orchestrate shared `dev` / `build` / `test` / `deploy` scripts and dependency
+installation — it is not itself a source of application code; the deployable
+product source lives under each workspace's own `src/`.
 
 ## Getting Started
 
@@ -98,7 +107,8 @@ git clone https://github.com/lettucebo/AkaMoney.git
 cd AkaMoney
 ```
 
-2. Install dependencies:
+2. Install dependencies (this is an npm workspace, so one root install covers
+   all three apps under `src/`; `npm run setup` is an alias for `npm install`):
 ```bash
 npm run setup
 ```

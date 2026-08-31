@@ -147,7 +147,7 @@ npx vue-tsc --noEmit
 Continuous integration is triggered on pushes and pull requests to `main` and `master`:
 - **Runner**: `ubuntu-latest`
 - **Node.js**: `24.x` (managed via `actions/setup-node@v4` with npm cache)
-- **Dependency Isolation**: Runs `npm ci` across root, `src/backend`, `src/frontend`, and `src/redirect`.
+- **Dependency Installation**: Runs a single root `npm ci`, resolving all three workspace packages against the one root `package-lock.json`.
 
 ### CI Job Steps
 
@@ -155,24 +155,20 @@ The CI pipeline runs the following verification sequence:
 
 ```yaml
 # CI Verification Pipeline Summary
-- name: Install dependencies
-  run: |
-    npm ci
-    cd src/backend && npm ci
-    cd ../frontend && npm ci
-    cd ../redirect && npm ci
+- name: Install workspace dependencies
+  run: npm ci
 
 - name: Run test suites with coverage
   run: |
-    cd src/backend && npm run test:coverage
-    cd ../frontend && npm run test:coverage
-    cd ../redirect && npm run test:coverage
+    npm run test:coverage -w akamoney-backend
+    npm run test:coverage -w akamoney-frontend
+    npm run test:coverage -w akamoney-redirect
 
 - name: Compile and build (frontend & dry-run workers)
   run: |
-    cd src/frontend && npm run build
-    cd ../backend && npm run build
-    cd ../redirect && npm run build
+    npm run build -w akamoney-frontend
+    npm run build -w akamoney-backend
+    npm run build -w akamoney-redirect
 ```
 
 Coverage reports from each package are preserved and uploaded as GitHub Actions artifacts (`backend-coverage-report`, `frontend-coverage-report`, `redirect-coverage-report`) with a 30-day retention period.

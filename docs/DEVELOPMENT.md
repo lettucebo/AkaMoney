@@ -9,30 +9,32 @@ This guide details the local development workflow, environment requirements, ser
 ### Node.js and Package Manager
 
 - **Node.js**: `24.x` (LTS) or higher (enforced via `"engines": { "node": ">=24.0.0" }` in `package.json`).
-- **Package Manager**: `npm` (each subpackage maintains its own `package-lock.json`).
+- **Package Manager**: `npm` (this repository is an npm workspace; there is one root `package-lock.json` shared by all three application packages).
 - **Cloudflare Wrangler CLI**: Installed locally per package or globally (`npm install -g wrangler`).
 
 ### Repository Structure and Dependency Boundaries
 
-AkaMoney is structured with three independent service packages inside `src/`. It does **not** use an npm workspace monorepo structure:
+AkaMoney is structured as an **npm workspace** with three application packages inside `src/`:
 
 ```
 .
-├── package.json              # Root scripts orchestrating subpackages
-├── package-lock.json         # Root lockfile
+├── package.json              # Root: declares the workspace and orchestrates scripts
+├── package-lock.json         # Single lockfile shared by all three workspaces
 └── src/
     ├── frontend/             # Vue 3 Single Page Application (management UI)
-    │   ├── package.json      # Frontend dependencies & scripts
-    │   └── package-lock.json
+    │   └── package.json      # Frontend dependencies & scripts
     ├── backend/              # Cloudflare Workers Admin API (Hono)
-    │   ├── package.json      # Backend dependencies & scripts (Wrangler v4)
-    │   └── package-lock.json
+    │   └── package.json      # Backend dependencies & scripts (Wrangler v4)
     └── redirect/             # Cloudflare Workers Redirect Service (Hono)
-        ├── package.json      # Redirect dependencies & scripts (Wrangler v3)
-        └── package-lock.json
+        └── package.json      # Redirect dependencies & scripts (Wrangler v3)
 ```
 
-Each service package manages its own dependencies independently. Running `npm install` only at the root will **not** install dependencies for `src/frontend`, `src/backend`, or `src/redirect`.
+`docs/design-mockups/validation` is an intentionally independent npm package with
+its own `package.json` and lockfile; it is not part of the workspace.
+
+Because this is an npm workspace, running `npm install` (or `npm ci`) once at the
+root installs dependencies for `src/frontend`, `src/backend`, and `src/redirect`
+together and resolves them against the single root `package-lock.json`.
 
 ---
 
@@ -40,27 +42,12 @@ Each service package manages its own dependencies independently. Running `npm in
 
 ### 1. Installing Dependencies
 
-To install dependencies across all three packages in one step, use the root setup script:
+Install dependencies for all three workspace packages in one step from the
+repository root:
 
 ```bash
-# Install root and all subproject dependencies
-npm run setup
-```
-
-Alternatively, install dependencies manually in each directory:
-
-```bash
-# Root
+# Install root and all workspace dependencies (npm run setup is an alias)
 npm install
-
-# Frontend
-cd src/frontend && npm install
-
-# Backend Admin API
-cd ../backend && npm install
-
-# Redirect Service
-cd ../redirect && npm install
 ```
 
 ### 2. Local Wrangler Configuration
@@ -72,7 +59,7 @@ Cloudflare Workers configurations for local execution require local `.toml` file
    cd src/backend
    cp wrangler.local.toml.example wrangler.local.toml
    ```
-   - **Wrangler v4 & Compatibility**: The backend uses Wrangler v4 (`^4.59.1`) with `compatibility_flags = ["nodejs_compat"]`.
+   - **Wrangler v4 & Compatibility**: The backend uses Wrangler v4 (exact `4.90.0`) with `compatibility_flags = ["nodejs_compat"]`.
    - In `wrangler.local.toml`, the D1 binding uses database name `akamoney-clicks`. Set `database_id` to your local D1 database UUID or dummy string for local Miniflare simulation.
 
 2. **Redirect Service**:
@@ -80,7 +67,7 @@ Cloudflare Workers configurations for local execution require local `.toml` file
    cd src/redirect
    cp wrangler.local.toml.example wrangler.local.toml
    ```
-   - **Wrangler v3 & Future Upgrade**: The redirect service currently uses Wrangler v3 (`^3.114.17`) with `node_compat = true`. Note that when upgrading redirect service to Wrangler v4 in the future, `node_compat = true` must be updated to `compatibility_flags = ["nodejs_compat"]`.
+   - **Wrangler v3 & Future Upgrade**: The redirect service currently uses Wrangler v3 (exact `3.114.17`) with `node_compat = true`. Note that when upgrading redirect service to Wrangler v4 in the future, `node_compat = true` must be updated to `compatibility_flags = ["nodejs_compat"]`.
 
 3. **Frontend Environment**:
    ```bash

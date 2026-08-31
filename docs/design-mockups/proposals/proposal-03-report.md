@@ -6,8 +6,8 @@
 
 僅修改下列檔案，未更動 validator / shared / BRIEF / 其他 proposal，且未提交（no commit）：
 
-- `design-mockups/proposals/03-swiss.html`
-- `design-mockups/proposals/proposal-03-report.md`（本檔，新建）
+- `docs/design-mockups/proposals/03-swiss.html`
+- `docs/design-mockups/proposals/proposal-03-report.md`（本檔，新建）
 
 `03-swiss.manifest.json` 經逐項比對後**無需修改**：`direction` 仍為 `Swiss 國際主義排版`，
 `dna` 六軸維持 `top-bar` / `compact-rows` / `inline-quick-create` / `comparative` /
@@ -51,7 +51,7 @@
 #### 1. 單檔靜態驗證
 
 ```text
-> cd design-mockups/validation
+> cd docs/design-mockups/validation
 > node static-validator.mjs ../proposals/03-swiss.html
 
 PASS 03-swiss

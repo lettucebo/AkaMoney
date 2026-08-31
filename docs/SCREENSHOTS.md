@@ -8,8 +8,8 @@ This page describes the **shipped** management-dashboard routes and states, then
 
 | Kind | In this repo? | Treat as |
 |------|---------------|----------|
-| `design-mockups/screenshots/m2-mone-dense-*.png` | Yes | Design mockup / reference only |
-| Other `design-mockups/screenshots/*.png` | Yes | Historical bakeoff captures, not the shipped UI |
+| `docs/design-mockups/screenshots/m2-mone-dense-*.png` | Yes | Design mockup / reference only |
+| Other `docs/design-mockups/screenshots/*.png` | Yes | Historical bakeoff captures, not the shipped UI |
 | `docs/screenshots/*` or Playwright traces of the Vue app | **No** | Do not invent or link them |
 
 Session-local captures (for example files kept only under a Copilot session folder) are not part of the repository and must not be linked.
@@ -18,7 +18,7 @@ Session-local captures (for example files kept only under a Copilot session fold
 
 The shipped visual system is **`m2-mone-dense`** (Proposal F / Monē dense data tool). Mapping evidence:
 
-- `src/frontend/src/assets/css/main.css` header: “Proposal F (Mone 高密度資料工具變體)” and tokens that match `design-mockups/proposals/m2-mone-dense.manifest.json`
+- `src/frontend/src/assets/css/main.css` header: “Proposal F (Mone 高密度資料工具變體)” and tokens that match `docs/design-mockups/proposals/m2-mone-dense.manifest.json`
 - `useChartTheme.ts` cites that same manifest for `CHART_SERIES`
 - `DashboardView.vue` and `UrlTable.vue` comments: Proposal F vertical slice — KPI → on-demand create modal → dense table
 - Manifest DNA: `collapsible-sidebar`, `dense-table`, `inline-quick-create` — `AppShell` implements `collapsible-sidebar`; `UrlTable` implements `dense-table`; the shipped create flow intentionally diverges from `inline-quick-create` by opening `UrlCreateModal` (a centered `BaseModal`) instead of an inline panel.
@@ -83,25 +83,25 @@ The following files exist and are **design mockups / references**, not current r
 
 **Desktop light — design mockup / reference**
 
-![m2-mone-dense desktop light (design mockup)](../design-mockups/screenshots/m2-mone-dense-desktop-light.png)
+![m2-mone-dense desktop light (design mockup)](design-mockups/screenshots/m2-mone-dense-desktop-light.png)
 
 **Desktop dark — design mockup / reference**
 
-![m2-mone-dense desktop dark (design mockup)](../design-mockups/screenshots/m2-mone-dense-desktop-dark.png)
+![m2-mone-dense desktop dark (design mockup)](design-mockups/screenshots/m2-mone-dense-desktop-dark.png)
 
 **Mobile light — design mockup / reference**
 
-![m2-mone-dense mobile light (design mockup)](../design-mockups/screenshots/m2-mone-dense-mobile-light.png)
+![m2-mone-dense mobile light (design mockup)](design-mockups/screenshots/m2-mone-dense-mobile-light.png)
 
 **Mobile dark — design mockup / reference**
 
-![m2-mone-dense mobile dark (design mockup)](../design-mockups/screenshots/m2-mone-dense-mobile-dark.png)
+![m2-mone-dense mobile dark (design mockup)](design-mockups/screenshots/m2-mone-dense-mobile-dark.png)
 
-Interactive proposal HTML: [`design-mockups/proposals/m2-mone-dense.html`](../design-mockups/proposals/m2-mone-dense.html). Other prefixes under `design-mockups/screenshots/` (`01-linear` … `12-playful`, `m1-mone-faithful`) are earlier bakeoff directions, not the shipped system.
+Interactive proposal HTML: [`docs/design-mockups/proposals/m2-mone-dense.html`](design-mockups/proposals/m2-mone-dense.html). Other prefixes under `docs/design-mockups/screenshots/` (`01-linear` … `12-playful`, `m1-mone-faithful`) are earlier bakeoff directions, not the shipped system.
 
 ## Validation artifacts
 
-Committed Playwright under `design-mockups/validation/` (`playwright.config.mjs`, `proposals.spec.mjs`, `task-3-validation-report.md`) validates **proposal HTML**, not the Vue SPA. There is no committed e2e folder or runtime screenshot set for the dashboard. Use local `npm run test` / a running app if you need to confirm behaviour.
+Committed Playwright under `docs/design-mockups/validation/` (`playwright.config.mjs`, `proposals.spec.mjs`, `task-3-validation-report.md`) validates **proposal HTML**, not the Vue SPA. There is no committed e2e folder or runtime screenshot set for the dashboard. Use local `npm run test` / a running app if you need to confirm behaviour.
 
 ## Related documents
 

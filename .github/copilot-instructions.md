@@ -2,10 +2,14 @@
 
 ## Tooling and commands
 
-- Use Node.js 24.x and npm. This repository is not an npm workspace: the root,
-  `src/frontend`, `src/backend`, and `src/redirect` each have their own
-  `package-lock.json`. Run `npm run setup` from the repository root for a fresh
-  install, or run `npm ci` separately in each package as CI does.
+- Use Node.js 24.x and npm. This repository IS an npm workspace: the root
+  `package.json` declares `src/frontend`, `src/backend`, and `src/redirect` as
+  workspaces, and there is one root `package-lock.json` shared by all three
+  application workspaces (`docs/design-mockups/validation` is an intentionally
+  independent npm package with its own lockfile and is not part of the
+  workspace). Run `npm install` from the repository root for a fresh install
+  (`npm run setup` is an alias); CI and release jobs run one root `npm ci`
+  followed by workspace-selected build/test commands.
 - Run services from the repository root with `npm run dev:frontend`,
   `npm run dev:backend`, or `npm run dev:redirect`. On Windows, start the
   frontend and Admin API in separate terminals: the root `npm run dev` script
@@ -23,9 +27,10 @@
 - Frontend type-check: `cd src/frontend && npx vue-tsc --noEmit`.
 - There is no configured lint script. Do not invent a lint command or add a
   linter solely to validate unrelated work.
-- CI (`.github/workflows/ci.yml`) installs every package with `npm ci`, runs all
-  coverage suites, builds the frontend, and performs Wrangler dry-run builds.
-  Coverage thresholds are 80% for frontend and backend TypeScript.
+- CI (`.github/workflows/ci.yml`) runs one root `npm ci`, then runs coverage
+  suites and builds (including the Wrangler dry-runs) per workspace with
+  `-w akamoney-<frontend|backend|redirect>`. Coverage thresholds are 80% for
+  frontend and backend TypeScript.
 - Local Cloudflare development needs ignored `wrangler.local.toml` files based
   on each Worker's example config. The current backend `db:*` npm scripts refer
   to `akamoney`, while Wrangler config names the database `akamoney-clicks`; do
@@ -33,7 +38,8 @@
   local migrations against the binding explicitly:
   `npx wrangler d1 migrations apply DB --local --config wrangler.local.toml`.
 - Use each package's local npm scripts for Wrangler commands. The Admin API
-  currently uses Wrangler 4 while the redirect package uses Wrangler 3.
+  and redirect package intentionally pin different exact Wrangler versions
+  (backend `4.90.0`, redirect `3.114.17`); do not unify them.
 
 ## Architecture
 

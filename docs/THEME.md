@@ -6,7 +6,7 @@ AkaMoney’s management dashboard uses Tailwind CSS v4 in CSS-first mode, Monē 
 
 ## Scope
 
-This document describes the shipped Vue dashboard under `src/frontend/`. Design-proposal HTML in `design-mockups/` is a visual ancestor, not the runtime stylesheet.
+This document describes the shipped Vue dashboard under `src/frontend/`. Design-proposal HTML in `docs/design-mockups/` is a visual ancestor, not the runtime stylesheet.
 
 ## Tailwind CSS v4 (CSS-first)
 
@@ -37,8 +37,8 @@ Authoritative stylesheet: [`src/frontend/src/assets/css/main.css`](../src/fronte
 
 `main.css` is the runtime source of truth. It is derived from proposal **`m2-mone-dense`** (also called Proposal F / Monē dense data tool) in:
 
-- [`design-mockups/proposals/m2-mone-dense.manifest.json`](../design-mockups/proposals/m2-mone-dense.manifest.json)
-- [`design-mockups/proposals/m2-mone-dense.html`](../design-mockups/proposals/m2-mone-dense.html)
+- [`docs/design-mockups/proposals/m2-mone-dense.manifest.json`](design-mockups/proposals/m2-mone-dense.manifest.json)
+- [`docs/design-mockups/proposals/m2-mone-dense.html`](design-mockups/proposals/m2-mone-dense.html)
 
 Do not copy the full token dump here. Read `@theme`, `:root`, and `:root[data-theme="dark"]` in `main.css` when a value must be exact.
 

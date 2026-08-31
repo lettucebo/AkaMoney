@@ -4,7 +4,7 @@ import { useThemeStore } from '@/stores/theme';
 
 /**
  * Categorical palette shared by every chart, taken from the Proposal F manifest
- * (design-mockups/proposals/m2-mone-dense.manifest.json). It is intentionally
+ * (docs/design-mockups/proposals/m2-mone-dense.manifest.json). It is intentionally
  * identical in both themes so a series keeps its colour when the theme flips.
  */
 export const CHART_SERIES = [

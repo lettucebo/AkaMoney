@@ -9,30 +9,32 @@
 ### Node.js 與套件管理器
 
 - **Node.js**: `24.x` (LTS) 或更高版本（透過 `package.json` 中的 `"engines": { "node": ">=24.0.0" }` 強制規範）。
-- **套件管理器**: `npm`（各子專案維護各自獨立的 `package-lock.json`）。
+- **套件管理器**: `npm`（本儲存庫為 npm workspace，三個應用程式套件共用同一份根目錄 `package-lock.json`）。
 - **Cloudflare Wrangler CLI**: 於各套件本地安裝或全域安裝（`npm install -g wrangler`）。
 
 ### 專案結構與依賴邊界
 
-AkaMoney 的專案結構由 `src/` 底下的三個獨立服務套件所組成，**並未使用** npm workspace monorepo 架構：
+AkaMoney 是一個 **npm workspace**，`src/` 底下有三個應用程式套件：
 
 ```
 .
-├── package.json              # 根目錄腳本，負責協調各子套件
-├── package-lock.json         # 根目錄 lockfile
+├── package.json              # 根目錄：宣告 workspace 並協調腳本
+├── package-lock.json         # 三個 workspace 共用的單一 lockfile
 └── src/
     ├── frontend/             # Vue 3 單頁應用程式（管理後台 UI）
-    │   ├── package.json      # 前端依賴與腳本
-    │   └── package-lock.json
+    │   └── package.json      # 前端依賴與腳本
     ├── backend/              # Cloudflare Workers 管理 API（Hono）
-    │   ├── package.json      # 後端依賴與腳本（Wrangler v4）
-    │   └── package-lock.json
+    │   └── package.json      # 後端依賴與腳本（Wrangler v4）
     └── redirect/             # Cloudflare Workers 重定向服務（Hono）
-        ├── package.json      # 重定向服務依賴與腳本（Wrangler v3）
-        └── package-lock.json
+        └── package.json      # 重定向服務依賴與腳本（Wrangler v3）
 ```
 
-每個服務套件各自獨立管理其依賴。僅在根目錄執行 `npm install` **不會**為 `src/frontend`、`src/backend` 或 `src/redirect` 安裝套件。
+`docs/design-mockups/validation` 是刻意獨立的 npm 套件，擁有自己的
+`package.json` 與 lockfile，不屬於此 workspace。
+
+由於這是 npm workspace，在根目錄執行一次 `npm install`（或 `npm ci`）即可
+一併安裝 `src/frontend`、`src/backend` 與 `src/redirect` 的依賴，並依照
+唯一的根目錄 `package-lock.json` 解析版本。
 
 ---
 
@@ -40,27 +42,11 @@ AkaMoney 的專案結構由 `src/` 底下的三個獨立服務套件所組成，
 
 ### 1. 安裝依賴套件
 
-若要一次為所有三個套件安裝依賴，可執行根目錄的 setup 腳本：
+從專案根目錄執行一次，即可為所有三個 workspace 套件安裝依賴：
 
 ```bash
-# 安裝根目錄與所有子專案的依賴套件
-npm run setup
-```
-
-或者，分別切換至各子目錄手動執行安裝：
-
-```bash
-# 根目錄
+# 安裝根目錄與所有 workspace 的依賴套件（npm run setup 是其別名）
 npm install
-
-# 前端
-cd src/frontend && npm install
-
-# 後端管理 API
-cd ../backend && npm install
-
-# 重定向服務
-cd ../redirect && npm install
 ```
 
 ### 2. 本地 Wrangler 設定
@@ -72,7 +58,7 @@ Cloudflare Workers 本地執行所需之設定檔會被 git 忽略（`.gitignore
    cd src/backend
    cp wrangler.local.toml.example wrangler.local.toml
    ```
-   - **Wrangler v4 與相容性標籤**：後端採用 Wrangler v4（`^4.59.1`），並配置 `compatibility_flags = ["nodejs_compat"]`。
+   - **Wrangler v4 與相容性標籤**：後端採用 Wrangler v4（精確版本 `4.90.0`），並配置 `compatibility_flags = ["nodejs_compat"]`。
    - 在 `wrangler.local.toml` 中，D1 binding 的資料庫名稱為 `akamoney-clicks`。請將 `database_id` 填入您的 D1 UUID，或於本地 Miniflare 模擬時使用任意虛擬字串。
 
 2. **重定向服務**:
@@ -80,7 +66,7 @@ Cloudflare Workers 本地執行所需之設定檔會被 git 忽略（`.gitignore
    cd src/redirect
    cp wrangler.local.toml.example wrangler.local.toml
    ```
-   - **Wrangler v3 與未來升級**：重定向服務目前使用 Wrangler v3（`^3.114.17`）並設定 `node_compat = true`。請注意未來若將重定向服務升級至 Wrangler v4，必須將 `node_compat = true` 改為 `compatibility_flags = ["nodejs_compat"]`。
+   - **Wrangler v3 與未來升級**：重定向服務目前使用 Wrangler v3（精確版本 `3.114.17`）並設定 `node_compat = true`。請注意未來若將重定向服務升級至 Wrangler v4，必須將 `node_compat = true` 改為 `compatibility_flags = ["nodejs_compat"]`。
 
 3. **前端環境變數**:
    ```bash

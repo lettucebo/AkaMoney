@@ -11,7 +11,7 @@
 
 ## 0. 你要交付什麼
 
-在 `design-mockups/proposals/` 底下產出**兩個檔案**，檔名由你的指派列決定（§13）：
+在 `docs/design-mockups/proposals/` 底下產出**兩個檔案**，檔名由你的指派列決定（§13）：
 
 | 檔案 | 內容 |
 |---|---|
@@ -20,10 +20,10 @@
 
 **其他限制**
 
-- **禁止**修改 `design-mockups/shared/` 內任何檔案（唯讀共用資產）。
+- **禁止**修改 `docs/design-mockups/shared/` 內任何檔案（唯讀共用資產）。
 - **禁止**新增第三個檔案（不得拆出獨立 `.css` / `.js`；所有樣式與腳本內嵌於 HTML）。
-- **禁止** commit。`design-mockups/` 已列入 repo 的 `.gitignore`（`.gitignore:178`），產出不進版控。
-- **禁止**動到 repo 內 `design-mockups/` 以外的任何檔案。
+- **禁止**自行 `git commit`。`docs/design-mockups/` 是 repo 中已納入版控的一般追蹤目錄（並未列入 `.gitignore`）；產出仍會進版控，只是不由實作代理人直接提交——所有變更一律由協調工作流程（coordinating workflow）審查後彙整提交。
+- **禁止**動到 repo 內 `docs/design-mockups/` 以外的任何檔案。
 
 ---
 
@@ -437,7 +437,7 @@ default   large250   empty   noResults   edgeCases   zeroAnalytics   apiError
 - 全域狀態由父層持有。子頁**可以不用** `localStorage`。
 - 若使用，key **MUST** 以 `akamoney-proposal:<proposalId>:` 為前綴，且 **MUST** 包在 `try/catch` 中
   （`file://` 下行為未定義）。
-- 正式檢視方式為**本機 HTTP server**（例如 `npx serve design-mockups` 或
+- 正式檢視方式為**本機 HTTP server**（例如 `npx serve docs/design-mockups` 或
   `python -m http.server`），雙擊 `file://` 開啟僅為降級模式，但降級模式下 **MUST NOT** 出現 console 錯誤。
 
 ---

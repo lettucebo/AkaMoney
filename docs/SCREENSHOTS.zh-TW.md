@@ -8,8 +8,8 @@
 
 | 種類 | 是否在本儲存庫？ | 應視為 |
 |------|------------------|--------|
-| `design-mockups/screenshots/m2-mone-dense-*.png` | 是 | 僅設計比稿／參考 |
-| 其他 `design-mockups/screenshots/*.png` | 是 | 歷史評選截圖，不是已上線 UI |
+| `docs/design-mockups/screenshots/m2-mone-dense-*.png` | 是 | 僅設計比稿／參考 |
+| 其他 `docs/design-mockups/screenshots/*.png` | 是 | 歷史評選截圖，不是已上線 UI |
 | `docs/screenshots/*` 或 Vue 應用的 Playwright traces | **否** | 不要捏造或連結 |
 
 只存在於 Copilot session 資料夾等工作階段產物，不屬於儲存庫，不得連結。
@@ -18,7 +18,7 @@
 
 已上線視覺系統是 **`m2-mone-dense`**（Proposal F / Monē 高密度資料工具）。對應證據：
 
-- `src/frontend/src/assets/css/main.css` 檔頭：「Proposal F (Mone 高密度資料工具變體)」，代幣與 `design-mockups/proposals/m2-mone-dense.manifest.json` 一致
+- `src/frontend/src/assets/css/main.css` 檔頭：「Proposal F (Mone 高密度資料工具變體)」，代幣與 `docs/design-mockups/proposals/m2-mone-dense.manifest.json` 一致
 - `useChartTheme.ts` 以同一份 manifest 作為 `CHART_SERIES` 來源
 - `DashboardView.vue` 與 `UrlTable.vue` 註解：Proposal F 垂直切片 — KPI → 按需建立彈窗 → 高密度表格
 - Manifest DNA：`collapsible-sidebar`、`dense-table`、`inline-quick-create` — `AppShell` 實作 `collapsible-sidebar`；`UrlTable` 實作 `dense-table`；已上線的建立流程刻意偏離 `inline-quick-create`，改以置中的 `BaseModal`（即 `UrlCreateModal`）取代行內面板。
@@ -83,25 +83,25 @@
 
 **桌面淺色 — 設計比稿／參考**
 
-![m2-mone-dense desktop light (design mockup)](../design-mockups/screenshots/m2-mone-dense-desktop-light.png)
+![m2-mone-dense desktop light (design mockup)](design-mockups/screenshots/m2-mone-dense-desktop-light.png)
 
 **桌面深色 — 設計比稿／參考**
 
-![m2-mone-dense desktop dark (design mockup)](../design-mockups/screenshots/m2-mone-dense-desktop-dark.png)
+![m2-mone-dense desktop dark (design mockup)](design-mockups/screenshots/m2-mone-dense-desktop-dark.png)
 
 **行動淺色 — 設計比稿／參考**
 
-![m2-mone-dense mobile light (design mockup)](../design-mockups/screenshots/m2-mone-dense-mobile-light.png)
+![m2-mone-dense mobile light (design mockup)](design-mockups/screenshots/m2-mone-dense-mobile-light.png)
 
 **行動深色 — 設計比稿／參考**
 
-![m2-mone-dense mobile dark (design mockup)](../design-mockups/screenshots/m2-mone-dense-mobile-dark.png)
+![m2-mone-dense mobile dark (design mockup)](design-mockups/screenshots/m2-mone-dense-mobile-dark.png)
 
-可互動提案 HTML：[`design-mockups/proposals/m2-mone-dense.html`](../design-mockups/proposals/m2-mone-dense.html)。`design-mockups/screenshots/` 其他前綴（`01-linear` … `12-playful`、`m1-mone-faithful`）是較早的評選方向，不是已上線系統。
+可互動提案 HTML：[`docs/design-mockups/proposals/m2-mone-dense.html`](design-mockups/proposals/m2-mone-dense.html)。`docs/design-mockups/screenshots/` 其他前綴（`01-linear` … `12-playful`、`m1-mone-faithful`）是較早的評選方向，不是已上線系統。
 
 ## 驗證產物
 
-`design-mockups/validation/` 底下已進版控的 Playwright（`playwright.config.mjs`、`proposals.spec.mjs`、`task-3-validation-report.md`）驗證的是**提案 HTML**，不是 Vue SPA。儲存庫沒有已提交的 e2e 目錄或管理台執行期截圖。若要確認行為，請用本機 `npm run test` 或實際跑起來的應用。
+`docs/design-mockups/validation/` 底下已進版控的 Playwright（`playwright.config.mjs`、`proposals.spec.mjs`、`task-3-validation-report.md`）驗證的是**提案 HTML**，不是 Vue SPA。儲存庫沒有已提交的 e2e 目錄或管理台執行期截圖。若要確認行為，請用本機 `npm run test` 或實際跑起來的應用。
 
 ## 相關文件
 

@@ -12,13 +12,13 @@ AkaMoney consists of three distinct subsystems (Frontend, Admin API, and Redirec
 
 ## Local Development and Environment Issues
 
-### 1. Missing Dependencies in Subprojects
+### 1. Missing Dependencies After Install
 
 - **Symptom**: `Cannot find module '@azure/msal-browser'`, `hono not found`, or TypeScript compiler errors after running `npm install`.
-- **Cause**: AkaMoney maintains independent `package.json` files in `src/frontend`, `src/backend`, and `src/redirect`. Running `npm install` only in the repository root does not install subproject dependencies.
-- **Remedy**: Run the root setup command or install dependencies individually:
+- **Cause**: This repository is an npm workspace (`src/frontend`, `src/backend`, `src/redirect`) sharing one root `package-lock.json`. Running `npm install` from a stale or partial checkout, or with `--workspaces=false`/inside a single workspace directory only, can leave sibling workspaces without dependencies.
+- **Remedy**: Run the root setup command, which installs every workspace from the repository root:
   ```bash
-  # Install dependencies across root and all subprojects
+  # Install dependencies for the root and all workspace packages
   npm run setup
   ```
 
@@ -51,7 +51,7 @@ AkaMoney consists of three distinct subsystems (Frontend, Admin API, and Redirec
 ### 4. Stale Backend node_compat in Local Wrangler Configs
 
 - **Symptom**: Wrangler v4 displays deprecation warnings or errors: `ExperimentalNodeCompatError: node_compat is deprecated`.
-- **Cause**: Older versions of `wrangler.local.toml.example` contained `node_compat = true`. The backend uses Wrangler v4 (`^4.59.1`), which requires `compatibility_flags`.
+- **Cause**: Older versions of `wrangler.local.toml.example` contained `node_compat = true`. The backend uses Wrangler v4 (exact `4.90.0`), which requires `compatibility_flags`.
 - **Remedy**: Update your local `src/backend/wrangler.local.toml` to replace `node_compat` with:
   ```toml
   # In src/backend/wrangler.local.toml

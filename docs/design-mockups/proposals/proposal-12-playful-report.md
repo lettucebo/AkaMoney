@@ -9,7 +9,7 @@ Fixes applied:
 
 ## Static validation
 Command:
-`cd design-mockups\validation; node static-validator.mjs ../proposals/12-playful.html`
+`cd docs\design-mockups\validation; node static-validator.mjs ../proposals/12-playful.html`
 
 Output:
 ```text
@@ -19,7 +19,7 @@ PASS 12-playful
 
 ## Targeted browser validation
 Command:
-`cd design-mockups\validation; $env:PROPOSAL_ID='12-playful'; $env:VALIDATION_PORT='44012'; npx playwright test proposals.spec.mjs --grep "12-playful proposal contract" --reporter=line`
+`cd docs\design-mockups\validation; $env:PROPOSAL_ID='12-playful'; $env:VALIDATION_PORT='44012'; npx playwright test proposals.spec.mjs --grep "12-playful proposal contract" --reporter=line`
 
 Output:
 ```text
@@ -59,7 +59,7 @@ Fixes applied after the remaining acceptance issue:
 - Preserved the latest-created pinning and pagination behavior while keeping the Playful visual DNA intact.
 
 Command:
-`cd design-mockups\validation; $env:PROPOSAL_ID='12-playful'; $env:VALIDATION_PORT='44012'; node static-validator.mjs ../proposals/12-playful.html; npx playwright test proposals.spec.mjs --grep "12-playful" --reporter=line`
+`cd docs\design-mockups\validation; $env:PROPOSAL_ID='12-playful'; $env:VALIDATION_PORT='44012'; node static-validator.mjs ../proposals/12-playful.html; npx playwright test proposals.spec.mjs --grep "12-playful" --reporter=line`
 
 Output:
 ```text

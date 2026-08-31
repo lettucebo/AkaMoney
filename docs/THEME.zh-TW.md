@@ -6,7 +6,7 @@ AkaMoney 管理後台使用 Tailwind CSS v4 的 CSS-first 設定、Monē 設計�
 
 ## 範圍
 
-本文件描述 `src/frontend/` 已上線的 Vue 管理台。`design-mockups/` 裡的提案 HTML 是視覺祖先，不是執行期樣式表。
+本文件描述 `src/frontend/` 已上線的 Vue 管理台。`docs/design-mockups/` 裡的提案 HTML 是視覺祖先，不是執行期樣式表。
 
 ## Tailwind CSS v4（CSS-first）
 
@@ -37,8 +37,8 @@ AkaMoney 管理後台使用 Tailwind CSS v4 的 CSS-first 設定、Monē 設計�
 
 `main.css` 是執行期的單一來源。它衍生自提案 **`m2-mone-dense`**（亦稱 Proposal F / Monē 高密度資料工具）：
 
-- [`design-mockups/proposals/m2-mone-dense.manifest.json`](../design-mockups/proposals/m2-mone-dense.manifest.json)
-- [`design-mockups/proposals/m2-mone-dense.html`](../design-mockups/proposals/m2-mone-dense.html)
+- [`docs/design-mockups/proposals/m2-mone-dense.manifest.json`](design-mockups/proposals/m2-mone-dense.manifest.json)
+- [`docs/design-mockups/proposals/m2-mone-dense.html`](design-mockups/proposals/m2-mone-dense.html)
 
 此處不複製完整代幣清單。需要精確值時，請讀 `main.css` 的 `@theme`、`:root` 與 `:root[data-theme="dark"]`。
 

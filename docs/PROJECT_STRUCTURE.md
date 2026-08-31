@@ -12,7 +12,7 @@ AkaMoney is three independently deployed services plus mirrored contracts, D1 mi
 | Admin API | `src/backend/` | Cloudflare Worker `akamoney-admin-api` | Entra-protected management and analytics |
 | Redirect | `src/redirect/` | Cloudflare Worker `akamoney-redirect` | Public `GET /:shortCode` → 302, click recording |
 
-Root `package.json` orchestrates `dev` / `build` / `test` / `deploy` per package. Each package has its own `package.json` and lockfile. Frontend proxies `/api` to `http://localhost:8787` during Vite dev.
+Root `package.json` declares an npm workspace over `src/frontend`, `src/backend`, and `src/redirect`, orchestrating `dev` / `build` / `test` / `deploy` per package through workspace selectors (`-w <name>`). There is one root `package-lock.json` shared by all three application workspaces; `docs/design-mockups/validation` is an intentionally independent npm package with its own lockfile and is not part of the workspace. Frontend proxies `/api` to `http://localhost:8787` during Vite dev.
 
 **Frontend boundaries** (`src/frontend/src/`):
 
@@ -82,7 +82,7 @@ Theme, tokens, and Chart.js rules: [THEME](THEME.md). Shipped screens vs design 
 
 ## Design mockups
 
-`design-mockups/` is the frozen design-bakeoff tree, not a deployable:
+`docs/design-mockups/` is the frozen design-bakeoff tree, not a deployable:
 
 - `BRIEF.md` — proposal contract
 - `proposals/` — HTML + `*.manifest.json` (current visual ancestor: **`m2-mone-dense`**)
@@ -98,7 +98,7 @@ Treat mockups as design history. Runtime CSS is `src/frontend/src/assets/css/mai
 
 `.github/workflows/`:
 
-- `ci.yml` — Node 24, install all three packages, coverage, builds
+- `ci.yml` — Node 24, one root `npm ci`, coverage and builds per workspace via `-w`
 - `release.yml` — tag / trusted `run-release` deploy to Cloudflare Pages + Workers
 
 ## Related documents

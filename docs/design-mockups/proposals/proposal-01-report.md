@@ -6,9 +6,9 @@
 
 本次僅修改下列三個檔案，未更動 validator / shared / BRIEF / 其他 proposal，且未提交（no commit）：
 
-- `design-mockups/proposals/01-linear.html`
-- `design-mockups/proposals/01-linear.manifest.json`
-- `design-mockups/proposals/proposal-01-report.md`（本檔，新建）
+- `docs/design-mockups/proposals/01-linear.html`
+- `docs/design-mockups/proposals/01-linear.manifest.json`
+- `docs/design-mockups/proposals/proposal-01-report.md`（本檔，新建）
 
 保留 Linear 視覺方向與 DNA 不變：`01-linear.manifest.json` 的 `dna`（`fixed-sidebar` / `dense-table` / `command-palette` / `exploration-workbench` / `priority-column-summary-row` / `scan`）、`tokens`（色票、字體、圓角、間距）、`provider`/`model` 皆維持原值，僅替換 `capabilities` 陣列使其誠實化。所有新增互動沿用既有 Linear 樣式語彙（極簡邊框、`--accent #5e6ad2`、dense 表格列、命令面板）。
 
@@ -177,4 +177,4 @@ run #2 的完整 ✓ 明細（desktop + mobile 各 10 案）：
 1. **`assertLargeDatasetBrowsable` 為一次性計數**：此測試對延後渲染本質敏感（基準線亦然）。本次已把 dashboard 重繪排在延後區塊最前，時序等同基準線；如日後此測試改為輪詢會更穩健，但屬受保護檔案，未更動。
 2. **analytics／stats 為共用頂端指示**：採審查明列可接受的「shared top-level loading indicator」。頂端載入條為 `position:absolute`，不影響版面或水平溢位；停在非 dashboard 檢視切換資料集時提供可見載入回饋。
 3. **臨時驗證腳本**：`validation/_tmp-verify-01.mjs` 僅為擷取 RED/GREEN 證據，未列入套件（`testMatch` 僅 `proposals.spec.mjs`），證據擷取後已刪除，未變更任何既有 validator 檔案。
-4. **未提交**：依任務要求，本次所有變更皆未 `git commit`；`design-mockups/` 亦被 `.gitignore` 忽略。
+4. **未提交**：依任務要求，本次所有變更皆未 `git commit`；當時（本目錄尚位於根目錄 `design-mockups/`，遷移至 `docs/design-mockups/` 之前）`design-mockups/` 亦被 `.gitignore` 忽略。此為歷史狀態描述，現行 repo 中 `docs/design-mockups/` 已納入版控，並非目前的 gitignore 規則。

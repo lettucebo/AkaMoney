@@ -54,7 +54,7 @@ Fixes applied:
 
 ## Static validation（全量，含 14 提案）
 Command:
-`cd design-mockups\validation; node static-validator.mjs`
+`cd docs\design-mockups\validation; node static-validator.mjs`
 
 Output:
 ```text
@@ -78,7 +78,7 @@ PASS m2-mone-dense
 
 ## Targeted browser validation
 Command:
-`cd design-mockups\validation; $env:PROPOSAL_ID='11-bootstrap'; $env:VALIDATION_PORT='44011'; npx playwright test proposals.spec.mjs --grep "11-bootstrap proposal contract" --reporter=line`
+`cd docs\design-mockups\validation; $env:PROPOSAL_ID='11-bootstrap'; $env:VALIDATION_PORT='44011'; npx playwright test proposals.spec.mjs --grep "11-bootstrap proposal contract" --reporter=line`
 
 Output:
 ```text

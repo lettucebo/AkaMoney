@@ -37,7 +37,7 @@ src/
 ## 前端（Proposal F / m2-mone-dense）
 
 儀表板實作 **Proposal F** 設計方向（manifest
-`design-mockups/proposals/m2-mone-dense.manifest.json`，「Monē 高密度資料工具變體」）。它以
+`docs/design-mockups/proposals/m2-mone-dense.manifest.json`，「Monē 高密度資料工具變體」）。它以
 Vue 3（`<script setup>`）、Vite 與 **Tailwind CSS v4** 建置，採用 CSS 優先的 `@theme` 設定
 （沒有 `tailwind.config.js`）；並未使用 Bootstrap。執行期的明暗主題由 `<html>` 上的
 `data-theme` 屬性與 Pinia theme store 驅動。
