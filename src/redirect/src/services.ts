@@ -1,5 +1,26 @@
 import type { Url, ClickRecord, RequestWithCf } from './types';
 
+export interface ClickRecordingContext {
+  shortCode: string;
+  urlId: string;
+}
+
+export async function observeClickRecording(
+  recording: Promise<void>,
+  context: ClickRecordingContext
+): Promise<void> {
+  try {
+    await recording;
+  } catch (error) {
+    console.error('Redirect background analytics failed', {
+      operation: 'recordClick',
+      shortCode: context.shortCode,
+      urlId: context.urlId,
+      error,
+    });
+  }
+}
+
 /**
  * Generate a unique ID for click records
  */

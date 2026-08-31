@@ -4,6 +4,7 @@
 export interface Env {
   DB: D1Database;
   ENVIRONMENT: string;
+  SENTRY_DSN?: string;
 }
 
 /**
@@ -27,9 +28,9 @@ export interface CfProperties {
 /**
  * Extended Request type with Cloudflare properties
  */
-export interface RequestWithCf extends Request {
+export type RequestWithCf = Request & {
   cf?: CfProperties;
-}
+};
 
 /**
  * URL record from database
