@@ -32,12 +32,9 @@ describe('API Error Handling', () => {
   });
 
   describe('Error Response Format', () => {
-    it('should have consistent error format with details and stack for server errors', async () => {
-      // This test verifies that when errors occur in route handlers,
-      // they return detailed error information including stack trace
-      
+    it('should have consistent error and message fields', async () => {
       // We'll test with /api/urls which requires authentication
-      // Without auth, we should get 401, not a 500 with detailed error
+      // Without auth, we should get 401, not a 500 server error
       const res = await app.request('/api/urls', {
         method: 'GET'
       });
@@ -50,7 +47,7 @@ describe('API Error Handling', () => {
   });
 
   describe('POST /api/shorten Error Handling', () => {
-    it('should return error with details when original_url is missing', async () => {
+    it('should omit details and stack from configuration 500 responses', async () => {
       const res = await app.request('/api/shorten', {
         method: 'POST',
         headers: {
@@ -61,20 +58,18 @@ describe('API Error Handling', () => {
         })
       });
       
-      // Should get error with details
       expect([400, 500]).toContain(res.status);
       const body = await res.json();
       expect(body).toHaveProperty('error');
       expect(body).toHaveProperty('message');
-      // The new error handling should provide details
       if (res.status === 500) {
-        expect(body).toHaveProperty('details');
+        expect(body).not.toHaveProperty('details');
+        expect(body).not.toHaveProperty('stack');
       }
     });
 
-    it('should return error details when database error occurs', async () => {
-      // Mock a request with invalid URL to trigger validation error
-      const res = await app.request('/api/shorten', {
+    it('should preserve 4xx validation details from route-level catches', async () => {
+      const request = new Request('http://localhost/api/shorten', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -84,13 +79,18 @@ describe('API Error Handling', () => {
           short_code: 'test456'
         })
       });
-      
-      // Should get 500 with detailed error about invalid URL format
-      expect(res.status).toBe(500);
+
+      const res = await app.fetch(request, { DB: {} } as any);
+
+      expect(res.status).toBe(400);
       const body = await res.json();
-      expect(body).toHaveProperty('error');
-      expect(body).toHaveProperty('message');
-      expect(body).toHaveProperty('details');
+      expect(body).toEqual({
+        error: 'Validation',
+        message: 'Invalid URL format',
+        code: 'VALIDATION_ERROR',
+        details: 'Invalid URL format'
+      });
+      expect(body).not.toHaveProperty('stack');
     });
   });
 
@@ -154,7 +154,7 @@ describe('API Error Handling', () => {
   });
 
   describe('Public Endpoint Error Handling', () => {
-    it('GET /api/public/analytics/:shortCode should return 500 with details when database error occurs', async () => {
+    it('GET /api/public/analytics/:shortCode should not leak details or stack when database error occurs', async () => {
       // This endpoint doesn't require auth, but will fail due to missing DB binding
       const res = await app.request('/api/public/analytics/nonexistent', {
         method: 'GET'
@@ -165,6 +165,10 @@ describe('API Error Handling', () => {
       const body = await res.json();
       expect(body).toHaveProperty('error');
       expect(body).toHaveProperty('message');
+      if (res.status === 500) {
+        expect(body).not.toHaveProperty('details');
+        expect(body).not.toHaveProperty('stack');
+      }
     });
   });
 

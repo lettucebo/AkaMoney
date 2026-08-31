@@ -10,6 +10,7 @@ export interface Env {
   ENTRA_ID_CLIENT_ID?: string;
   ENTRA_ID_CLIENT_SECRET?: string;
   ENVIRONMENT: string;
+  SENTRY_DSN?: string;
   SHORT_DOMAIN?: string;
   // Storage configuration
   STORAGE_PROVIDER?: StorageProviderType;

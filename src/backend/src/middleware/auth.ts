@@ -109,8 +109,7 @@ export async function authMiddleware(c: Context<{ Bindings: Env }>, next: () => 
     });
     return c.json({ 
       error: 'Server Error', 
-      message: 'Authentication is not properly configured',
-      details: 'ENTRA_ID_TENANT_ID or ENTRA_ID_CLIENT_ID is missing'
+      message: 'Authentication is not properly configured'
     }, 500);
   }
 
@@ -151,18 +150,10 @@ export async function authMiddleware(c: Context<{ Bindings: Env }>, next: () => 
     await next();
   } catch (error) {
     console.error('Auth middleware error:', error);
-    const errorResponse: any = {
+    return c.json({
       error: 'Internal Server Error',
-      message: 'Authentication failed',
-      details: error instanceof Error ? error.message : 'Unknown error occurred'
-    };
-    
-    // Only include stack trace in non-production environments
-    if (c.env.ENVIRONMENT !== 'production' && error instanceof Error) {
-      errorResponse.stack = error.stack;
-    }
-    
-    return c.json(errorResponse, 500);
+      message: 'Authentication failed'
+    }, 500);
   }
 }
 

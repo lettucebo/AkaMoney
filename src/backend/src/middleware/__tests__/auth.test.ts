@@ -232,7 +232,8 @@ describe('Auth Middleware', () => {
       const body = await res.json();
       expect(body.error).toBe('Server Error');
       expect(body.message).toBe('Authentication is not properly configured');
-      expect(body.details).toBe('ENTRA_ID_TENANT_ID or ENTRA_ID_CLIENT_ID is missing');
+      expect(body).not.toHaveProperty('details');
+      expect(body).not.toHaveProperty('stack');
     });
 
     it('should accept v1.0 token with sts.windows.net issuer', async () => {

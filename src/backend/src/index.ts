@@ -1,4 +1,5 @@
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
+import * as Sentry from '@sentry/cloudflare';
 import type { Env } from './types';
 import { corsMiddleware } from './middleware/cors';
 import { errorMiddleware } from './middleware/error';
@@ -13,10 +14,32 @@ import {
 import { getAnalytics, getOverallStats } from './services/analytics';
 import { cleanupOldClickRecords } from './services/cleanup';
 import { createStorageProvider, isStorageConfigured, getStorageConfig } from './services/storage';
+import { createSentryOptions } from './services/sentry';
 import type { CreateUrlRequest, UpdateUrlRequest } from './types';
+import { HttpError } from './types/errors';
 import type { ExecutionContext, ExportedHandler, ScheduledEvent } from '@cloudflare/workers-types';
 
 const app = new Hono<{ Bindings: Env }>();
+
+function serverError(message: string) {
+  return {
+    error: 'Internal Server Error',
+    message
+  };
+}
+
+function routeError(c: Context<{ Bindings: Env }>, error: unknown, message: string) {
+  if (error instanceof HttpError && error.statusCode < 500) {
+    return c.json({
+      error: error.name.replace('Error', ''),
+      message: error.message,
+      code: error.code,
+      details: error.message
+    }, error.statusCode);
+  }
+
+  return c.json(serverError(message), 500);
+}
 
 // Apply global middleware
 app.use('*', corsMiddleware);
@@ -43,8 +66,7 @@ app.post('/api/shorten', optionalAuthMiddleware, async (c) => {
       console.error('Database binding (DB) is not available');
       return c.json({ 
         error: 'Configuration Error', 
-        message: 'Database is not configured',
-        details: 'DB binding is missing from worker environment'
+        message: 'Database is not configured'
       }, 500);
     }
 
@@ -61,12 +83,7 @@ app.post('/api/shorten', optionalAuthMiddleware, async (c) => {
     return c.json(url, 201);
   } catch (error) {
     console.error('Error in POST /api/shorten:', error);
-    return c.json({
-      error: 'Internal Server Error',
-      message: 'Failed to create short URL',
-      details: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined
-    }, 500);
+    return routeError(c, error, 'Failed to create short URL');
   }
 });
 
@@ -85,8 +102,7 @@ app.get('/api/urls', authMiddleware, async (c) => {
       console.error('Database binding (DB) is not available');
       return c.json({ 
         error: 'Configuration Error', 
-        message: 'Database is not configured',
-        details: 'DB binding is missing from worker environment'
+        message: 'Database is not configured'
       }, 500);
     }
 
@@ -113,12 +129,7 @@ app.get('/api/urls', authMiddleware, async (c) => {
     });
   } catch (error) {
     console.error('Error in GET /api/urls:', error);
-    return c.json({
-      error: 'Internal Server Error',
-      message: 'Failed to fetch URLs',
-      details: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined
-    }, 500);
+    return routeError(c, error, 'Failed to fetch URLs');
   }
 });
 
@@ -137,8 +148,7 @@ app.get('/api/urls/:id', authMiddleware, async (c) => {
       console.error('Database binding (DB) is not available');
       return c.json({ 
         error: 'Configuration Error', 
-        message: 'Database is not configured',
-        details: 'DB binding is missing from worker environment'
+        message: 'Database is not configured'
       }, 500);
     }
 
@@ -171,12 +181,7 @@ app.get('/api/urls/:id', authMiddleware, async (c) => {
     });
   } catch (error) {
     console.error('Error in GET /api/urls/:id:', error);
-    return c.json({
-      error: 'Internal Server Error',
-      message: 'Failed to fetch URL',
-      details: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined
-    }, 500);
+    return routeError(c, error, 'Failed to fetch URL');
   }
 });
 
@@ -195,8 +200,7 @@ app.put('/api/urls/:id', authMiddleware, async (c) => {
       console.error('Database binding (DB) is not available');
       return c.json({ 
         error: 'Configuration Error', 
-        message: 'Database is not configured',
-        details: 'DB binding is missing from worker environment'
+        message: 'Database is not configured'
       }, 500);
     }
 
@@ -210,12 +214,7 @@ app.put('/api/urls/:id', authMiddleware, async (c) => {
     return c.json(url);
   } catch (error) {
     console.error('Error in PUT /api/urls/:id:', error);
-    return c.json({
-      error: 'Internal Server Error',
-      message: 'Failed to update URL',
-      details: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined
-    }, 500);
+    return routeError(c, error, 'Failed to update URL');
   }
 });
 
@@ -234,8 +233,7 @@ app.delete('/api/urls/:id', authMiddleware, async (c) => {
       console.error('Database binding (DB) is not available');
       return c.json({ 
         error: 'Configuration Error', 
-        message: 'Database is not configured',
-        details: 'DB binding is missing from worker environment'
+        message: 'Database is not configured'
       }, 500);
     }
 
@@ -248,12 +246,7 @@ app.delete('/api/urls/:id', authMiddleware, async (c) => {
     return c.json({ message: 'URL deleted successfully' });
   } catch (error) {
     console.error('Error in DELETE /api/urls/:id:', error);
-    return c.json({
-      error: 'Internal Server Error',
-      message: 'Failed to delete URL',
-      details: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined
-    }, 500);
+    return routeError(c, error, 'Failed to delete URL');
   }
 });
 
@@ -272,8 +265,7 @@ app.get('/api/analytics/:shortCode', authMiddleware, async (c) => {
       console.error('Database binding (DB) is not available');
       return c.json({ 
         error: 'Configuration Error', 
-        message: 'Database is not configured',
-        details: 'DB binding is missing from worker environment'
+        message: 'Database is not configured'
       }, 500);
     }
 
@@ -290,12 +282,7 @@ app.get('/api/analytics/:shortCode', authMiddleware, async (c) => {
     return c.json(analytics);
   } catch (error) {
     console.error('Error in GET /api/analytics/:shortCode:', error);
-    return c.json({
-      error: 'Internal Server Error',
-      message: 'Failed to fetch analytics',
-      details: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined
-    }, 500);
+    return routeError(c, error, 'Failed to fetch analytics');
   }
 });
 
@@ -332,8 +319,7 @@ app.get('/api/stats/overall', authMiddleware, async (c) => {
       console.error('Database binding (DB) is not available');
       return c.json({
         error: 'Configuration Error',
-        message: 'Database is not configured',
-        details: 'DB binding is missing from worker environment'
+        message: 'Database is not configured'
       }, 500);
     }
 
@@ -383,12 +369,7 @@ app.get('/api/stats/overall', authMiddleware, async (c) => {
     return c.json(stats);
   } catch (error) {
     console.error('Error in GET /api/stats/overall:', error);
-    return c.json({
-      error: 'Internal Server Error',
-      message: 'Failed to fetch overall statistics',
-      details: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined
-    }, 500);
+    return routeError(c, error, 'Failed to fetch overall statistics');
   }
 });
 
@@ -436,7 +417,7 @@ app.post('/api/admin/cleanup', authMiddleware, async (c) => {
     console.error('Manual cleanup failed:', error);
     return c.json({
       error: 'Cleanup failed',
-      details: error instanceof Error ? error.message : String(error)
+      message: 'Cleanup failed'
     }, 500);
   }
 });
@@ -461,11 +442,7 @@ app.get('/api/storage/config', authMiddleware, async (c) => {
     });
   } catch (error) {
     console.error('Error getting storage config:', error);
-    return c.json({
-      error: 'Internal Server Error',
-      message: 'Failed to get storage configuration',
-      details: error instanceof Error ? error.message : String(error)
-    }, 500);
+    return routeError(c, error, 'Failed to get storage configuration');
   }
 });
 
@@ -714,8 +691,6 @@ app.onError((err, c) => {
   return c.json({
     error: 'Internal Server Error',
     message: 'An unexpected error occurred',
-    details: err instanceof Error ? err.message : String(err),
-    stack: err instanceof Error ? err.stack : undefined,
     path: c.req.path
   }, 500);
 });
@@ -723,7 +698,7 @@ app.onError((err, c) => {
 // Export app for testing
 export { app };
 
-export default {
+const handler = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     return app.fetch(request, env, ctx);
   },
@@ -747,3 +722,5 @@ export default {
     }
   }
 } satisfies ExportedHandler<Env>;
+
+export default Sentry.withSentry((env: Env) => createSentryOptions(env), handler);
