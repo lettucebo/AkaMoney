@@ -1,20 +1,13 @@
 import * as Sentry from '@sentry/cloudflare';
-import type { CloudflareOptions, Event } from '@sentry/cloudflare';
+import type { CloudflareOptions, ErrorEvent, Event } from '@sentry/cloudflare';
 import type { Env } from '../types';
 
-const CREDENTIAL_HEADERS = new Set(['authorization', 'x-api-key']);
+const CREDENTIAL_HEADERS = new Set(['authorization', 'cookie', 'x-api-key']);
 const URL_DATA_KEYS = new Set(['url', 'http.url', 'url.full']);
 const QUERY_DATA_KEYS = new Set(['http.query', 'query', 'query_string', 'url.query']);
 
-type DataContainer = Record<string, unknown> & {
-  data?: Record<string, unknown>;
-};
-
-type ScrubbableEvent = Event & {
-  breadcrumbs?: DataContainer[];
-  spans?: DataContainer[];
-  contexts?: Record<string, DataContainer | undefined>;
-};
+type SentrySpanData = NonNullable<Event['spans']>[number]['data'];
+type SentryTransactionEvent = Event & { type: 'transaction' };
 
 function stripUrlQuery(value: unknown) {
   if (typeof value !== 'string') {
@@ -34,7 +27,7 @@ function stripUrlQuery(value: unknown) {
   }
 }
 
-function scrubData(data: Record<string, unknown>) {
+function scrubUnknownData(data: Record<string, unknown>) {
   return Object.fromEntries(
     Object.entries(data).flatMap(([key, value]) => {
       const normalizedKey = key.toLowerCase();
@@ -52,8 +45,15 @@ function scrubData(data: Record<string, unknown>) {
   );
 }
 
-export function scrubSentryEventCredentials<T extends Event>(event: T): T {
-  const result: ScrubbableEvent = { ...event };
+function scrubSpanData(data: SentrySpanData): SentrySpanData {
+  return scrubUnknownData(data) as SentrySpanData;
+}
+
+export function scrubSentryEventCredentials(event: ErrorEvent): ErrorEvent;
+export function scrubSentryEventCredentials(event: SentryTransactionEvent): SentryTransactionEvent;
+export function scrubSentryEventCredentials(event: Event): Event;
+export function scrubSentryEventCredentials(event: Event): Event {
+  const result: Event = { ...event };
   const headers = event.request?.headers;
 
   if (headers) {
@@ -67,37 +67,35 @@ export function scrubSentryEventCredentials<T extends Event>(event: T): T {
     };
   }
 
-  const scrubbable = event as ScrubbableEvent;
-
-  if (scrubbable.breadcrumbs) {
-    result.breadcrumbs = scrubbable.breadcrumbs.map((breadcrumb) => ({
+  if (event.breadcrumbs) {
+    result.breadcrumbs = event.breadcrumbs.map((breadcrumb) => ({
       ...breadcrumb,
-      data: breadcrumb.data ? scrubData(breadcrumb.data) : breadcrumb.data
+      data: breadcrumb.data ? scrubUnknownData(breadcrumb.data) : breadcrumb.data
     }));
   }
 
-  if (scrubbable.spans) {
-    result.spans = scrubbable.spans.map((span) => ({
+  if (event.spans) {
+    result.spans = event.spans.map((span) => ({
       ...span,
-      data: span.data ? scrubData(span.data) : span.data
+      data: span.data ? scrubSpanData(span.data) : span.data
     }));
   }
 
-  if (scrubbable.contexts) {
+  if (event.contexts) {
     result.contexts = Object.fromEntries(
-      Object.entries(scrubbable.contexts).map(([name, context]) => [
+      Object.entries(event.contexts).map(([name, context]) => [
         name,
-        context?.data
+        context && 'data' in context && typeof context.data === 'object' && context.data
           ? {
               ...context,
-              data: scrubData(context.data)
+              data: scrubUnknownData(context.data as Record<string, unknown>)
             }
           : context
       ])
     );
   }
 
-  return result as T;
+  return result;
 }
 
 export function createSentryOptions(env: Env): CloudflareOptions {

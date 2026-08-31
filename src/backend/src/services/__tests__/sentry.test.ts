@@ -7,6 +7,7 @@ vi.mock('@sentry/cloudflare', () => ({
 
 import { captureConsoleIntegration, consoleLoggingIntegration } from '@sentry/cloudflare';
 import { createSentryOptions, scrubSentryEventCredentials } from '../sentry';
+import type { Event } from '@sentry/cloudflare';
 import type { Env } from '../../types';
 
 const createEnv = (overrides: Partial<Env> = {}): Env => ({
@@ -55,6 +56,22 @@ describe('Sentry service', () => {
       });
     });
 
+    it('removes cookie request header case-insensitively', () => {
+      const event = {
+        event_id: 'event-cookie',
+        request: {
+          headers: {
+            COOKIE: 'session=secret-cookie',
+            'x-request-id': 'request-123'
+          }
+        }
+      };
+
+      expect(scrubSentryEventCredentials(event).request?.headers).toEqual({
+        'x-request-id': 'request-123'
+      });
+    });
+
     it('preserves events without request headers', () => {
       const event = {
         event_id: 'event-2',
@@ -83,6 +100,9 @@ describe('Sentry service', () => {
         ],
         spans: [
           {
+            span_id: '0123456789abcdef',
+            start_timestamp: 1,
+            trace_id: '0123456789abcdef0123456789abcdef',
             data: {
               url: azureSasUrl,
               'http.url': azureSasUrl,
@@ -94,13 +114,15 @@ describe('Sentry service', () => {
         ],
         contexts: {
           trace: {
+            span_id: '0123456789abcdef',
+            trace_id: '0123456789abcdef0123456789abcdef',
             data: {
               url: azureSasUrl,
               'http.query': '?sv=2024-11-04&sp=rwd&sig=secret-signature'
             }
           }
         }
-      };
+      } satisfies Event;
 
       const scrubbed = scrubSentryEventCredentials(event);
 
