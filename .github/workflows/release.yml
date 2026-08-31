@@ -79,6 +79,32 @@ jobs:
               exit 1
               ;;
           esac
+          # The guard above uses POSIX [[:space:]], whose meaning depends on the runner locale, which
+          # this workflow does not pin: under C/POSIX it matches ASCII whitespace only, and no locale
+          # makes it match zero-width characters such as U+200B. A DSN carrying U+00A0 or U+2028 can
+          # therefore pass, be baked into the bundle, and then be rejected by Sentry - deploying
+          # production without error monitoring. Node 24 is already set up for this job, so validate
+          # the DSN with a locale-independent, Unicode-aware, URL-parsing check. It reads the
+          # candidate from the environment and reports only the variable name.
+          SENTRY_DSN_VAR_NAME="VITE_SENTRY_DSN" \
+          SENTRY_DSN_CANDIDATE="${VITE_SENTRY_DSN:-}" \
+          node -e '
+            const name = process.env.SENTRY_DSN_VAR_NAME;
+            const raw = process.env.SENTRY_DSN_CANDIDATE ?? "";
+            const reject = (reason) => {
+              console.error("Error: " + name + " " + reason + "; refusing to continue without usable Sentry error monitoring");
+              process.exit(1);
+            };
+            if (raw === "") reject("is not set or is empty");
+            if (/[\s\p{White_Space}\p{Cc}\p{Cf}]/u.test(raw)) reject("contains whitespace or invisible characters, including Unicode ones such as U+00A0 and U+2028");
+            let url = null;
+            try { url = new URL(raw); } catch { reject("is not a parsable URL"); }
+            if (url.protocol !== "https:") reject("must use the https scheme");
+            if (url.username === "") reject("is missing the Sentry public key before @");
+            if (url.hostname === "") reject("is missing a host");
+            if (url.search !== "" || url.hash !== "") reject("must not carry a query string or fragment");
+            if (!/^\/[0-9]+$/.test(url.pathname)) reject("must end with a numeric Sentry project id path");
+          '
           npm run build -w akamoney-frontend
 
       - name: Build backend (dry run)
@@ -232,6 +258,32 @@ jobs:
                 return 1
                 ;;
             esac
+            # The guard above uses POSIX [[:space:]], whose meaning depends on the runner locale,
+            # which this workflow does not pin: under C/POSIX it matches ASCII whitespace only, and
+            # no locale makes it match zero-width characters such as U+200B. A DSN carrying U+00A0 or
+            # U+2028 can therefore pass, be written into wrangler.toml, and then be rejected by
+            # Sentry - deploying production without error monitoring. Node 24 is already set up for
+            # this job, so validate the DSN with a locale-independent, Unicode-aware, URL-parsing
+            # check. It reads the candidate from the environment and reports only the variable name.
+            SENTRY_DSN_VAR_NAME="SENTRY_BACKEND_DSN" \
+            SENTRY_DSN_CANDIDATE="$VAR_SENTRY_DSN" \
+            node -e '
+              const name = process.env.SENTRY_DSN_VAR_NAME;
+              const raw = process.env.SENTRY_DSN_CANDIDATE ?? "";
+              const reject = (reason) => {
+                console.error("Error: " + name + " " + reason + "; refusing to continue without usable Sentry error monitoring");
+                process.exit(1);
+              };
+              if (raw === "") reject("is not set or is empty");
+              if (/[\s\p{White_Space}\p{Cc}\p{Cf}]/u.test(raw)) reject("contains whitespace or invisible characters, including Unicode ones such as U+00A0 and U+2028");
+              let url = null;
+              try { url = new URL(raw); } catch { reject("is not a parsable URL"); }
+              if (url.protocol !== "https:") reject("must use the https scheme");
+              if (url.username === "") reject("is missing the Sentry public key before @");
+              if (url.hostname === "") reject("is missing a host");
+              if (url.search !== "" || url.hash !== "") reject("must not carry a query string or fragment");
+              if (!/^\/[0-9]+$/.test(url.pathname)) reject("must end with a numeric Sentry project id path");
+            '
           }
 
           # Fail before any file is modified or deployed.
@@ -524,6 +576,32 @@ jobs:
               exit 1
               ;;
           esac
+          # The guard above uses POSIX [[:space:]], whose meaning depends on the runner locale, which
+          # this workflow does not pin: under C/POSIX it matches ASCII whitespace only, and no locale
+          # makes it match zero-width characters such as U+200B. A DSN carrying U+00A0 or U+2028 can
+          # therefore pass, be written into wrangler.toml, and then be rejected by Sentry - deploying
+          # production without error monitoring. Node 24 is already set up for this job, so validate
+          # the DSN with a locale-independent, Unicode-aware, URL-parsing check. It reads the
+          # candidate from the environment and reports only the variable name.
+          SENTRY_DSN_VAR_NAME="SENTRY_REDIRECT_DSN" \
+          SENTRY_DSN_CANDIDATE="$SENTRY_DSN" \
+          node -e '
+            const name = process.env.SENTRY_DSN_VAR_NAME;
+            const raw = process.env.SENTRY_DSN_CANDIDATE ?? "";
+            const reject = (reason) => {
+              console.error("Error: " + name + " " + reason + "; refusing to continue without usable Sentry error monitoring");
+              process.exit(1);
+            };
+            if (raw === "") reject("is not set or is empty");
+            if (/[\s\p{White_Space}\p{Cc}\p{Cf}]/u.test(raw)) reject("contains whitespace or invisible characters, including Unicode ones such as U+00A0 and U+2028");
+            let url = null;
+            try { url = new URL(raw); } catch { reject("is not a parsable URL"); }
+            if (url.protocol !== "https:") reject("must use the https scheme");
+            if (url.username === "") reject("is missing the Sentry public key before @");
+            if (url.hostname === "") reject("is missing a host");
+            if (url.search !== "" || url.hash !== "") reject("must not carry a query string or fragment");
+            if (!/^\/[0-9]+$/.test(url.pathname)) reject("must end with a numeric Sentry project id path");
+          '
           # Replace the existing empty placeholder inside [vars] rather than appending a second key.
           # Escape sed replacement metacharacters (& and \) plus the | delimiter.
           ESCAPED_SENTRY_DSN=$(printf '%s\n' "$SENTRY_DSN" | sed 's/[&|\\]/\\&/g')
