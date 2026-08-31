@@ -2,11 +2,32 @@
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import tailwindcss from '@tailwindcss/vite';
+import { sentryVitePlugin } from '@sentry/vite-plugin';
 import { fileURLToPath, URL } from 'node:url';
 
 // https://vitejs.dev/config/
+const sentryAuthToken = process.env.SENTRY_AUTH_TOKEN;
+
 export default defineConfig({
-  plugins: [vue(), tailwindcss()],
+  build: {
+    sourcemap: 'hidden'
+  },
+  plugins: [
+    vue(),
+    tailwindcss(),
+    ...(sentryAuthToken
+      ? [
+          sentryVitePlugin({
+            org: process.env.SENTRY_ORG ?? 'money-5c',
+            project: process.env.SENTRY_PROJECT ?? 'akamoney-web',
+            authToken: sentryAuthToken,
+            sourcemaps: {
+              filesToDeleteAfterUpload: ['./**/*.map']
+            }
+          })
+        ]
+      : [])
+  ],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))
