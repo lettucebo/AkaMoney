@@ -58,7 +58,20 @@ jobs:
           VITE_APP_NAME: AkaMoney
           VITE_SHORT_DOMAIN: ${{ vars.SHORT_DOMAIN }}
           VITE_ARCHIVED_REDIRECT_URL: ${{ vars.ARCHIVED_REDIRECT_URL }}
-        run: npm run build -w akamoney-frontend
+          VITE_SENTRY_DSN: ${{ vars.VITE_SENTRY_DSN }}
+          VITE_SENTRY_ENVIRONMENT: production
+          VITE_SENTRY_REPLAY_ENABLED: ${{ vars.VITE_SENTRY_REPLAY_ENABLED }}
+        # SENTRY_AUTH_TOKEN is deliberately absent here. Under pull_request_target this job checks
+        # out and executes PR head code, so no Sentry credential may exist in its environment.
+        # The Vite Sentry plugin therefore stays inactive, hidden source maps stay in the artifact,
+        # and deploy-frontend uploads them from the protected production environment instead.
+        run: |
+          set -euo pipefail
+          if [ -z "${VITE_SENTRY_DSN:-}" ]; then
+            echo "Error: VITE_SENTRY_DSN variable is not set; refusing to build the frontend without error monitoring"
+            exit 1
+          fi
+          npm run build -w akamoney-frontend
 
       - name: Build backend (dry run)
         run: npm run build -w akamoney-backend
@@ -188,10 +201,23 @@ jobs:
           VAR_STORAGE_PROVIDER: ${{ vars.STORAGE_PROVIDER }}
           VAR_AZURE_STORAGE_ACCOUNT: ${{ vars.AZURE_STORAGE_ACCOUNT }}
           VAR_AZURE_STORAGE_CONTAINER: ${{ vars.AZURE_STORAGE_CONTAINER }}
+          VAR_SENTRY_DSN: ${{ vars.SENTRY_BACKEND_DSN }}
         run: |
           set -e
           cd src/backend
           echo "Injecting Worker variables into wrangler.toml..."
+
+          # Sentry DSN is mandatory for the Admin API: fail before any file is modified or deployed.
+          if [ -z "$VAR_SENTRY_DSN" ]; then
+            echo "Error: SENTRY_BACKEND_DSN variable is not set; refusing to deploy the Admin API without error monitoring"
+            exit 1
+          fi
+          case "$VAR_SENTRY_DSN" in
+            *'"'*|*'\'*)
+              echo "Error: SENTRY_BACKEND_DSN contains characters that cannot be embedded in a TOML basic string"
+              exit 1
+              ;;
+          esac
 
           # Create a temporary file for variables
           TEMP_VARS_FILE=$(mktemp)
@@ -294,6 +320,18 @@ jobs:
           else
             echo "No variables to inject"
           fi
+
+          # Sentry DSN: replace the existing empty placeholder inside [vars] rather than appending a
+          # second key. Escape sed replacement metacharacters (& and \) plus the | delimiter.
+          ESCAPED_SENTRY_DSN=$(printf '%s\n' "$VAR_SENTRY_DSN" | sed 's/[&|\\]/\\&/g')
+          sed -i "s|^[[:space:]]*SENTRY_DSN[[:space:]]*=.*|SENTRY_DSN = \"${ESCAPED_SENTRY_DSN}\"|" wrangler.toml
+          # Verify exactly one non-empty assignment without printing the DSN itself.
+          SENTRY_DSN_COUNT=$(grep -c '^SENTRY_DSN = "[^"]\+"$' wrangler.toml || true)
+          if [ "$SENTRY_DSN_COUNT" != "1" ]; then
+            echo "Error: expected exactly one non-empty SENTRY_DSN assignment in wrangler.toml, found ${SENTRY_DSN_COUNT}"
+            exit 1
+          fi
+          echo "Sentry DSN injected into src/backend/wrangler.toml"
 
           rm -f "$TEMP_VARS_FILE"
 
@@ -443,6 +481,35 @@ jobs:
             exit 1
           fi
 
+      - name: Inject Sentry DSN into wrangler.toml
+        env:
+          SENTRY_DSN: ${{ vars.SENTRY_REDIRECT_DSN }}
+        run: |
+          set -euo pipefail
+          cd src/redirect
+          # Fail before deploy when the DSN is missing or cannot be embedded safely in TOML.
+          if [ -z "${SENTRY_DSN:-}" ]; then
+            echo "Error: SENTRY_REDIRECT_DSN variable is not set; refusing to deploy the redirect Worker without error monitoring"
+            exit 1
+          fi
+          case "$SENTRY_DSN" in
+            *'"'*|*'\'*)
+              echo "Error: SENTRY_REDIRECT_DSN contains characters that cannot be embedded in a TOML basic string"
+              exit 1
+              ;;
+          esac
+          # Replace the existing empty placeholder inside [vars] rather than appending a second key.
+          # Escape sed replacement metacharacters (& and \) plus the | delimiter.
+          ESCAPED_SENTRY_DSN=$(printf '%s\n' "$SENTRY_DSN" | sed 's/[&|\\]/\\&/g')
+          sed -i "s|^[[:space:]]*SENTRY_DSN[[:space:]]*=.*|SENTRY_DSN = \"${ESCAPED_SENTRY_DSN}\"|" wrangler.toml
+          # Verify exactly one non-empty assignment without printing the DSN itself.
+          SENTRY_DSN_COUNT=$(grep -c '^SENTRY_DSN = "[^"]\+"$' wrangler.toml || true)
+          if [ "$SENTRY_DSN_COUNT" != "1" ]; then
+            echo "Error: expected exactly one non-empty SENTRY_DSN assignment in wrangler.toml, found ${SENTRY_DSN_COUNT}"
+            exit 1
+          fi
+          echo "Sentry DSN injected into src/redirect/wrangler.toml"
+
       - name: Deploy Redirect Service to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:
@@ -498,6 +565,44 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '24.x'
+
+      - name: Upload frontend source maps to Sentry
+        # Secret boundary: this is the only step in the workflow that receives SENTRY_AUTH_TOKEN.
+        # It runs in the protected `production` environment, this job checks out no repository
+        # code, and the token is handed only to the pinned Sentry CLI operating on the already
+        # built artifact - never to the pull_request_target build job that executes PR code.
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: money-5c
+          SENTRY_PROJECT: akamoney-web
+        run: |
+          set -euo pipefail
+          if [ -z "${SENTRY_AUTH_TOKEN:-}" ]; then
+            echo "Error: SENTRY_AUTH_TOKEN secret is not set; refusing to deploy without uploading source maps"
+            exit 1
+          fi
+          MAP_COUNT=$(find src/frontend/dist -type f -name '*.map' | wc -l)
+          if [ "$MAP_COUNT" -eq 0 ]; then
+            echo "Error: no .map files found in the frontend artifact; refusing to deploy without source maps"
+            exit 1
+          fi
+          echo "Found ${MAP_COUNT} source map files in the frontend artifact"
+          npx --yes @sentry/cli@3.7.0 sourcemaps inject src/frontend/dist
+          npx --yes @sentry/cli@3.7.0 sourcemaps upload \
+            --org "$SENTRY_ORG" \
+            --project "$SENTRY_PROJECT" \
+            --validate \
+            --wait \
+            --strict \
+            src/frontend/dist
+          # Only after a successful upload: strip the maps so Pages never serves them.
+          find src/frontend/dist -type f -name '*.map' -delete
+          REMAINING_MAPS=$(find src/frontend/dist -type f -name '*.map' | wc -l)
+          if [ "$REMAINING_MAPS" -ne 0 ]; then
+            echo "Error: ${REMAINING_MAPS} source map files remain in the artifact after cleanup"
+            exit 1
+          fi
+          echo "Source maps uploaded to Sentry and removed from the deploy artifact"
 
       - name: Ensure Pages project exists
         env:
