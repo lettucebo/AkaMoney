@@ -79,13 +79,14 @@ jobs:
               exit 1
               ;;
           esac
-          # The guard above uses POSIX [[:space:]], whose meaning depends on the runner locale, which
-          # this workflow does not pin: under C/POSIX it matches ASCII whitespace only, and no locale
-          # makes it match zero-width characters such as U+200B. A DSN carrying U+00A0 or U+2028 can
-          # therefore pass, be baked into the bundle, and then be rejected by Sentry - deploying
-          # production without error monitoring. Node 24 is already set up for this job, so validate
-          # the DSN with a locale-independent, Unicode-aware, URL-parsing check. It reads the
-          # candidate from the environment and reports only the variable name.
+          # The bash guards above are only a coarse first pass: POSIX [[:space:]] is locale-dependent
+          # (this workflow pins no locale), it never matches zero-width characters, and it checks nothing
+          # structural. Percent-encoded control characters and delimiters are worse: they survive a WHATWG
+          # URL parse untouched, while @sentry/core 10.71 either rejects them or silently truncates the
+          # project id - so a valid-looking DSN would deploy production without error monitoring. Node 24
+          # and the workspace dependencies are already installed for this job, so validate with the same
+          # parser that actually transports events (makeDsn) behind a printable-ASCII gate. The candidate
+          # is passed through the environment, never on argv, and only the variable name is ever printed.
           SENTRY_DSN_VAR_NAME="VITE_SENTRY_DSN" \
           SENTRY_DSN_CANDIDATE="${VITE_SENTRY_DSN:-}" \
           node -e '
@@ -96,14 +97,30 @@ jobs:
               process.exit(1);
             };
             if (raw === "") reject("is not set or is empty");
-            if (/[\s\p{White_Space}\p{Cc}\p{Cf}]/u.test(raw)) reject("contains whitespace or invisible characters, including Unicode ones such as U+00A0 and U+2028");
+            if (!/^[\x21-\x7e]+$/.test(raw)) reject("must contain only printable non-space ASCII (0x21-0x7E); space, control, invisible and non-ASCII characters are rejected");
+            if (raw.includes("%")) reject("must not contain a percent sign; percent-encoded delimiters and control characters survive a URL parse but are rejected or silently truncated by the Sentry SDK");
             let url = null;
             try { url = new URL(raw); } catch { reject("is not a parsable URL"); }
             if (url.protocol !== "https:") reject("must use the https scheme");
             if (url.username === "") reject("is missing the Sentry public key before @");
             if (url.hostname === "") reject("is missing a host");
             if (url.search !== "" || url.hash !== "") reject("must not carry a query string or fragment");
-            if (!/^\/[0-9]+$/.test(url.pathname)) reject("must end with a numeric Sentry project id path");
+            if (!/^\/[0-9]+$/.test(url.pathname)) reject("must end with a single numeric Sentry project id path segment");
+            let core = null;
+            let coreVersion = "";
+            try { core = require("@sentry/core"); coreVersion = require("@sentry/core/package.json").version; } catch { reject("cannot be validated because @sentry/core is not installed; workspace dependencies must be installed before this gate runs"); }
+            if (!/^10\./.test(coreVersion)) reject("cannot be validated because the installed @sentry/core is not the 10.x line this gate was verified against");
+            if (typeof core.makeDsn !== "function") reject("cannot be validated because the installed @sentry/core exposes no makeDsn parser");
+            const outWrite = process.stdout.write.bind(process.stdout);
+            const errWrite = process.stderr.write.bind(process.stderr);
+            let dsn = null;
+            process.stdout.write = () => true;
+            process.stderr.write = () => true;
+            try { dsn = core.makeDsn(raw); } catch { dsn = null; } finally { process.stdout.write = outWrite; process.stderr.write = errWrite; }
+            if (!dsn) reject("is rejected by the installed @sentry/core makeDsn parser, so it could never transport events");
+            const urlPort = url.port === "" ? "443" : url.port;
+            const dsnPort = dsn.port === "" ? "443" : dsn.port;
+            if (dsn.protocol !== "https" || dsn.publicKey !== url.username || dsn.host.toLowerCase() !== url.hostname || dsnPort !== urlPort || dsn.path !== "" || dsn.projectId !== url.pathname.slice(1)) reject("is parsed differently by @sentry/core than by the URL parser, so the deployed value would not be what Sentry receives");
           '
           npm run build -w akamoney-frontend
 
@@ -141,6 +158,75 @@ jobs:
 
       - name: Install workspace dependencies
         run: npm ci
+
+      - name: Validate Sentry DSN
+        env:
+          VAR_SENTRY_DSN: ${{ vars.SENTRY_BACKEND_DSN }}
+        # Ordering gate: this is the first step after dependency installation, before any build,
+        # any Cloudflare API call and any wrangler.toml edit. An unusable DSN therefore cannot
+        # leave a half-created D1 database or R2 bucket, or a mutated wrangler.toml, behind. The
+        # injection step later re-runs the byte-identical validator immediately before it writes
+        # the value (defence in depth), so the gate does not depend on step ordering alone.
+        run: |
+          set -euo pipefail
+          if [ -z "${VAR_SENTRY_DSN:-}" ]; then
+            echo "Error: SENTRY_BACKEND_DSN variable is not set; refusing to deploy the Admin API without error monitoring"
+            exit 1
+          fi
+          case "$VAR_SENTRY_DSN" in
+            *[[:space:]]*)
+              echo "Error: SENTRY_BACKEND_DSN is whitespace-only or contains whitespace; refusing to deploy the Admin API with an unusable DSN"
+              exit 1
+              ;;
+            *'"'*|*'\'*)
+              echo "Error: SENTRY_BACKEND_DSN contains characters that cannot be embedded in a TOML basic string"
+              exit 1
+              ;;
+          esac
+          # The bash guards above are only a coarse first pass: POSIX [[:space:]] is locale-dependent
+          # (this workflow pins no locale), it never matches zero-width characters, and it checks nothing
+          # structural. Percent-encoded control characters and delimiters are worse: they survive a WHATWG
+          # URL parse untouched, while @sentry/core 10.71 either rejects them or silently truncates the
+          # project id - so a valid-looking DSN would deploy production without error monitoring. Node 24
+          # and the workspace dependencies are already installed for this job, so validate with the same
+          # parser that actually transports events (makeDsn) behind a printable-ASCII gate. The candidate
+          # is passed through the environment, never on argv, and only the variable name is ever printed.
+          SENTRY_DSN_VAR_NAME="SENTRY_BACKEND_DSN" \
+          SENTRY_DSN_CANDIDATE="$VAR_SENTRY_DSN" \
+          node -e '
+            const name = process.env.SENTRY_DSN_VAR_NAME;
+            const raw = process.env.SENTRY_DSN_CANDIDATE ?? "";
+            const reject = (reason) => {
+              console.error("Error: " + name + " " + reason + "; refusing to continue without usable Sentry error monitoring");
+              process.exit(1);
+            };
+            if (raw === "") reject("is not set or is empty");
+            if (!/^[\x21-\x7e]+$/.test(raw)) reject("must contain only printable non-space ASCII (0x21-0x7E); space, control, invisible and non-ASCII characters are rejected");
+            if (raw.includes("%")) reject("must not contain a percent sign; percent-encoded delimiters and control characters survive a URL parse but are rejected or silently truncated by the Sentry SDK");
+            let url = null;
+            try { url = new URL(raw); } catch { reject("is not a parsable URL"); }
+            if (url.protocol !== "https:") reject("must use the https scheme");
+            if (url.username === "") reject("is missing the Sentry public key before @");
+            if (url.hostname === "") reject("is missing a host");
+            if (url.search !== "" || url.hash !== "") reject("must not carry a query string or fragment");
+            if (!/^\/[0-9]+$/.test(url.pathname)) reject("must end with a single numeric Sentry project id path segment");
+            let core = null;
+            let coreVersion = "";
+            try { core = require("@sentry/core"); coreVersion = require("@sentry/core/package.json").version; } catch { reject("cannot be validated because @sentry/core is not installed; workspace dependencies must be installed before this gate runs"); }
+            if (!/^10\./.test(coreVersion)) reject("cannot be validated because the installed @sentry/core is not the 10.x line this gate was verified against");
+            if (typeof core.makeDsn !== "function") reject("cannot be validated because the installed @sentry/core exposes no makeDsn parser");
+            const outWrite = process.stdout.write.bind(process.stdout);
+            const errWrite = process.stderr.write.bind(process.stderr);
+            let dsn = null;
+            process.stdout.write = () => true;
+            process.stderr.write = () => true;
+            try { dsn = core.makeDsn(raw); } catch { dsn = null; } finally { process.stdout.write = outWrite; process.stderr.write = errWrite; }
+            if (!dsn) reject("is rejected by the installed @sentry/core makeDsn parser, so it could never transport events");
+            const urlPort = url.port === "" ? "443" : url.port;
+            const dsnPort = dsn.port === "" ? "443" : dsn.port;
+            if (dsn.protocol !== "https" || dsn.publicKey !== url.username || dsn.host.toLowerCase() !== url.hostname || dsnPort !== urlPort || dsn.path !== "" || dsn.projectId !== url.pathname.slice(1)) reject("is parsed differently by @sentry/core than by the URL parser, so the deployed value would not be what Sentry receives");
+          '
+          echo "SENTRY_BACKEND_DSN validated before any external change"
 
       - name: Verify pinned Wrangler version
         run: |
@@ -258,13 +344,14 @@ jobs:
                 return 1
                 ;;
             esac
-            # The guard above uses POSIX [[:space:]], whose meaning depends on the runner locale,
-            # which this workflow does not pin: under C/POSIX it matches ASCII whitespace only, and
-            # no locale makes it match zero-width characters such as U+200B. A DSN carrying U+00A0 or
-            # U+2028 can therefore pass, be written into wrangler.toml, and then be rejected by
-            # Sentry - deploying production without error monitoring. Node 24 is already set up for
-            # this job, so validate the DSN with a locale-independent, Unicode-aware, URL-parsing
-            # check. It reads the candidate from the environment and reports only the variable name.
+            # The bash guards above are only a coarse first pass: POSIX [[:space:]] is locale-dependent
+            # (this workflow pins no locale), it never matches zero-width characters, and it checks nothing
+            # structural. Percent-encoded control characters and delimiters are worse: they survive a WHATWG
+            # URL parse untouched, while @sentry/core 10.71 either rejects them or silently truncates the
+            # project id - so a valid-looking DSN would deploy production without error monitoring. Node 24
+            # and the workspace dependencies are already installed for this job, so validate with the same
+            # parser that actually transports events (makeDsn) behind a printable-ASCII gate. The candidate
+            # is passed through the environment, never on argv, and only the variable name is ever printed.
             SENTRY_DSN_VAR_NAME="SENTRY_BACKEND_DSN" \
             SENTRY_DSN_CANDIDATE="$VAR_SENTRY_DSN" \
             node -e '
@@ -275,14 +362,30 @@ jobs:
                 process.exit(1);
               };
               if (raw === "") reject("is not set or is empty");
-              if (/[\s\p{White_Space}\p{Cc}\p{Cf}]/u.test(raw)) reject("contains whitespace or invisible characters, including Unicode ones such as U+00A0 and U+2028");
+              if (!/^[\x21-\x7e]+$/.test(raw)) reject("must contain only printable non-space ASCII (0x21-0x7E); space, control, invisible and non-ASCII characters are rejected");
+              if (raw.includes("%")) reject("must not contain a percent sign; percent-encoded delimiters and control characters survive a URL parse but are rejected or silently truncated by the Sentry SDK");
               let url = null;
               try { url = new URL(raw); } catch { reject("is not a parsable URL"); }
               if (url.protocol !== "https:") reject("must use the https scheme");
               if (url.username === "") reject("is missing the Sentry public key before @");
               if (url.hostname === "") reject("is missing a host");
               if (url.search !== "" || url.hash !== "") reject("must not carry a query string or fragment");
-              if (!/^\/[0-9]+$/.test(url.pathname)) reject("must end with a numeric Sentry project id path");
+              if (!/^\/[0-9]+$/.test(url.pathname)) reject("must end with a single numeric Sentry project id path segment");
+              let core = null;
+              let coreVersion = "";
+              try { core = require("@sentry/core"); coreVersion = require("@sentry/core/package.json").version; } catch { reject("cannot be validated because @sentry/core is not installed; workspace dependencies must be installed before this gate runs"); }
+              if (!/^10\./.test(coreVersion)) reject("cannot be validated because the installed @sentry/core is not the 10.x line this gate was verified against");
+              if (typeof core.makeDsn !== "function") reject("cannot be validated because the installed @sentry/core exposes no makeDsn parser");
+              const outWrite = process.stdout.write.bind(process.stdout);
+              const errWrite = process.stderr.write.bind(process.stderr);
+              let dsn = null;
+              process.stdout.write = () => true;
+              process.stderr.write = () => true;
+              try { dsn = core.makeDsn(raw); } catch { dsn = null; } finally { process.stdout.write = outWrite; process.stderr.write = errWrite; }
+              if (!dsn) reject("is rejected by the installed @sentry/core makeDsn parser, so it could never transport events");
+              const urlPort = url.port === "" ? "443" : url.port;
+              const dsnPort = dsn.port === "" ? "443" : dsn.port;
+              if (dsn.protocol !== "https" || dsn.publicKey !== url.username || dsn.host.toLowerCase() !== url.hostname || dsnPort !== urlPort || dsn.path !== "" || dsn.projectId !== url.pathname.slice(1)) reject("is parsed differently by @sentry/core than by the URL parser, so the deployed value would not be what Sentry receives");
             '
           }
 
@@ -503,6 +606,75 @@ jobs:
       - name: Install workspace dependencies
         run: npm ci
 
+      - name: Validate Sentry DSN
+        env:
+          SENTRY_DSN: ${{ vars.SENTRY_REDIRECT_DSN }}
+        # Ordering gate: this is the first step after dependency installation, before any build,
+        # any Cloudflare API call and any wrangler.toml edit. An unusable DSN therefore cannot
+        # leave a mutated wrangler.toml behind. The injection step later re-runs the byte-identical
+        # validator immediately before it writes the value (defence in depth), so the gate does not
+        # depend on step ordering alone.
+        run: |
+          set -euo pipefail
+          if [ -z "${SENTRY_DSN:-}" ]; then
+            echo "Error: SENTRY_REDIRECT_DSN variable is not set; refusing to deploy the redirect Worker without error monitoring"
+            exit 1
+          fi
+          case "$SENTRY_DSN" in
+            *[[:space:]]*)
+              echo "Error: SENTRY_REDIRECT_DSN is whitespace-only or contains whitespace; refusing to deploy the redirect Worker with an unusable DSN"
+              exit 1
+              ;;
+            *'"'*|*'\'*)
+              echo "Error: SENTRY_REDIRECT_DSN contains characters that cannot be embedded in a TOML basic string"
+              exit 1
+              ;;
+          esac
+          # The bash guards above are only a coarse first pass: POSIX [[:space:]] is locale-dependent
+          # (this workflow pins no locale), it never matches zero-width characters, and it checks nothing
+          # structural. Percent-encoded control characters and delimiters are worse: they survive a WHATWG
+          # URL parse untouched, while @sentry/core 10.71 either rejects them or silently truncates the
+          # project id - so a valid-looking DSN would deploy production without error monitoring. Node 24
+          # and the workspace dependencies are already installed for this job, so validate with the same
+          # parser that actually transports events (makeDsn) behind a printable-ASCII gate. The candidate
+          # is passed through the environment, never on argv, and only the variable name is ever printed.
+          SENTRY_DSN_VAR_NAME="SENTRY_REDIRECT_DSN" \
+          SENTRY_DSN_CANDIDATE="$SENTRY_DSN" \
+          node -e '
+            const name = process.env.SENTRY_DSN_VAR_NAME;
+            const raw = process.env.SENTRY_DSN_CANDIDATE ?? "";
+            const reject = (reason) => {
+              console.error("Error: " + name + " " + reason + "; refusing to continue without usable Sentry error monitoring");
+              process.exit(1);
+            };
+            if (raw === "") reject("is not set or is empty");
+            if (!/^[\x21-\x7e]+$/.test(raw)) reject("must contain only printable non-space ASCII (0x21-0x7E); space, control, invisible and non-ASCII characters are rejected");
+            if (raw.includes("%")) reject("must not contain a percent sign; percent-encoded delimiters and control characters survive a URL parse but are rejected or silently truncated by the Sentry SDK");
+            let url = null;
+            try { url = new URL(raw); } catch { reject("is not a parsable URL"); }
+            if (url.protocol !== "https:") reject("must use the https scheme");
+            if (url.username === "") reject("is missing the Sentry public key before @");
+            if (url.hostname === "") reject("is missing a host");
+            if (url.search !== "" || url.hash !== "") reject("must not carry a query string or fragment");
+            if (!/^\/[0-9]+$/.test(url.pathname)) reject("must end with a single numeric Sentry project id path segment");
+            let core = null;
+            let coreVersion = "";
+            try { core = require("@sentry/core"); coreVersion = require("@sentry/core/package.json").version; } catch { reject("cannot be validated because @sentry/core is not installed; workspace dependencies must be installed before this gate runs"); }
+            if (!/^10\./.test(coreVersion)) reject("cannot be validated because the installed @sentry/core is not the 10.x line this gate was verified against");
+            if (typeof core.makeDsn !== "function") reject("cannot be validated because the installed @sentry/core exposes no makeDsn parser");
+            const outWrite = process.stdout.write.bind(process.stdout);
+            const errWrite = process.stderr.write.bind(process.stderr);
+            let dsn = null;
+            process.stdout.write = () => true;
+            process.stderr.write = () => true;
+            try { dsn = core.makeDsn(raw); } catch { dsn = null; } finally { process.stdout.write = outWrite; process.stderr.write = errWrite; }
+            if (!dsn) reject("is rejected by the installed @sentry/core makeDsn parser, so it could never transport events");
+            const urlPort = url.port === "" ? "443" : url.port;
+            const dsnPort = dsn.port === "" ? "443" : dsn.port;
+            if (dsn.protocol !== "https" || dsn.publicKey !== url.username || dsn.host.toLowerCase() !== url.hostname || dsnPort !== urlPort || dsn.path !== "" || dsn.projectId !== url.pathname.slice(1)) reject("is parsed differently by @sentry/core than by the URL parser, so the deployed value would not be what Sentry receives");
+          '
+          echo "SENTRY_REDIRECT_DSN validated before any external change"
+
       - name: Verify pinned Wrangler version
         run: |
           set -euo pipefail
@@ -576,13 +748,14 @@ jobs:
               exit 1
               ;;
           esac
-          # The guard above uses POSIX [[:space:]], whose meaning depends on the runner locale, which
-          # this workflow does not pin: under C/POSIX it matches ASCII whitespace only, and no locale
-          # makes it match zero-width characters such as U+200B. A DSN carrying U+00A0 or U+2028 can
-          # therefore pass, be written into wrangler.toml, and then be rejected by Sentry - deploying
-          # production without error monitoring. Node 24 is already set up for this job, so validate
-          # the DSN with a locale-independent, Unicode-aware, URL-parsing check. It reads the
-          # candidate from the environment and reports only the variable name.
+          # The bash guards above are only a coarse first pass: POSIX [[:space:]] is locale-dependent
+          # (this workflow pins no locale), it never matches zero-width characters, and it checks nothing
+          # structural. Percent-encoded control characters and delimiters are worse: they survive a WHATWG
+          # URL parse untouched, while @sentry/core 10.71 either rejects them or silently truncates the
+          # project id - so a valid-looking DSN would deploy production without error monitoring. Node 24
+          # and the workspace dependencies are already installed for this job, so validate with the same
+          # parser that actually transports events (makeDsn) behind a printable-ASCII gate. The candidate
+          # is passed through the environment, never on argv, and only the variable name is ever printed.
           SENTRY_DSN_VAR_NAME="SENTRY_REDIRECT_DSN" \
           SENTRY_DSN_CANDIDATE="$SENTRY_DSN" \
           node -e '
@@ -593,14 +766,30 @@ jobs:
               process.exit(1);
             };
             if (raw === "") reject("is not set or is empty");
-            if (/[\s\p{White_Space}\p{Cc}\p{Cf}]/u.test(raw)) reject("contains whitespace or invisible characters, including Unicode ones such as U+00A0 and U+2028");
+            if (!/^[\x21-\x7e]+$/.test(raw)) reject("must contain only printable non-space ASCII (0x21-0x7E); space, control, invisible and non-ASCII characters are rejected");
+            if (raw.includes("%")) reject("must not contain a percent sign; percent-encoded delimiters and control characters survive a URL parse but are rejected or silently truncated by the Sentry SDK");
             let url = null;
             try { url = new URL(raw); } catch { reject("is not a parsable URL"); }
             if (url.protocol !== "https:") reject("must use the https scheme");
             if (url.username === "") reject("is missing the Sentry public key before @");
             if (url.hostname === "") reject("is missing a host");
             if (url.search !== "" || url.hash !== "") reject("must not carry a query string or fragment");
-            if (!/^\/[0-9]+$/.test(url.pathname)) reject("must end with a numeric Sentry project id path");
+            if (!/^\/[0-9]+$/.test(url.pathname)) reject("must end with a single numeric Sentry project id path segment");
+            let core = null;
+            let coreVersion = "";
+            try { core = require("@sentry/core"); coreVersion = require("@sentry/core/package.json").version; } catch { reject("cannot be validated because @sentry/core is not installed; workspace dependencies must be installed before this gate runs"); }
+            if (!/^10\./.test(coreVersion)) reject("cannot be validated because the installed @sentry/core is not the 10.x line this gate was verified against");
+            if (typeof core.makeDsn !== "function") reject("cannot be validated because the installed @sentry/core exposes no makeDsn parser");
+            const outWrite = process.stdout.write.bind(process.stdout);
+            const errWrite = process.stderr.write.bind(process.stderr);
+            let dsn = null;
+            process.stdout.write = () => true;
+            process.stderr.write = () => true;
+            try { dsn = core.makeDsn(raw); } catch { dsn = null; } finally { process.stdout.write = outWrite; process.stderr.write = errWrite; }
+            if (!dsn) reject("is rejected by the installed @sentry/core makeDsn parser, so it could never transport events");
+            const urlPort = url.port === "" ? "443" : url.port;
+            const dsnPort = dsn.port === "" ? "443" : dsn.port;
+            if (dsn.protocol !== "https" || dsn.publicKey !== url.username || dsn.host.toLowerCase() !== url.hostname || dsnPort !== urlPort || dsn.path !== "" || dsn.projectId !== url.pathname.slice(1)) reject("is parsed differently by @sentry/core than by the URL parser, so the deployed value would not be what Sentry receives");
           '
           # Replace the existing empty placeholder inside [vars] rather than appending a second key.
           # Escape sed replacement metacharacters (& and \) plus the | delimiter.
