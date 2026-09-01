@@ -23,7 +23,7 @@ export const corsMiddleware = honoCors({
     return allowedOrigins[0];
   },
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'Authorization'],
+  allowHeaders: ['Content-Type', 'Authorization', 'sentry-trace', 'baggage'],
   exposeHeaders: ['Content-Length'],
   maxAge: 86400,
   credentials: true

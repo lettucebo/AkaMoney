@@ -2,6 +2,21 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { Hono } from 'hono';
 import { corsMiddleware } from '../cors';
 
+/**
+ * Normalizes an Access-Control-Allow-Headers value into a sorted, lowercase,
+ * trimmed list so assertions are order- and case-insensitive but still detect
+ * extra or duplicated entries.
+ */
+function parseAllowHeaders(value: string | null): string[] {
+  return (value ?? '')
+    .split(',')
+    .map((header) => header.trim().toLowerCase())
+    .filter((header) => header.length > 0)
+    .sort();
+}
+
+const EXPECTED_ALLOW_HEADERS = ['authorization', 'baggage', 'content-type', 'sentry-trace'];
+
 describe('CORS Middleware', () => {
   let app: Hono;
 
@@ -80,5 +95,73 @@ describe('CORS Middleware', () => {
     });
     
     expect(res.headers.get('Access-Control-Expose-Headers')).toBe('Content-Length');
+  });
+
+  it('should allow Sentry trace headers for the production admin origin', async () => {
+    const res = await app.request('/test', {
+      method: 'OPTIONS',
+      headers: {
+        Origin: 'https://admin.aka.money',
+        'Access-Control-Request-Method': 'GET',
+        'Access-Control-Request-Headers': 'sentry-trace,baggage'
+      }
+    });
+
+    expect(res.status).toBe(204);
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBe('https://admin.aka.money');
+    expect(res.headers.get('Access-Control-Allow-Credentials')).toBe('true');
+    expect(parseAllowHeaders(res.headers.get('Access-Control-Allow-Headers'))).toEqual(
+      EXPECTED_ALLOW_HEADERS
+    );
+  });
+
+  it('should allow Sentry trace headers for the local development origin', async () => {
+    const res = await app.request('/test', {
+      method: 'OPTIONS',
+      headers: {
+        Origin: 'http://localhost:5173',
+        'Access-Control-Request-Method': 'GET',
+        'Access-Control-Request-Headers': 'sentry-trace,baggage'
+      }
+    });
+
+    expect(res.status).toBe(204);
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBe('http://localhost:5173');
+    expect(res.headers.get('Access-Control-Allow-Credentials')).toBe('true');
+    expect(parseAllowHeaders(res.headers.get('Access-Control-Allow-Headers'))).toEqual(
+      EXPECTED_ALLOW_HEADERS
+    );
+  });
+
+  it('should not reflect unapproved request headers in the preflight response', async () => {
+    const res = await app.request('/test', {
+      method: 'OPTIONS',
+      headers: {
+        Origin: 'https://admin.aka.money',
+        'Access-Control-Request-Method': 'GET',
+        'Access-Control-Request-Headers': 'x-unapproved'
+      }
+    });
+
+    const allowHeaders = parseAllowHeaders(res.headers.get('Access-Control-Allow-Headers'));
+
+    expect(res.status).toBe(204);
+    expect(allowHeaders).not.toContain('x-unapproved');
+    expect(allowHeaders).toEqual(EXPECTED_ALLOW_HEADERS);
+  });
+
+  it('should keep the existing methods, expose headers and max age preflight contract', async () => {
+    const res = await app.request('/test', {
+      method: 'OPTIONS',
+      headers: {
+        Origin: 'https://admin.aka.money',
+        'Access-Control-Request-Method': 'GET',
+        'Access-Control-Request-Headers': 'sentry-trace,baggage'
+      }
+    });
+
+    expect(res.headers.get('Access-Control-Allow-Methods')).toBe('GET,POST,PUT,DELETE,OPTIONS');
+    expect(res.headers.get('Access-Control-Expose-Headers')).toBe('Content-Length');
+    expect(res.headers.get('Access-Control-Max-Age')).toBe('86400');
   });
 });
