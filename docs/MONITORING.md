@@ -41,7 +41,7 @@ Production deployment and production source-map symbolication are not claimed he
 | Replay | Sentry Replay default masking is used; normal session sampling is 0% and error-session sampling is controlled by `VITE_SENTRY_REPLAY_ENABLED`. | Console entries attached to a Replay or event can still contain user-visible provider messages. |
 | Tokens and DSNs | Never log auth tokens, Entra bearer tokens, SAS tokens, x-api-key values, cookies, or literal Sentry DSN values. | Use GitHub variables/secrets and local ignored files; examples below use environment variable names only. |
 
-Sentry Replay's default masking behavior is documented at https://docs.sentry.io/platforms/javascript/guides/vue/session-replay/. Sentry auth-token handling guidance is documented at https://docs.sentry.io/account/auth-tokens/.
+See [Sentry Replay default masking](https://docs.sentry.io/platforms/javascript/guides/vue/session-replay/) and [Sentry auth-token guidance](https://docs.sentry.io/account/auth-tokens/).
 
 ## GitHub and runtime configuration
 
@@ -56,7 +56,7 @@ Sentry Replay's default masking behavior is documented at https://docs.sentry.io
 Recommended guardrails:
 
 1. Keep `SENTRY_AUTH_TOKEN` in a protected GitHub `production` environment with at least one required reviewer before the job can access it.
-2. Use a token dedicated to source-map upload. Sentry's Vite source-map guide documents Organization Tokens, or Personal Tokens with `Project: Read & Write` and `Release: Admin` permissions: https://docs.sentry.io/platforms/javascript/sourcemaps/uploading/vite/.
+2. Use a token dedicated to source-map upload. [Sentry's Vite source-map guide](https://docs.sentry.io/platforms/javascript/sourcemaps/uploading/vite/) documents Organization Tokens, or Personal Tokens with `Project: Read & Write` and `Release: Admin` permissions.
 3. Do not grant issue write, member, or admin privileges to the source-map token unless a future workflow has a documented need.
 4. Rotate the token if it is ever exposed in a log, local shell history, or copied configuration file.
 
@@ -82,7 +82,7 @@ Do not state that production source maps are verified until the first production
 | Regression workflow | `3926857` |
 | Email fallback | `ActiveMembers` |
 
-Sentry Uptime Monitoring documentation: https://docs.sentry.io/product/monitors-and-alerts/monitors/uptime-monitoring/. Sentry alert documentation: https://docs.sentry.io/product/monitors-and-alerts/alerts/.
+See [Sentry Uptime Monitoring](https://docs.sentry.io/product/monitors-and-alerts/monitors/uptime-monitoring/) and [Sentry alerts](https://docs.sentry.io/product/monitors-and-alerts/alerts/).
 
 ## Read-only operational examples
 
@@ -96,6 +96,8 @@ $env:SENTRY_UPTIME_DETECTOR_ID = "9690376"
 ```
 
 List projects with `sentry-cli`:
+
+Install `sentry-cli` using the [official CLI instructions](https://docs.sentry.io/cli/) before running these examples.
 
 ```powershell
 sentry-cli projects list --org $env:SENTRY_ORG --auth-token $env:SENTRY_AUTH_TOKEN
@@ -112,7 +114,7 @@ sentry-cli issues list --org $env:SENTRY_ORG --project akamoney-redirect --query
 Query Logs with `sentry-cli`:
 
 ```powershell
-sentry-cli logs list --org $env:SENTRY_ORG --project akamoney-api --query "level:error" --max-rows 25 --auth-token $env:SENTRY_AUTH_TOKEN
+sentry-cli logs list --org $env:SENTRY_ORG --project akamoney-api --query "severity:error" --max-rows 25 --auth-token $env:SENTRY_AUTH_TOKEN
 ```
 
 Query organization usage stats through the Sentry API:
@@ -121,12 +123,17 @@ Query organization usage stats through the Sentry API:
 curl.exe --oauth2-bearer $env:SENTRY_AUTH_TOKEN "$env:SENTRY_BASE_URL/api/0/organizations/$env:SENTRY_ORG/stats_v2/?statsPeriod=24h&interval=1h&groupBy=project&groupBy=category&field=sum(quantity)"
 ```
 
-Query errors, logs, spans, or uptime checks through Explore table APIs:
+Query errors, logs, and spans through Explore table APIs:
 
 ```powershell
 curl.exe --oauth2-bearer $env:SENTRY_AUTH_TOKEN "$env:SENTRY_BASE_URL/api/0/organizations/$env:SENTRY_ORG/events/?dataset=errors&project=akamoney-web&query=is:unresolved&statsPeriod=24h&field=title&field=timestamp&per_page=25"
-curl.exe --oauth2-bearer $env:SENTRY_AUTH_TOKEN "$env:SENTRY_BASE_URL/api/0/organizations/$env:SENTRY_ORG/events/?dataset=logs&project=akamoney-api&query=level:error&statsPeriod=24h&field=message&field=timestamp&per_page=25"
+curl.exe --oauth2-bearer $env:SENTRY_AUTH_TOKEN "$env:SENTRY_BASE_URL/api/0/organizations/$env:SENTRY_ORG/events/?dataset=logs&project=akamoney-api&query=severity:error&statsPeriod=24h&field=message&field=timestamp&per_page=25"
 curl.exe --oauth2-bearer $env:SENTRY_AUTH_TOKEN "$env:SENTRY_BASE_URL/api/0/organizations/$env:SENTRY_ORG/events/?dataset=spans&project=akamoney-redirect&statsPeriod=24h&field=span.op&field=timestamp&per_page=25"
+```
+
+Query the uptime detector and regression workflow through their detail APIs:
+
+```powershell
 curl.exe --oauth2-bearer $env:SENTRY_AUTH_TOKEN "$env:SENTRY_BASE_URL/api/0/organizations/$env:SENTRY_ORG/detectors/$env:SENTRY_UPTIME_DETECTOR_ID/"
 curl.exe --oauth2-bearer $env:SENTRY_AUTH_TOKEN "$env:SENTRY_BASE_URL/api/0/organizations/$env:SENTRY_ORG/workflows/3926857/"
 ```

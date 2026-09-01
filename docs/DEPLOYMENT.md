@@ -104,7 +104,7 @@ Configure the following GitHub Secrets and Variables under **Settings > Secrets 
 - `AZURE_STORAGE_ACCOUNT` & `AZURE_STORAGE_CONTAINER`: *(Optional)* Azure Blob storage account and container names.
 - `ENVIRONMENT`: Set to `"production"` for a production Worker. The tracked config defaults to `"development"`, and the current release workflow does not override it.
 
-The release workflow validates all three DSNs before any build or Cloudflare mutation. It fails closed for missing or malformed values. Frontend source maps are uploaded from the protected `production` environment and deleted before Pages deployment.
+The release workflow validates the frontend DSN before the frontend build. Each Worker DSN is validated in its deploy job before any Cloudflare or configuration mutation. All three paths fail closed for missing or malformed values. Frontend source maps are uploaded from the protected `production` environment and deleted before Pages deployment.
 
 ### Dead Scaffolding Variables Notice
 

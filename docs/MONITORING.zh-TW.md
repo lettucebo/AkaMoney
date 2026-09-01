@@ -47,10 +47,10 @@
 
 | 名稱 | GitHub 儲存位置 | 執行時目標 | 用途 | 注意事項 |
 | --- | --- | --- | --- | --- |
-| `VITE_SENTRY_DSN` | Repository variable | 前端建置環境 | `akamoney-web` 的 public DSN。 | 本地留空會停用 SDK。不要把值貼到文件、logs 或 commits。 |
+| `VITE_SENTRY_DSN` | Repository variable | 前端建置環境 | `akamoney-web` 的公開 DSN。 | 正式發布時必填；本地留空會停用 SDK。不要把值貼到文件、日誌或 commits。 |
 | `VITE_SENTRY_REPLAY_ENABLED` | Repository variable | 前端建置環境 | 除非設為 `false`，否則啟用 error-session Replay。 | 一般 Replay sessions 維持 0%；啟用時 error sessions 為 100%。 |
-| `SENTRY_BACKEND_DSN` | Repository variable | 管理 API deploy workflow | 注入 Worker `SENTRY_DSN` var，供 `akamoney-api` 使用。 | Release workflow 會先驗證 DSN，再執行部署變更。 |
-| `SENTRY_REDIRECT_DSN` | Repository variable | 重新導向 deploy workflow | 注入 Worker `SENTRY_DSN` var，供 `akamoney-redirect` 使用。 | Release workflow 會先驗證 DSN，再執行部署變更。 |
+| `SENTRY_BACKEND_DSN` | Repository variable | 管理 API deploy workflow | 注入 Worker `SENTRY_DSN` var，供 `akamoney-api` 使用。 | 正式發布時必填；發布流程會先驗證 DSN，再執行部署變更。 |
+| `SENTRY_REDIRECT_DSN` | Repository variable | 重新導向 deploy workflow | 注入 Worker `SENTRY_DSN` var，供 `akamoney-redirect` 使用。 | 正式發布時必填；發布流程會先驗證 DSN，再執行部署變更。 |
 | `SENTRY_AUTH_TOKEN` | Production environment secret | 只給受保護的前端 deploy job | 驗證 `sentry-cli` source-map inject/upload。 | 不得提供給不受信任的 PR-head build job。 |
 
 建議 guardrails：
@@ -97,6 +97,8 @@ $env:SENTRY_UPTIME_DETECTOR_ID = "9690376"
 
 使用 `sentry-cli` 列出 projects：
 
+執行下列範例前，請先依照 [Sentry CLI 官方說明](https://docs.sentry.io/cli/)安裝 `sentry-cli`。
+
 ```powershell
 sentry-cli projects list --org $env:SENTRY_ORG --auth-token $env:SENTRY_AUTH_TOKEN
 ```
@@ -112,7 +114,7 @@ sentry-cli issues list --org $env:SENTRY_ORG --project akamoney-redirect --query
 使用 `sentry-cli` 查詢 Logs：
 
 ```powershell
-sentry-cli logs list --org $env:SENTRY_ORG --project akamoney-api --query "level:error" --max-rows 25 --auth-token $env:SENTRY_AUTH_TOKEN
+sentry-cli logs list --org $env:SENTRY_ORG --project akamoney-api --query "severity:error" --max-rows 25 --auth-token $env:SENTRY_AUTH_TOKEN
 ```
 
 透過 Sentry API 查詢 organization usage stats：
@@ -121,12 +123,17 @@ sentry-cli logs list --org $env:SENTRY_ORG --project akamoney-api --query "level
 curl.exe --oauth2-bearer $env:SENTRY_AUTH_TOKEN "$env:SENTRY_BASE_URL/api/0/organizations/$env:SENTRY_ORG/stats_v2/?statsPeriod=24h&interval=1h&groupBy=project&groupBy=category&field=sum(quantity)"
 ```
 
-透過 Explore table APIs 查詢 errors、logs、spans 或 uptime checks：
+透過 Explore table APIs 查詢 errors、logs 與 spans：
 
 ```powershell
 curl.exe --oauth2-bearer $env:SENTRY_AUTH_TOKEN "$env:SENTRY_BASE_URL/api/0/organizations/$env:SENTRY_ORG/events/?dataset=errors&project=akamoney-web&query=is:unresolved&statsPeriod=24h&field=title&field=timestamp&per_page=25"
-curl.exe --oauth2-bearer $env:SENTRY_AUTH_TOKEN "$env:SENTRY_BASE_URL/api/0/organizations/$env:SENTRY_ORG/events/?dataset=logs&project=akamoney-api&query=level:error&statsPeriod=24h&field=message&field=timestamp&per_page=25"
+curl.exe --oauth2-bearer $env:SENTRY_AUTH_TOKEN "$env:SENTRY_BASE_URL/api/0/organizations/$env:SENTRY_ORG/events/?dataset=logs&project=akamoney-api&query=severity:error&statsPeriod=24h&field=message&field=timestamp&per_page=25"
 curl.exe --oauth2-bearer $env:SENTRY_AUTH_TOKEN "$env:SENTRY_BASE_URL/api/0/organizations/$env:SENTRY_ORG/events/?dataset=spans&project=akamoney-redirect&statsPeriod=24h&field=span.op&field=timestamp&per_page=25"
+```
+
+透過詳細資料 API 查詢 uptime detector 與 regression workflow：
+
+```powershell
 curl.exe --oauth2-bearer $env:SENTRY_AUTH_TOKEN "$env:SENTRY_BASE_URL/api/0/organizations/$env:SENTRY_ORG/detectors/$env:SENTRY_UPTIME_DETECTOR_ID/"
 curl.exe --oauth2-bearer $env:SENTRY_AUTH_TOKEN "$env:SENTRY_BASE_URL/api/0/organizations/$env:SENTRY_ORG/workflows/3926857/"
 ```

@@ -104,7 +104,7 @@ on:
 - `AZURE_STORAGE_ACCOUNT` 與 `AZURE_STORAGE_CONTAINER`：*（選填）* Azure 儲存帳戶與容器名稱。
 - `ENVIRONMENT`：正式 Worker 應設為 `"production"`。已追蹤設定預設為 `"development"`，目前 release workflow 不會覆寫此值。
 
-發布流程會在任何建置或 Cloudflare 變更前驗證三組 DSN；缺少或格式無效時會停止。前端 source maps 只會在受保護的 `production` environment 上傳，並在 Pages 部署前刪除。
+發布流程會在前端建置前驗證前端 DSN；兩個 Worker 的 DSN 則會在各自部署工作進行任何 Cloudflare 或設定變更前驗證。三條路徑遇到缺少或格式無效的值時都會停止。前端 source maps 只會在受保護的 `production` environment 上傳，並在 Pages 部署前刪除。
 
 ### 廢棄/未接入變數說明
 
