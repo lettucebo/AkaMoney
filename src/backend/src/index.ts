@@ -64,9 +64,9 @@ function redactStoragePath(path: string): string {
   return path.replace(/\/uploads\/[^/]+/g, '/uploads/[redacted-identity]');
 }
 
-function identityRedactions(c: Context<{ Bindings: Env }>, extra: Array<string | undefined> = []): string[] {
+function identityRedactions(c: Context<{ Bindings: Env }>): string[] {
   const user = getAuthUser(c);
-  return [user?.userId, user?.email, user?.name, ...extra].filter((value): value is string => !!value);
+  return [user?.userId, user?.email, user?.name].filter((value): value is string => !!value);
 }
 
 function safeErrorDetails(error: unknown, redactions: string[] = []) {
@@ -216,7 +216,7 @@ app.get('/api/urls/:id', authMiddleware, async (c) => {
       click_count: url.click_count
     });
   } catch (error) {
-    console.error('Error in GET /api/urls/:id:', safeErrorDetails(error, identityRedactions(c, [c.req.param('id')])));
+    console.error('Error in GET /api/urls/:id:', safeErrorDetails(error, identityRedactions(c)));
     return routeError(c, error, 'Failed to fetch URL');
   }
 });
@@ -249,7 +249,7 @@ app.put('/api/urls/:id', authMiddleware, async (c) => {
 
     return c.json(url);
   } catch (error) {
-    console.error('Error in PUT /api/urls/:id:', safeErrorDetails(error, identityRedactions(c, [c.req.param('id')])));
+    console.error('Error in PUT /api/urls/:id:', safeErrorDetails(error, identityRedactions(c)));
     return routeError(c, error, 'Failed to update URL');
   }
 });
@@ -280,7 +280,7 @@ app.delete('/api/urls/:id', authMiddleware, async (c) => {
 
     return c.json({ message: 'URL deleted successfully' });
   } catch (error) {
-    console.error('Error in DELETE /api/urls/:id:', safeErrorDetails(error, identityRedactions(c, [c.req.param('id')])));
+    console.error('Error in DELETE /api/urls/:id:', safeErrorDetails(error, identityRedactions(c)));
     return routeError(c, error, 'Failed to delete URL');
   }
 });
@@ -315,7 +315,7 @@ app.get('/api/analytics/:shortCode', authMiddleware, async (c) => {
 
     return c.json(analytics);
   } catch (error) {
-    console.error('Error in GET /api/analytics/:shortCode:', safeErrorDetails(error, identityRedactions(c, [c.req.param('shortCode')])));
+    console.error('Error in GET /api/analytics/:shortCode:', safeErrorDetails(error, identityRedactions(c)));
     return routeError(c, error, 'Failed to fetch analytics');
   }
 });
@@ -482,8 +482,6 @@ app.get('/api/storage/config', authMiddleware, async (c) => {
 
 // Upload an image
 app.post('/api/storage/upload', authMiddleware, async (c) => {
-  let uploadKey: string | undefined;
-
   try {
     const user = getAuthUser(c);
     if (!user) {
@@ -543,7 +541,6 @@ app.post('/api/storage/upload', authMiddleware, async (c) => {
     // Generate unique key with user prefix
     const timestamp = Date.now();
     const key = `uploads/${user.userId}/${timestamp}-${crypto.randomUUID()}.${extension}`;
-    uploadKey = key;
 
     const arrayBuffer = await file.arrayBuffer();
     
@@ -566,7 +563,7 @@ app.post('/api/storage/upload', authMiddleware, async (c) => {
       originalName: file.name
     }, 201);
   } catch (error) {
-    console.error('Error uploading file:', safeErrorDetails(error, identityRedactions(c, [uploadKey])));
+    console.error('Error uploading file:', safeErrorDetails(error, identityRedactions(c)));
     return c.json({
       error: 'Internal Server Error',
       message: 'Failed to upload file'
@@ -614,7 +611,7 @@ app.get('/api/storage/files/:key{.+}', authMiddleware, async (c) => {
       url: storage.getPublicUrl?.(key)
     });
   } catch (error) {
-    console.error('Error getting file info:', safeErrorDetails(error, identityRedactions(c, [c.req.param('key')])));
+    console.error('Error getting file info:', safeErrorDetails(error, identityRedactions(c)));
     return c.json({
       error: 'Internal Server Error',
       message: 'Failed to get file info'
@@ -703,7 +700,7 @@ app.delete('/api/storage/files/:key{.+}', authMiddleware, async (c) => {
 
     return c.json({ message: 'File deleted successfully' });
   } catch (error) {
-    console.error('Error deleting file:', safeErrorDetails(error, identityRedactions(c, [c.req.param('key')])));
+    console.error('Error deleting file:', safeErrorDetails(error, identityRedactions(c)));
     return c.json({
       error: 'Internal Server Error',
       message: 'Failed to delete file'

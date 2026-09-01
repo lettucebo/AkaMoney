@@ -3,11 +3,17 @@ import type { CloudflareOptions, ErrorEvent, Event } from '@sentry/cloudflare';
 import type { Env } from '../types';
 
 const CREDENTIAL_HEADERS = new Set(['authorization', 'cookie', 'x-api-key']);
-const URL_DATA_KEYS = new Set(['url', 'http.url', 'url.full']);
+const URL_DATA_KEYS = new Set(['url', 'http.url', 'url.full', 'url.path', 'http.route', 'http.target']);
 const QUERY_DATA_KEYS = new Set(['http.query', 'query', 'query_string', 'url.query']);
 
 type SentrySpanData = NonNullable<Event['spans']>[number]['data'];
 type SentryTransactionEvent = Event & { type: 'transaction' };
+
+export function redactStorageIdentityPath(value: unknown) {
+  return typeof value === 'string'
+    ? value.replace(/(\/uploads\/)[^/?#]+/gi, '$1[redacted-identity]')
+    : value;
+}
 
 function stripUrlQuery(value: unknown) {
   if (typeof value !== 'string') {
@@ -21,9 +27,9 @@ function stripUrlQuery(value: unknown) {
     }
 
     url.search = '';
-    return url.toString();
+    return redactStorageIdentityPath(url.toString());
   } catch {
-    return value;
+    return redactStorageIdentityPath(value);
   }
 }
 
@@ -56,19 +62,27 @@ export function scrubSentryEventCredentials(event: Event): Event {
   const result: Event = { ...event };
   const headers = event.request?.headers;
 
+  if (event.transaction) {
+    result.transaction = redactStorageIdentityPath(event.transaction) as string;
+  }
+
   if (event.request) {
     // Cookies are dropped as a whole: the SDK can attach them parsed as
     // `request.cookies` even when the raw Cookie header is absent.
     const { cookies: _cookies, ...requestWithoutCookies } = event.request;
+    const scrubbedRequest = {
+      ...requestWithoutCookies,
+      url: redactStorageIdentityPath(requestWithoutCookies.url) as string | undefined
+    };
 
     result.request = headers
       ? {
-          ...requestWithoutCookies,
+          ...scrubbedRequest,
           headers: Object.fromEntries(
             Object.entries(headers).filter(([name]) => !CREDENTIAL_HEADERS.has(name.toLowerCase()))
           )
         }
-      : requestWithoutCookies;
+      : scrubbedRequest;
   }
 
   if (event.breadcrumbs) {

@@ -535,6 +535,48 @@ describe('Auth Middleware', () => {
       expect(logged).not.toContain(rawEmail);
       expect(logged).toContain('Failed to upsert user in auth middleware');
     });
+
+    it('never logs raw Entra identifiers when optional authentication upsert fails', async () => {
+      const rawUserId = 'oid-optional-upsert-raw-user';
+      const rawEmail = 'optional-upsert@example.com';
+      const consoleError = vi.mocked(console.error);
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: {
+          oid: rawUserId,
+          sub: 'sub-optional-upsert-raw-user',
+          iss: `https://login.microsoftonline.com/${TENANT_ID}/v2.0`,
+          aud: CLIENT_ID,
+          email: rawEmail,
+          name: 'Optional User'
+        },
+        protectedHeader: { alg: 'RS256' }
+      } as any);
+      vi.mocked(upsertUser).mockRejectedValueOnce(
+        new Error(`Failed to upsert ${rawEmail} with sso ${rawUserId}`)
+      );
+
+      const app = new Hono();
+      app.use('*', async (c, next) => {
+        (c.env as any) = {
+          ENTRA_ID_TENANT_ID: TENANT_ID,
+          ENTRA_ID_CLIENT_ID: CLIENT_ID,
+          DB: {} as D1Database
+        };
+        await next();
+      });
+      app.get('/optional', optionalAuthMiddleware, (c) => c.json({ success: true }));
+
+      const authorization = ['Be', 'arer ', 'optional-identity-test'].join('');
+      const res = await app.request('/optional', { headers: { Authorization: authorization } });
+      expect(res.status).toBe(200);
+
+      expect(jwtVerify).toHaveBeenCalledOnce();
+      expect(upsertUser).toHaveBeenCalledOnce();
+      const logged = JSON.stringify(consoleError.mock.calls);
+      expect(logged).not.toContain(rawUserId);
+      expect(logged).not.toContain(rawEmail);
+      expect(logged).toContain('Failed to upsert user in optional auth');
+    });
   });
 
   describe('getAuthUser', () => {

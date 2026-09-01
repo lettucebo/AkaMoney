@@ -115,6 +115,42 @@ describe('Sentry service', () => {
       expect(scrubSentryEventCredentials(event)).toEqual(event);
     });
 
+    it('redacts user-prefixed storage paths from request and span URLs', () => {
+      const event = {
+        event_id: 'event-storage-path',
+        transaction: 'DELETE /api/storage/files/uploads/oid-raw-user/file.png',
+        request: {
+          url: 'https://api.example.test/api/storage/files/uploads/oid-raw-user/file.png?download=1'
+        },
+        spans: [
+          {
+            span_id: '0123456789abcdef',
+            start_timestamp: 1,
+            trace_id: '0123456789abcdef0123456789abcdef',
+            data: {
+              url: 'https://api.example.test/api/storage/files/uploads/oid-raw-user/file.png?download=1',
+              'url.full': 'https://api.example.test/api/storage/files/uploads/oid-raw-user/file.png?download=1',
+              'url.path': '/api/storage/files/uploads/oid-raw-user/file.png'
+            }
+          }
+        ]
+      } satisfies Event;
+
+      const scrubbed = scrubSentryEventCredentials(event);
+
+      expect(scrubbed.request?.url).toBe(
+        'https://api.example.test/api/storage/files/uploads/[redacted-identity]/file.png?download=1'
+      );
+      expect(scrubbed.transaction).toBe(
+        'DELETE /api/storage/files/uploads/[redacted-identity]/file.png'
+      );
+      expect(scrubbed.spans?.[0]?.data).toEqual({
+        url: 'https://api.example.test/api/storage/files/uploads/[redacted-identity]/file.png',
+        'url.full': 'https://api.example.test/api/storage/files/uploads/[redacted-identity]/file.png',
+        'url.path': '/api/storage/files/uploads/[redacted-identity]/file.png'
+      });
+    });
+
     it('removes credential query strings from Sentry fetch breadcrumbs and span data', () => {
       const azureSasUrl = 'https://account.blob.core.windows.net/container/blob.png?sv=2024-11-04&sp=rwd&sig=secret-signature';
       const sanitizedUrl = 'https://account.blob.core.windows.net/container/blob.png';

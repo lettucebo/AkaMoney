@@ -196,4 +196,18 @@ describe('backend privacy logging', () => {
     expect(logged).toContain('storage failed');
     expect(logged).toContain('[redacted-identity]');
   });
+
+  it('keeps short route parameters readable while redacting the authenticated identity', async () => {
+    const env = { DB: {}, BUCKET: {} } as any;
+    urlServiceMocks.getUrlById.mockRejectedValueOnce(
+      new Error(`resource e failed for ${rawUserId}`)
+    );
+
+    await app.request('/api/urls/e', { method: 'GET' }, env);
+
+    const logged = serializeConsoleCalls(vi.mocked(console.error).mock.calls);
+    expect(logged).toContain('resource e failed');
+    expect(logged).not.toContain(rawUserId);
+    expect(logged).toContain('[redacted-identity]');
+  });
 });
