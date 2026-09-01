@@ -5,8 +5,7 @@ import {
   BACKGROUND_CLICK_RECORDING_OPERATION,
   BACKGROUND_OPERATION_TAG_KEY,
   CLICK_RECORDING_OPERATION_NAME,
-  toBoundedErrorMessage,
-  toErrorName,
+  toSafeReportError,
 } from './observability';
 import type { ClickRecordingErrorReporter } from './observability';
 import type { Env } from './types';
@@ -14,8 +13,45 @@ import type { Env } from './types';
 type JsonObject = Record<string, unknown>;
 type StreamedSpan = Parameters<Parameters<typeof Sentry.withStreamedSpan>[0]>[0];
 type SentryClient = NonNullable<ReturnType<typeof Sentry.getClient>>;
+type SentryEnvelope = Parameters<SentryClient['sendEnvelope']>[0];
 
 const CREDENTIAL_HEADER_NAMES = new Set(['authorization', 'x-api-key', 'cookie']);
+
+/**
+ * Top-level event fields kept on a background click-recording exception. This
+ * is an allowlist, not a denylist, so nothing that a future integration adds can
+ * reach the transport unnoticed.
+ */
+const BACKGROUND_EXCEPTION_ALLOWED_FIELDS = [
+  'event_id',
+  'timestamp',
+  'platform',
+  'level',
+  'environment',
+  'release',
+  'dist',
+  'sdk',
+  'exception',
+  'debug_meta',
+] as const;
+
+const BACKGROUND_EXCEPTION_ALLOWED_TAGS = [
+  BACKGROUND_OPERATION_TAG_KEY,
+  'short_code',
+  'url_id',
+] as const;
+
+const LOG_ENVELOPE_ITEM_CONTENT_TYPE = 'application/vnd.sentry.items.log+json';
+const LOG_ENVELOPE_ITEM_VERSION = 2;
+const LOG_SEVERITY_NUMBER_ERROR = 17;
+
+interface BackgroundLogAttributes {
+  operation: string;
+  shortCode: string;
+  urlId: string;
+  errorName: string;
+  errorMessage: string;
+}
 
 function isRecord(value: unknown): value is JsonObject {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -44,20 +80,37 @@ function isBackgroundClickRecordingException(event: JsonObject): boolean {
   );
 }
 
-function removeBackgroundRequestContext(event: JsonObject): JsonObject {
-  const scrubbed = { ...event };
+/**
+ * Sentry always merges the global scope into every event, so empty current and
+ * isolation scopes are not enough to guarantee the payload. `beforeSend` is the
+ * last stage before transport, so the tagged background exception is rebuilt
+ * from an explicit field allowlist: anything the pipeline, the global scope or a
+ * future integration adds is dropped rather than denylisted.
+ */
+function toAllowlistedBackgroundReport(event: JsonObject): JsonObject {
+  const report: JsonObject = {};
 
-  if (isRecord(scrubbed.request)) {
-    const { headers: _headers, cookies: _cookies, ...requestWithoutHeaders } = scrubbed.request;
-    scrubbed.request = requestWithoutHeaders;
+  for (const field of BACKGROUND_EXCEPTION_ALLOWED_FIELDS) {
+    if (event[field] !== undefined) {
+      report[field] = event[field];
+    }
   }
 
-  if (isRecord(scrubbed.user)) {
-    const { ip_address: _ipAddress, ...userWithoutIp } = scrubbed.user;
-    scrubbed.user = userWithoutIp;
+  const tags = event.tags;
+
+  if (isRecord(tags)) {
+    const allowedTags = Object.fromEntries(
+      BACKGROUND_EXCEPTION_ALLOWED_TAGS.filter((tag) => typeof tags[tag] === 'string').map(
+        (tag) => [tag, tags[tag]]
+      )
+    );
+
+    if (Object.keys(allowedTags).length > 0) {
+      report.tags = allowedTags;
+    }
   }
 
-  return scrubbed;
+  return report;
 }
 
 function scrubCredentialHeaderFields(value: unknown, currentKey?: string): unknown {
@@ -85,13 +138,13 @@ function scrubCredentialHeaderFields(value: unknown, currentKey?: string): unkno
 }
 
 export function scrubCredentialHeaders<T extends Event>(event: T): T {
-  const scrubbed = scrubCredentialHeaderFields(event);
+  const source = event as unknown as JsonObject;
 
-  if (isRecord(scrubbed) && isBackgroundClickRecordingException(scrubbed)) {
-    return removeBackgroundRequestContext(scrubbed) as T;
+  if (isBackgroundClickRecordingException(source)) {
+    return toAllowlistedBackgroundReport(source) as unknown as T;
   }
 
-  return scrubbed as T;
+  return scrubCredentialHeaderFields(event) as T;
 }
 
 function isCredentialSpanAttribute(name: string): boolean {
@@ -139,14 +192,89 @@ export function createSentryOptions(env: Env): CloudflareOptions {
 }
 
 /**
+ * Builds a minimal Sentry log envelope by hand.
+ *
+ * `Sentry.logger.error` runs the public log pipeline, which merges global,
+ * isolation and current scope attributes (user, scope attributes, release, …)
+ * *after* `beforeSendLog`, so it cannot guarantee an exact allowlist. Emitting
+ * the documented envelope shape directly is the only way to send exactly the
+ * operational attributes.
+ */
+function createBackgroundLogEnvelope(
+  client: SentryClient,
+  traceId: string,
+  attributes: BackgroundLogAttributes
+): SentryEnvelope {
+  const environment = client.getOptions().environment;
+  const sdk = client.getSdkMetadata()?.sdk;
+
+  const typedAttributes: Record<string, { value: string; type: 'string' }> = {
+    operation: { value: attributes.operation, type: 'string' },
+    shortCode: { value: attributes.shortCode, type: 'string' },
+    urlId: { value: attributes.urlId, type: 'string' },
+    errorName: { value: attributes.errorName, type: 'string' },
+    errorMessage: { value: attributes.errorMessage, type: 'string' },
+  };
+
+  // Sentry filters logs by environment, so this is the only SDK metadata kept.
+  if (typeof environment === 'string' && environment.length > 0) {
+    typedAttributes['sentry.environment'] = { value: environment, type: 'string' };
+  }
+
+  const envelopeHeaders =
+    sdk?.name && sdk?.version ? { sdk: { name: sdk.name, version: sdk.version } } : {};
+
+  return [
+    envelopeHeaders,
+    [
+      [
+        { type: 'log', item_count: 1, content_type: LOG_ENVELOPE_ITEM_CONTENT_TYPE },
+        {
+          version: LOG_ENVELOPE_ITEM_VERSION,
+          items: [
+            {
+              timestamp: Date.now() / 1000,
+              level: 'error',
+              body: BACKGROUND_ANALYTICS_ERROR_MESSAGE,
+              trace_id: traceId,
+              severity_number: LOG_SEVERITY_NUMBER_ERROR,
+              attributes: typedAttributes,
+            },
+          ],
+        },
+      ],
+    ],
+  ] as unknown as SentryEnvelope;
+}
+
+/**
+ * Sends the log through the captured client's own transport, so the outer
+ * Cloudflare flush lock still waits for it. Every synchronous throw and every
+ * rejection is contained: the background `waitUntil` promise must always
+ * resolve.
+ */
+async function sendBackgroundLog(
+  client: SentryClient,
+  traceId: string,
+  attributes: BackgroundLogAttributes
+): Promise<void> {
+  try {
+    await client.sendEnvelope(createBackgroundLogEnvelope(client, traceId, attributes));
+  } catch {
+    // Reporting failures must never reject the tracked waitUntil promise.
+  }
+}
+
+/**
  * Builds a background error reporter bound to the Sentry client that is active
  * while the redirect handler runs.
  *
  * The client is resolved synchronously, before background work is registered,
  * because `ctx.waitUntil` continuations no longer resolve to the request client.
  * Reporting uses freshly constructed, empty current and isolation scopes that
- * carry only that client, so no ambient request data (headers, cookies, IP,
- * breadcrumbs, tags, contexts) can be merged into the report.
+ * carry only that client, and `beforeSend` rebuilds the exception from a field
+ * allowlist, so neither ambient scope data (headers, cookies, IP, breadcrumbs,
+ * tags, contexts) nor global-scope data can reach Sentry.
  *
  * Returns `undefined` when no client is available or when construction fails, so
  * the redirect response is never affected.
@@ -169,32 +297,39 @@ export function createBackgroundClickErrorReporter(
     const reportIsolationScope = new Sentry.Scope();
     reportIsolationScope.setClient(client);
 
+    // Generated by the reporter's own scope, so it links the request's own
+    // background reports together without reading any ambient trace state.
+    const reportTraceId = reportScope.getPropagationContext().traceId;
+
     return (error, context) => {
+      // Only a freshly constructed safe Error is ever handed to Sentry.
+      const safeError = toSafeReportError(error);
+
       const scope = reportScope.clone();
       scope.setTag('short_code', context.shortCode);
       scope.setTag('url_id', context.urlId);
 
-      // Both sinks run inside the same explicit empty isolation scope so neither
-      // the exception nor the log can inherit ambient isolation data, and neither
-      // performs an implicit current-client lookup.
-      Sentry.withIsolationScope(reportIsolationScope, () => {
-        client.captureException(
-          error,
-          { mechanism: { handled: true, type: BACKGROUND_CLICK_RECORDING_OPERATION } },
-          scope
-        );
+      // The exception capture runs inside an explicit empty isolation scope so
+      // it cannot inherit ambient isolation data or perform an implicit
+      // current-client lookup.
+      return Sentry.withIsolationScope(reportIsolationScope, () => {
+        try {
+          client.captureException(
+            safeError,
+            { mechanism: { handled: true, type: BACKGROUND_CLICK_RECORDING_OPERATION } },
+            scope
+          );
+        } catch {
+          // Reporting failures must never reject the tracked waitUntil promise.
+        }
 
-        Sentry.logger.error(
-          BACKGROUND_ANALYTICS_ERROR_MESSAGE,
-          {
-            operation: CLICK_RECORDING_OPERATION_NAME,
-            shortCode: context.shortCode,
-            urlId: context.urlId,
-            errorName: toErrorName(error),
-            errorMessage: toBoundedErrorMessage(error),
-          },
-          { scope }
-        );
+        return sendBackgroundLog(client, reportTraceId, {
+          operation: CLICK_RECORDING_OPERATION_NAME,
+          shortCode: context.shortCode,
+          urlId: context.urlId,
+          errorName: safeError.name,
+          errorMessage: safeError.message,
+        });
       });
     };
   } catch {

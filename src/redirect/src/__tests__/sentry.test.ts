@@ -78,12 +78,35 @@ describe('Sentry configuration', () => {
     });
   });
 
-  it('removes inherited request headers and IP from tagged background click recording exceptions', () => {
+  it('removes all non-allowlisted fields from tagged background click recording exceptions', () => {
     const event = {
+      event_id: 'event-id',
+      timestamp: 1700000000,
+      platform: 'javascript',
+      level: 'error',
+      environment: 'production',
+      release: '1.3.0',
+      sdk: { name: 'sentry.javascript.cloudflare', version: '10.71.0' },
+      exception: {
+        values: [
+          {
+            type: 'Error',
+            value: 'D1 insert failed',
+            mechanism: { handled: true, type: BACKGROUND_CLICK_RECORDING_OPERATION },
+          },
+        ],
+      },
       message: 'D1 insert failed',
+      breadcrumbs: [{ message: 'ambient-breadcrumb' }],
+      extra: { ambient_extra: 'ambient-sentinel' },
+      contexts: { trace: { trace_id: 'trace-id' }, ambient: { marker: 'ambient-sentinel' } },
+      server_name: 'ambient-host',
+      sdkProcessingMetadata: { normalizedRequest: { url: 'https://aka.money/abc123' } },
       tags: {
         [BACKGROUND_OPERATION_TAG_KEY]: BACKGROUND_CLICK_RECORDING_OPERATION,
         short_code: 'abc123',
+        url_id: 'url-1',
+        ambient_tag: 'ambient-sentinel',
       },
       request: {
         headers: {
@@ -99,15 +122,42 @@ describe('Sentry configuration', () => {
 
     const scrubbed = scrubCredentialHeaders(event);
 
-    expect(scrubbed.request).toEqual({
-      url: 'https://aka.money/abc123',
+    expect(scrubbed).toEqual({
+      event_id: 'event-id',
+      timestamp: 1700000000,
+      platform: 'javascript',
+      level: 'error',
+      environment: 'production',
+      release: '1.3.0',
+      sdk: { name: 'sentry.javascript.cloudflare', version: '10.71.0' },
+      exception: {
+        values: [
+          {
+            type: 'Error',
+            value: 'D1 insert failed',
+            mechanism: { handled: true, type: BACKGROUND_CLICK_RECORDING_OPERATION },
+          },
+        ],
+      },
+      tags: {
+        [BACKGROUND_OPERATION_TAG_KEY]: BACKGROUND_CLICK_RECORDING_OPERATION,
+        short_code: 'abc123',
+        url_id: 'url-1',
+      },
     });
-    expect(scrubbed.user).toEqual({
-      id: 'user-id',
-    });
-    expect(scrubbed.tags).toEqual({
-      [BACKGROUND_OPERATION_TAG_KEY]: BACKGROUND_CLICK_RECORDING_OPERATION,
-      short_code: 'abc123',
+  });
+
+  it('keeps the allowlisted debug metadata needed to symbolicate background exceptions', () => {
+    const event = {
+      tags: { [BACKGROUND_OPERATION_TAG_KEY]: BACKGROUND_CLICK_RECORDING_OPERATION },
+      exception: { values: [{ type: 'Error', value: 'D1 insert failed' }] },
+      debug_meta: { images: [{ type: 'sourcemap', code_file: 'worker.js', debug_id: 'debug-id' }] },
+    } as unknown as Event;
+
+    const scrubbed = scrubCredentialHeaders(event);
+
+    expect(scrubbed.debug_meta).toEqual({
+      images: [{ type: 'sourcemap', code_file: 'worker.js', debug_id: 'debug-id' }],
     });
   });
 

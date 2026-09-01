@@ -10,6 +10,8 @@ import type { Env } from '../types';
 
 const TEST_DSN = 'https://public@example.ingest.sentry.io/1';
 
+const CONTEXT = { shortCode: 'abc123', urlId: 'url-1' };
+
 const AMBIENT_SENTINELS = [
   'ambient-user-id',
   'ambient@example.com',
@@ -78,13 +80,44 @@ function logsFrom(envelopes: RecordedEnvelope[]): JsonObject[] {
   );
 }
 
+function logAttributes(log: JsonObject): Record<string, { value: unknown; type?: string }> {
+  return (log.attributes ?? {}) as Record<string, { value: unknown; type?: string }>;
+}
+
 function operationalLogAttributes(log: JsonObject): JsonObject {
-  const attributes = (log.attributes ?? {}) as Record<string, { value: unknown }>;
   return Object.fromEntries(
-    Object.entries(attributes)
+    Object.entries(logAttributes(log))
       .filter(([key]) => !key.startsWith('sentry.'))
       .map(([key, attribute]) => [key, attribute.value])
   );
+}
+
+function isLogEnvelope(envelope: unknown): boolean {
+  const [, items] = (envelope ?? [undefined, []]) as RecordedEnvelope;
+  return (items ?? []).some(([header]) => header?.type === 'log');
+}
+
+function poisonGlobalScope(): void {
+  const globalScope = Sentry.getGlobalScope();
+  globalScope.setUser({
+    id: 'ambient-user-id',
+    email: 'ambient@example.com',
+    ip_address: '198.51.100.7',
+  });
+  globalScope.setTag('ambient_global_tag', 'ambient-sentinel');
+  globalScope.setContext('ambient_global_context', { marker: 'ambient-sentinel' });
+  globalScope.setExtra('ambient_global_extra', 'ambient-sentinel');
+  globalScope.setAttribute('ambient_global_attribute', 'ambient-sentinel');
+  globalScope.addBreadcrumb({ message: 'ambient-breadcrumb' });
+  globalScope.setSDKProcessingMetadata({
+    normalizedRequest: {
+      url: 'https://aka.money/ambient-sentinel',
+      headers: {
+        authorization: 'ambient-authorization',
+        cookie: 'session=ambient-session-cookie',
+      },
+    },
+  });
 }
 
 function createPoisonedIsolationScope(): Sentry.Scope {
@@ -141,6 +174,7 @@ describe('background click error reporting', () => {
   });
 
   afterEach(() => {
+    Sentry.getGlobalScope().clear();
     while (openClients.length > 0) {
       openClients.pop()?.client.dispose();
     }
@@ -149,6 +183,7 @@ describe('background click error reporting', () => {
   it('reports through the request client and empty scopes when ambient scopes are poisoned', async () => {
     const requestClient = createRecordingClient();
     const laterClient = createRecordingClient();
+    poisonGlobalScope();
 
     const reporter = Sentry.withIsolationScope(new Sentry.Scope(), () =>
       Sentry.withScope((requestScope) => {
@@ -193,12 +228,17 @@ describe('background click error reporting', () => {
       value: 'D1 insert failed',
     });
     expect(event.request).toBeUndefined();
-    expect((event.user as JsonObject | undefined)?.ip_address).toBeUndefined();
+    expect(event.user).toBeUndefined();
     expect(event.breadcrumbs).toBeUndefined();
+    expect(event.extra).toBeUndefined();
+    expect(event.contexts).toBeUndefined();
+    expect(event.sdkProcessingMetadata).toBeUndefined();
+    expect(event.environment).toBe('test');
 
     const [log] = logs;
     expect(log.body).toBe(BACKGROUND_ANALYTICS_ERROR_MESSAGE);
     expect(log.level).toBe('error');
+    expect(log.severity_number).toBe(17);
     expect(operationalLogAttributes(log)).toEqual({
       operation: 'recordClick',
       shortCode: 'abc123',
@@ -206,6 +246,17 @@ describe('background click error reporting', () => {
       errorName: 'Error',
       errorMessage: 'D1 insert failed',
     });
+    expect(Object.keys(logAttributes(log)).sort()).toEqual([
+      'errorMessage',
+      'errorName',
+      'operation',
+      'sentry.environment',
+      'shortCode',
+      'urlId',
+    ]);
+    for (const attribute of Object.values(logAttributes(log))) {
+      expect(attribute.type).toBe('string');
+    }
 
     const serializedEvent = JSON.stringify(event);
     const serializedLog = JSON.stringify(log);
@@ -239,13 +290,260 @@ describe('background click error reporting', () => {
       operation: 'recordClick',
       shortCode: 'abc123',
       urlId: 'url-1',
-      error: expect.any(Error),
+      errorName: 'Error',
+      errorMessage: 'D1 insert failed',
     });
     expect(eventsFrom(requestClient.envelopes)).toHaveLength(1);
     expect(logsFrom(requestClient.envelopes)).toHaveLength(1);
   });
 
-  it('strips request headers, cookies and user IP that the pipeline adds to background exceptions', async () => {
+  it('captures a safe error and never serializes a plain object throwable', async () => {
+    const requestClient = createRecordingClient();
+    const { observeClickRecording, nativeConsoleError } =
+      await loadServicesWithStubbedNativeConsole();
+
+    const hostileThrowable = {
+      destinationUrl: 'https://example.com/page',
+      ipAddress: '203.0.113.9',
+      authorization: 'Bearer super-secret-token',
+      cookie: 'session=cookie-secret',
+    };
+
+    await Sentry.withIsolationScope(new Sentry.Scope(), () =>
+      Sentry.withScope(async (requestScope) => {
+        requestScope.setClient(requestClient.client);
+        const reporter = createBackgroundClickErrorReporter();
+
+        await observeClickRecording(Promise.reject(hostileThrowable), CONTEXT, reporter);
+      })
+    );
+
+    await requestClient.client.flush();
+
+    const [event] = eventsFrom(requestClient.envelopes);
+    const [log] = logsFrom(requestClient.envelopes);
+
+    expect((event.exception as { values?: JsonObject[] }).values?.[0]).toMatchObject({
+      type: 'UnknownError',
+      value: '',
+    });
+    expect(event.extra).toBeUndefined();
+
+    for (const payload of [JSON.stringify(event), JSON.stringify(log)]) {
+      expect(payload).not.toContain('https://example.com/page');
+      expect(payload).not.toContain('203.0.113.9');
+      expect(payload).not.toContain('super-secret-token');
+      expect(payload).not.toContain('cookie-secret');
+      expect(payload).not.toContain('captured as exception');
+      expect(payload).not.toContain('__serialized__');
+    }
+
+    expect(operationalLogAttributes(log)).toEqual({
+      operation: 'recordClick',
+      shortCode: 'abc123',
+      urlId: 'url-1',
+      errorName: 'UnknownError',
+      errorMessage: '',
+    });
+    expect(nativeConsoleError).toHaveBeenCalledWith(BACKGROUND_ANALYTICS_ERROR_MESSAGE, {
+      operation: 'recordClick',
+      shortCode: 'abc123',
+      urlId: 'url-1',
+      errorName: 'UnknownError',
+      errorMessage: '',
+    });
+  });
+
+  it('captures a safe error for a Symbol throwable without stringifying it', async () => {
+    const requestClient = createRecordingClient();
+    const { observeClickRecording, nativeConsoleError } =
+      await loadServicesWithStubbedNativeConsole();
+
+    const hostileThrowable = Symbol('https://example.com/page?token=super-secret-token');
+
+    await Sentry.withIsolationScope(new Sentry.Scope(), () =>
+      Sentry.withScope(async (requestScope) => {
+        requestScope.setClient(requestClient.client);
+        const reporter = createBackgroundClickErrorReporter();
+
+        await observeClickRecording(Promise.reject(hostileThrowable), CONTEXT, reporter);
+      })
+    );
+
+    await requestClient.client.flush();
+
+    const [event] = eventsFrom(requestClient.envelopes);
+    const [log] = logsFrom(requestClient.envelopes);
+
+    expect((event.exception as { values?: JsonObject[] }).values?.[0]).toMatchObject({
+      type: 'UnknownError',
+      value: '',
+    });
+
+    for (const payload of [JSON.stringify(event), JSON.stringify(log)]) {
+      expect(payload).not.toContain('https://example.com/page');
+      expect(payload).not.toContain('super-secret-token');
+      expect(payload).not.toContain('Symbol(');
+    }
+
+    expect(nativeConsoleError).toHaveBeenCalledWith(BACKGROUND_ANALYTICS_ERROR_MESSAGE, {
+      operation: 'recordClick',
+      shortCode: 'abc123',
+      urlId: 'url-1',
+      errorName: 'UnknownError',
+      errorMessage: '',
+    });
+  });
+
+  it('redacts URLs, IPs and credentials carried by a real error message', async () => {
+    const requestClient = createRecordingClient();
+    const { observeClickRecording, nativeConsoleError } =
+      await loadServicesWithStubbedNativeConsole();
+
+    const leakyError = new Error(
+      'D1_ERROR: insert failed for https://example.com/page from 203.0.113.9 with cookie=session-secret'
+    );
+
+    await Sentry.withIsolationScope(new Sentry.Scope(), () =>
+      Sentry.withScope(async (requestScope) => {
+        requestScope.setClient(requestClient.client);
+        const reporter = createBackgroundClickErrorReporter();
+
+        await observeClickRecording(Promise.reject(leakyError), CONTEXT, reporter);
+      })
+    );
+
+    await requestClient.client.flush();
+
+    const [event] = eventsFrom(requestClient.envelopes);
+    const [log] = logsFrom(requestClient.envelopes);
+
+    for (const payload of [
+      JSON.stringify(event),
+      JSON.stringify(log),
+      JSON.stringify(nativeConsoleError.mock.calls),
+    ]) {
+      expect(payload).not.toContain('https://example.com/page');
+      expect(payload).not.toContain('203.0.113.9');
+      expect(payload).not.toContain('session-secret');
+    }
+
+    expect((event.exception as { values?: JsonObject[] }).values?.[0]).toMatchObject({
+      type: 'Error',
+      value: 'D1_ERROR: insert failed for [redacted] from [redacted] with [redacted]',
+    });
+  });
+
+  it('rejects an error name that is not an allowlisted bounded identifier', async () => {
+    const requestClient = createRecordingClient();
+    const hostileError = new Error('D1 insert failed');
+    hostileError.name = 'https://example.com/page?token=super-secret-token';
+
+    const reporter = Sentry.withIsolationScope(new Sentry.Scope(), () =>
+      Sentry.withScope((requestScope) => {
+        requestScope.setClient(requestClient.client);
+        return createBackgroundClickErrorReporter();
+      })
+    );
+
+    await reporter?.(hostileError, CONTEXT);
+    await requestClient.client.flush();
+
+    const [event] = eventsFrom(requestClient.envelopes);
+    const [log] = logsFrom(requestClient.envelopes);
+
+    expect((event.exception as { values?: JsonObject[] }).values?.[0]).toMatchObject({
+      type: 'UnknownError',
+      value: 'D1 insert failed',
+    });
+    expect(JSON.stringify(event)).not.toContain('super-secret-token');
+    expect(JSON.stringify(log)).not.toContain('super-secret-token');
+  });
+
+  it('resolves when the log envelope send rejects', async () => {
+    const requestClient = createRecordingClient();
+    const sendEnvelope = requestClient.client.sendEnvelope.bind(requestClient.client);
+    const spy = vi
+      .spyOn(requestClient.client, 'sendEnvelope')
+      .mockImplementation((envelope) =>
+        isLogEnvelope(envelope)
+          ? Promise.reject(new Error('transport exploded'))
+          : sendEnvelope(envelope)
+      );
+
+    const reporter = Sentry.withIsolationScope(new Sentry.Scope(), () =>
+      Sentry.withScope((requestScope) => {
+        requestScope.setClient(requestClient.client);
+        return createBackgroundClickErrorReporter();
+      })
+    );
+
+    await expect(
+      Promise.resolve(reporter?.(new Error('D1 insert failed'), CONTEXT))
+    ).resolves.toBeUndefined();
+
+    expect(spy.mock.calls.some(([envelope]) => isLogEnvelope(envelope))).toBe(true);
+
+    spy.mockRestore();
+    await requestClient.client.flush();
+    expect(eventsFrom(requestClient.envelopes)).toHaveLength(1);
+  });
+
+  it('resolves when the log envelope send throws synchronously', async () => {
+    const requestClient = createRecordingClient();
+    const sendEnvelope = requestClient.client.sendEnvelope.bind(requestClient.client);
+    const spy = vi
+      .spyOn(requestClient.client, 'sendEnvelope')
+      .mockImplementation((envelope) => {
+        if (isLogEnvelope(envelope)) {
+          throw new Error('transport exploded synchronously');
+        }
+
+        return sendEnvelope(envelope);
+      });
+
+    const reporter = Sentry.withIsolationScope(new Sentry.Scope(), () =>
+      Sentry.withScope((requestScope) => {
+        requestScope.setClient(requestClient.client);
+        return createBackgroundClickErrorReporter();
+      })
+    );
+
+    await expect(
+      Promise.resolve(reporter?.(new Error('D1 insert failed'), CONTEXT))
+    ).resolves.toBeUndefined();
+
+    spy.mockRestore();
+    await requestClient.client.flush();
+    expect(eventsFrom(requestClient.envelopes)).toHaveLength(1);
+  });
+
+  it('resolves when the exception capture throws synchronously', async () => {
+    const requestClient = createRecordingClient();
+    const spy = vi.spyOn(requestClient.client, 'captureException').mockImplementation(() => {
+      throw new Error('capture exploded');
+    });
+
+    const reporter = Sentry.withIsolationScope(new Sentry.Scope(), () =>
+      Sentry.withScope((requestScope) => {
+        requestScope.setClient(requestClient.client);
+        return createBackgroundClickErrorReporter();
+      })
+    );
+
+    await expect(
+      Promise.resolve(reporter?.(new Error('D1 insert failed'), CONTEXT))
+    ).resolves.toBeUndefined();
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0]?.[0]).toBeInstanceOf(Error);
+
+    spy.mockRestore();
+    await requestClient.client.flush();
+    expect(logsFrom(requestClient.envelopes)).toHaveLength(1);
+  });
+
+  it('strips request context, user, breadcrumbs and non-allowlisted tags from background exceptions', async () => {
     const requestClient = createRecordingClient();
     requestClient.client.on('preprocessEvent', (event) => {
       event.request = {
@@ -257,7 +555,12 @@ describe('background click error reporting', () => {
         },
         cookies: { session: 'cookie-secret' },
       };
-      event.user = { ...event.user, ip_address: '203.0.113.1' };
+      event.user = { ...event.user, id: 'user-id', ip_address: '203.0.113.1' };
+      event.breadcrumbs = [{ message: 'pipeline-breadcrumb' }];
+      event.extra = { ...event.extra, pipeline_extra: 'pipeline-secret' };
+      event.contexts = { ...event.contexts, pipeline: { marker: 'pipeline-secret' } };
+      event.tags = { ...event.tags, pipeline_tag: 'pipeline-secret' };
+      event.server_name = 'pipeline-host';
     });
 
     const reporter = Sentry.withIsolationScope(new Sentry.Scope(), () =>
@@ -267,14 +570,32 @@ describe('background click error reporting', () => {
       })
     );
 
-    await reporter?.(new Error('D1 insert failed'), { shortCode: 'abc123', urlId: 'url-1' });
+    await reporter?.(new Error('D1 insert failed'), CONTEXT);
     await requestClient.client.flush();
 
     const [event] = eventsFrom(requestClient.envelopes);
-    expect(event.request).toEqual({ url: 'https://aka.money/abc123' });
-    expect((event.user as JsonObject).ip_address).toBeUndefined();
-    expect(JSON.stringify(event)).not.toContain('cookie-secret');
-    expect(JSON.stringify(event)).not.toContain('safe-request-id');
+    expect(event.request).toBeUndefined();
+    expect(event.user).toBeUndefined();
+    expect(event.breadcrumbs).toBeUndefined();
+    expect(event.extra).toBeUndefined();
+    expect(event.contexts).toBeUndefined();
+    expect(event.server_name).toBeUndefined();
+    expect(event.tags).toEqual({
+      [BACKGROUND_OPERATION_TAG_KEY]: BACKGROUND_CLICK_RECORDING_OPERATION,
+      short_code: 'abc123',
+      url_id: 'url-1',
+    });
+    expect((event.exception as { values?: JsonObject[] }).values?.[0]).toMatchObject({
+      type: 'Error',
+      value: 'D1 insert failed',
+    });
+
+    const serializedEvent = JSON.stringify(event);
+    expect(serializedEvent).not.toContain('cookie-secret');
+    expect(serializedEvent).not.toContain('safe-request-id');
+    expect(serializedEvent).not.toContain('pipeline-secret');
+    expect(serializedEvent).not.toContain('pipeline-breadcrumb');
+    expect(serializedEvent).not.toContain('203.0.113.1');
   });
 
   it('returns undefined when no Sentry client is available', () => {

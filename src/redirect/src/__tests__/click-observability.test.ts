@@ -36,10 +36,106 @@ describe('background click observability', () => {
       operation: 'recordClick',
       shortCode: 'abc123',
       urlId: 'url-1',
-      error,
+      errorName: 'Error',
+      errorMessage: 'D1 insert failed',
     });
     expect(reporter).toHaveBeenCalledTimes(1);
     expect(reporter).toHaveBeenCalledWith(error, CONTEXT);
+  });
+
+  it('logs bounded safe fields instead of a raw hostile throwable', async () => {
+    const reporter = vi.fn<ClickRecordingErrorReporter>();
+    const hostileThrowable = {
+      destinationUrl: 'https://example.com/page',
+      cookie: 'session=cookie-secret',
+    };
+
+    await observeClickRecording(Promise.reject(hostileThrowable), CONTEXT, reporter);
+
+    expect(nativeConsoleError).toHaveBeenCalledWith(BACKGROUND_ANALYTICS_ERROR_MESSAGE, {
+      operation: 'recordClick',
+      shortCode: 'abc123',
+      urlId: 'url-1',
+      errorName: 'UnknownError',
+      errorMessage: '',
+    });
+    expect(JSON.stringify(nativeConsoleError.mock.calls)).not.toContain('cookie-secret');
+    expect(JSON.stringify(nativeConsoleError.mock.calls)).not.toContain(
+      'https://example.com/page'
+    );
+  });
+
+  it('resolves when reading the throwable message throws', async () => {
+    const hostileThrowable = new Error('safe');
+    Object.defineProperty(hostileThrowable, 'message', {
+      get() {
+        throw new Error('message getter exploded');
+      },
+    });
+    const reporter = vi.fn<ClickRecordingErrorReporter>();
+
+    await expect(
+      observeClickRecording(Promise.reject(hostileThrowable), CONTEXT, reporter)
+    ).resolves.toBeUndefined();
+
+    expect(nativeConsoleError).toHaveBeenCalledWith(BACKGROUND_ANALYTICS_ERROR_MESSAGE, {
+      operation: 'recordClick',
+      shortCode: 'abc123',
+      urlId: 'url-1',
+      errorName: 'Error',
+      errorMessage: '',
+    });
+    expect(reporter).toHaveBeenCalledTimes(1);
+  });
+
+  it('resolves when the throwable prototype lookup throws', async () => {
+    const hostileThrowable = new Proxy(
+      {},
+      {
+        getPrototypeOf() {
+          throw new Error('prototype trap');
+        },
+      }
+    );
+    const reporter = vi.fn<ClickRecordingErrorReporter>();
+
+    await expect(
+      observeClickRecording(Promise.reject(hostileThrowable), CONTEXT, reporter)
+    ).resolves.toBeUndefined();
+
+    expect(nativeConsoleError).toHaveBeenCalledWith(BACKGROUND_ANALYTICS_ERROR_MESSAGE, {
+      operation: 'recordClick',
+      shortCode: 'abc123',
+      urlId: 'url-1',
+      errorName: 'UnknownError',
+      errorMessage: '',
+    });
+    expect(reporter).toHaveBeenCalledTimes(1);
+  });
+
+  it('resolves and still reports when the native console throws', async () => {
+    vi.resetModules();
+    const throwingConsoleError = vi.fn(() => {
+      throw new Error('console exploded');
+    });
+    const originalConsoleError = console.error;
+    console.error = throwingConsoleError as unknown as typeof console.error;
+
+    let observe: ObserveClickRecording;
+    try {
+      ({ observeClickRecording: observe } = await import('../services'));
+    } finally {
+      console.error = originalConsoleError;
+    }
+
+    const reporter = vi.fn<ClickRecordingErrorReporter>();
+
+    await expect(
+      observe(Promise.reject(new Error('D1 insert failed')), CONTEXT, reporter)
+    ).resolves.toBeUndefined();
+
+    expect(throwingConsoleError).toHaveBeenCalledTimes(1);
+    expect(reporter).toHaveBeenCalledTimes(1);
   });
 
   it('still logs once to the native console when no reporter is available', async () => {
