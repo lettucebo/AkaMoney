@@ -256,10 +256,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Documented the Sentry monitoring setup for frontend, Admin API, and redirect projects, including Issues, Logs, Tracing, error-only Replay, Cloudflare Workers Logs, source maps, uptime checks, and alert routing.
+- Integrated Sentry across the Vue frontend, Admin API Worker, and redirect Worker with Issues, Logs, distributed tracing, and error-only frontend Replay.
+- Enabled Cloudflare Workers Logs, Worker version metadata, and source-map uploads for readable production stack traces.
+- Added a one-minute uptime monitor for `https://aka.money/health`, including first-outage and regression email notifications.
+- Added a protected CI source-map flow that keeps the Sentry upload token out of PR-head builds and removes `.map` files before Pages deployment.
+- Added bilingual monitoring, configuration, deployment, and troubleshooting documentation.
 
 ### Changed
-- Clarified that API 5xx responses are sanitized while 4xx responses may keep safe validation details.
+- Changed Admin API 5xx responses to return generic error envelopes without raw exception details or stack traces; safe validation details remain available for applicable 4xx responses.
 
 ### Planned Features
 - QR code generation for short URLs

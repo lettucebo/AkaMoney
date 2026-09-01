@@ -17,7 +17,7 @@
 | `VITE_APP_NAME` | 否 | `AkaMoney` | 顯示在導覽列的應用程式名稱 |
 | `VITE_SHORT_DOMAIN` | 否 | — | 用於建立短連結目標的重新導向服務基礎 URL |
 | `VITE_SKIP_AUTH` | 僅開發 | `false` | 設為 `true` 以略過 Entra ID 並使用記憶體內 Stub API |
-| `VITE_SENTRY_DSN` | 否 | 空值 | `akamoney-web` 專案的 public Sentry DSN；空值會停用前端 Sentry 初始化 |
+| `VITE_SENTRY_DSN` | 正式發布：是；本地：否 | 空值 | `akamoney-web` 專案的公開 Sentry DSN；空值會停用本地前端 Sentry 初始化，正式發布流程缺少此值時則會停止 |
 | `VITE_SENTRY_ENVIRONMENT` | 否 | Vite mode | 前端 SDK 回報給 Sentry 的環境名稱 |
 | `VITE_SENTRY_REPLAY_ENABLED` | 否 | `.env.example` 中為 `false` | 控制 error-session Replay；原始碼除非值為 `false`，否則會啟用 error-session Replay，而一般 Replay sessions 仍維持 0% 採樣 |
 
@@ -25,11 +25,11 @@
 
 > **`VITE_SKIP_AUTH` 僅限開發環境。** 此旗標與 `import.meta.env.DEV` 同時判斷，即使設定了此變數，在正式環境建置中也不會生效。
 
-已追蹤的 `src\frontend\.env.example` 使用本地服務 URL 與空的 Sentry 值。不得提交實際 DSN 值。
+已追蹤的 `src/frontend/.env.example` 使用本地服務 URL 與空的 Sentry 值。不得提交實際 DSN 值。
 
 ### 由發佈工作流程注入 — 原始碼未讀取
 
-這些變數由 GitHub Actions 發佈工作流程寫入前端建置環境，但前端原始碼中沒有對應的 `import.meta.env` 存取器，且 `src\frontend\src\vite-env.d.ts` 中也不存在：
+這些變數由 GitHub Actions 發佈工作流程寫入前端建置環境，但前端原始碼中沒有對應的 `import.meta.env` 存取器，且 `src/frontend/src/vite-env.d.ts` 中也不存在：
 
 | 變數 | 工作流程來源 | 說明 |
 |------|-------------|------|
@@ -54,7 +54,7 @@ Bindings 在 `wrangler.toml` / `wrangler.local.toml` 中宣告，並作為 `c.en
 | `ENTRA_ID_TENANT_ID` | 是 | 用於 Token 驗證期間 JWKS 端點建構的 Entra ID 租用戶 ID |
 | `ENTRA_ID_CLIENT_ID` | 是 | 用於 Token 受眾驗證的 Entra ID 應用程式用戶端 ID |
 | `ENVIRONMENT` | 是 | 回報給 Sentry 並供執行時行為使用的部署環境 |
-| `SENTRY_DSN` | 否 | 管理 API Worker 的 public Sentry DSN。空值會讓 SDK 收到 `undefined`，等同停用傳輸。Release workflow 會從 `SENTRY_BACKEND_DSN` repository variable 注入此值。 |
+| `SENTRY_DSN` | 正式發布：是；本地：否 | 管理 API Worker 的公開 Sentry DSN。空值會讓本地 SDK 收到 `undefined`，等同停用傳輸。正式發布流程會要求並從 `SENTRY_BACKEND_DSN` repository variable 注入此值。 |
 | `STORAGE_PROVIDER` | 否 — 預設 `r2` | 儲存後端：`r2`（預設）或 `azure` |
 | `R2_PUBLIC_URL` | 否 | 可公開存取的 R2 內容基礎 URL |
 | `AZURE_STORAGE_ACCOUNT` | 若使用 `azure` | Azure Blob Storage 帳戶名稱 |
@@ -73,7 +73,7 @@ Bindings 在 `wrangler.toml` / `wrangler.local.toml` 中宣告，並作為 `c.en
 | `[observability] enabled = true` | 是 | 是 | 啟用 Cloudflare Workers Logs。 |
 | `[observability] head_sampling_rate = 1` | 是 | 是 | 將 Cloudflare Workers Logs head sampling 維持在 100%。 |
 
-Cloudflare source-map 行為文件：https://developers.cloudflare.com/workers/observability/source-maps/。Workers Logs 文件：https://developers.cloudflare.com/workers/observability/logs/workers-logs/。Version metadata 文件：https://developers.cloudflare.com/workers/runtime-apis/bindings/version-metadata/。
+請參閱 [Cloudflare source map 文件](https://developers.cloudflare.com/workers/observability/source-maps/)、[Workers Logs 文件](https://developers.cloudflare.com/workers/observability/logs/workers-logs/)與 [Version metadata 文件](https://developers.cloudflare.com/workers/runtime-apis/bindings/version-metadata/)。
 
 ### Secrets（透過 `wrangler secret put` 或受保護的 CI secrets 設定）
 
@@ -92,7 +92,7 @@ Secrets 靜態加密，不會在 `wrangler.toml` 或 logs 中顯示。
 
 ### 由發佈工作流程注入 — 原始碼未消費
 
-這些值由 GitHub Actions 發佈管道寫入 `wrangler.toml`，但後端執行時原始碼中沒有對應的 `c.env` 存取器。它們不存在於 `src\backend\src\types\index.ts` 的 `Env` 介面中：
+這些值由 GitHub Actions 發佈管道寫入 `wrangler.toml`，但後端執行時原始碼中沒有對應的 `c.env` 存取器。它們不存在於 `src/backend/src/types/index.ts` 的 `Env` 介面中：
 
 | 變數 | 注入方式 | 說明 |
 |------|---------|------|
@@ -101,7 +101,7 @@ Secrets 靜態加密，不會在 `wrangler.toml` 或 logs 中顯示。
 
 ### 存在於類型或範例中 — 執行時未消費
 
-這些變數出現在 `Env` 介面（`src\backend\src\types\index.ts`）或範例中，但在正式環境原始碼中未透過 `c.env` 存取。後端僅透過 Microsoft Entra JWKS 進行驗證；不使用本地 HMAC JWT secret。
+這些變數出現在 `Env` 介面（`src/backend/src/types/index.ts`）或範例中，但在正式環境原始碼中未透過 `c.env` 存取。後端僅透過 Microsoft Entra JWKS 進行驗證；不使用本地 HMAC JWT secret。
 
 | 變數 | 位置 | 說明 |
 |------|------|------|
@@ -116,17 +116,17 @@ Secrets 靜態加密，不會在 `wrangler.toml` 或 logs 中顯示。
 | --- | --- | --- |
 | `DB` | 是 | 用於解析 active short codes 並記錄 clicks 的 D1 binding |
 | `ENVIRONMENT` | 是 | 回報給 Sentry 的部署環境 |
-| `SENTRY_DSN` | 否 | 重新導向 Worker 的 public Sentry DSN。空值會讓 SDK 收到 `undefined`，等同停用傳輸。Release workflow 會從 `SENTRY_REDIRECT_DSN` repository variable 注入此值。 |
+| `SENTRY_DSN` | 正式發布：是；本地：否 | 重新導向 Worker 的公開 Sentry DSN。空值會讓本地 SDK 收到 `undefined`，等同停用傳輸。正式發布流程會要求並從 `SENTRY_REDIRECT_DSN` repository variable 注入此值。 |
 | `CF_VERSION_METADATA` | 否 | 透過 `[version_metadata]` 設定的 version metadata binding |
 
 ## 範例檔案參考
 
 | 服務 | 範例檔案 | 複製至 | 說明 |
 |------|---------|--------|------|
-| 前端 | `src\frontend\.env.example` | `src\frontend\.env` | 使用空 Sentry DSN 與本地服務 URLs |
-| 管理 API | `src\backend\wrangler.local.toml.example` | `src\backend\wrangler.local.toml` | 使用 `compatibility_flags = ["nodejs_compat"]`、source maps、`CF_VERSION_METADATA`、observability 與空 `SENTRY_DSN` |
-| 管理 API 舊版 env 範例 | `src\backend\.env.example` | 請勿複製 | 僅供 legacy/reference；Worker binding 與 runtime 變數應放在 `wrangler.local.toml` |
-| 重新導向 | `src\redirect\wrangler.local.toml.example` | `src\redirect\wrangler.local.toml` | 使用 `compatibility_flags = ["nodejs_compat"]`、source maps、`CF_VERSION_METADATA`、observability 與空 `SENTRY_DSN` |
+| 前端 | `src/frontend/.env.example` | `src/frontend/.env` | 使用空 Sentry DSN 與本地服務 URLs |
+| 管理 API | `src/backend/wrangler.local.toml.example` | `src/backend/wrangler.local.toml` | 使用 `compatibility_flags = ["nodejs_compat"]`、source maps、`CF_VERSION_METADATA`、observability 與空 `SENTRY_DSN` |
+| 管理 API 舊版 env 範例 | `src/backend/.env.example` | 請勿複製 | 僅供 legacy/reference；Worker binding 與 runtime 變數應放在 `wrangler.local.toml` |
+| 重新導向 | `src/redirect/wrangler.local.toml.example` | `src/redirect/wrangler.local.toml` | 使用 `compatibility_flags = ["nodejs_compat"]`、source maps、`CF_VERSION_METADATA`、observability 與空 `SENTRY_DSN` |
 
 `wrangler.local.toml` 檔案列在 `.gitignore` 中以防止憑證洩漏。被追蹤的 `wrangler.toml` 包含 `database_id = ""`（空值）。本地開發時請在 `.local.toml` 複本中填入您的實際資料庫 ID；發佈工作流程會在 CI/CD 部署時自動填入。
 

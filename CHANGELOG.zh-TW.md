@@ -256,10 +256,14 @@ AkaMoney 專案的所有重要變更都將記錄在此檔案中。
 ## [未發布]
 
 ### 新增
-- 記錄前端、管理 API 與重新導向專案的 Sentry 監控設定，包含 Issues、Logs、Tracing、error-only Replay、Cloudflare Workers Logs、source maps、uptime checks 與 alert routing。
+- 在 Vue 前端、管理 API Worker 與重新導向 Worker 全面整合 Sentry Issues、Logs、分散式追蹤，以及僅於錯誤發生時啟用的前端 Replay。
+- 啟用 Cloudflare Workers Logs、Worker 版本中繼資料與 source map 上傳，以取得可讀的正式環境堆疊追蹤。
+- 為 `https://aka.money/health` 新增每分鐘執行的 uptime monitor，並設定首次停機與恢復後再次停機的電子郵件通知。
+- 新增受保護的 CI source map 流程，避免 PR head build 取得 Sentry 上傳權杖，並在 Pages 部署前移除所有 `.map` 檔案。
+- 新增中英雙語的監控、設定、部署與疑難排解文件。
 
 ### 變更
-- 釐清 API 5xx responses 會被 sanitize，而 4xx responses 可以保留安全的驗證細節。
+- 管理 API 的 5xx 回應改為通用錯誤封包，不再回傳原始例外細節或堆疊追蹤；適用的 4xx 回應仍可保留安全的驗證資訊。
 
 ### 計畫功能
 - 為短網址產生 QR code

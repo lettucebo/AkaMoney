@@ -17,7 +17,7 @@ This document is the canonical source of truth for environment variables, Worker
 | `VITE_APP_NAME` | No | `AkaMoney` | Application display name shown in navigation |
 | `VITE_SHORT_DOMAIN` | No | — | Redirect service base URL used to build short-link targets |
 | `VITE_SKIP_AUTH` | Dev only | `false` | Set to `true` to bypass Entra ID and use an in-memory stub API |
-| `VITE_SENTRY_DSN` | No | empty | Public Sentry DSN for the `akamoney-web` project; empty disables frontend Sentry initialization |
+| `VITE_SENTRY_DSN` | Production release: Yes; local: No | empty | Public Sentry DSN for the `akamoney-web` project; empty disables local frontend Sentry initialization, while the release workflow fails closed if it is missing |
 | `VITE_SENTRY_ENVIRONMENT` | No | Vite mode | Sentry environment name reported by the frontend SDK |
 | `VITE_SENTRY_REPLAY_ENABLED` | No | `false` in `.env.example` | Controls error-session Replay; source enables error-session Replay unless the value is `false`, while normal Replay sessions remain sampled at 0% |
 
@@ -25,11 +25,11 @@ This document is the canonical source of truth for environment variables, Worker
 
 > **`VITE_SKIP_AUTH` is dev-only.** The flag is gated on `import.meta.env.DEV`; it has no effect in production builds even if the variable is set.
 
-The tracked `src\frontend\.env.example` uses local service URLs and empty Sentry values. Do not commit concrete DSN values.
+The tracked `src/frontend/.env.example` uses local service URLs and empty Sentry values. Do not commit concrete DSN values.
 
 ### Injected by Release Workflow — Not Read by Source
 
-These variables are set in the GitHub Actions release workflow build environment but have no corresponding `import.meta.env` accessor in the frontend source code and are absent from `src\frontend\src\vite-env.d.ts`:
+These variables are set in the GitHub Actions release workflow build environment but have no corresponding `import.meta.env` accessor in the frontend source code and are absent from `src/frontend/src/vite-env.d.ts`:
 
 | Variable | Workflow Source | Notes |
 |----------|-----------------|-------|
@@ -54,7 +54,7 @@ Bindings are declared in `wrangler.toml` / `wrangler.local.toml` and accessed as
 | `ENTRA_ID_TENANT_ID` | Yes | Entra ID tenant ID for JWKS endpoint construction during token verification |
 | `ENTRA_ID_CLIENT_ID` | Yes | Entra ID app client ID for token audience validation |
 | `ENVIRONMENT` | Yes | Deployment environment reported to Sentry and used by runtime behavior |
-| `SENTRY_DSN` | No | Public Sentry DSN for the Admin API Worker. Empty value disables transport by passing `undefined` to the SDK. The release workflow injects this from the `SENTRY_BACKEND_DSN` repository variable. |
+| `SENTRY_DSN` | Production release: Yes; local: No | Public Sentry DSN for the Admin API Worker. Empty value disables local transport by passing `undefined` to the SDK. The release workflow requires and injects this from the `SENTRY_BACKEND_DSN` repository variable. |
 | `STORAGE_PROVIDER` | No — default `r2` | Storage backend: `r2` (default) or `azure` |
 | `R2_PUBLIC_URL` | No | Base URL for publicly accessible R2-served content |
 | `AZURE_STORAGE_ACCOUNT` | If `azure` | Azure Blob Storage account name |
@@ -92,7 +92,7 @@ Backend and redirect 5xx responses are sanitized and must not include stack trac
 
 ### Injected by Release Workflow — Not Consumed by Source
 
-These values are written to `wrangler.toml` by the GitHub Actions release pipeline but have no corresponding `c.env` accessor in the backend runtime source code. They are absent from the `Env` interface in `src\backend\src\types\index.ts`:
+These values are written to `wrangler.toml` by the GitHub Actions release pipeline but have no corresponding `c.env` accessor in the backend runtime source code. They are absent from the `Env` interface in `src/backend/src/types/index.ts`:
 
 | Variable | How Injected | Notes |
 |----------|--------------|-------|
@@ -101,7 +101,7 @@ These values are written to `wrangler.toml` by the GitHub Actions release pipeli
 
 ### Present in Types or Examples — Not Consumed at Runtime
 
-These variables appear in the `Env` interface (`src\backend\src\types\index.ts`) or in examples but are not accessed via `c.env` in the production source code. The backend authenticates solely via Microsoft Entra JWKS; a local HMAC JWT secret is not used.
+These variables appear in the `Env` interface (`src/backend/src/types/index.ts`) or in examples but are not accessed via `c.env` in the production source code. The backend authenticates solely via Microsoft Entra JWKS; a local HMAC JWT secret is not used.
 
 | Variable | Location | Notes |
 |----------|----------|-------|
@@ -116,17 +116,17 @@ These variables appear in the `Env` interface (`src\backend\src\types\index.ts`)
 | --- | --- | --- |
 | `DB` | Yes | D1 binding used to resolve active short codes and record clicks |
 | `ENVIRONMENT` | Yes | Deployment environment reported to Sentry |
-| `SENTRY_DSN` | No | Public Sentry DSN for the redirect Worker. Empty value disables transport by passing `undefined` to the SDK. The release workflow injects this from the `SENTRY_REDIRECT_DSN` repository variable. |
+| `SENTRY_DSN` | Production release: Yes; local: No | Public Sentry DSN for the redirect Worker. Empty value disables local transport by passing `undefined` to the SDK. The release workflow requires and injects this from the `SENTRY_REDIRECT_DSN` repository variable. |
 | `CF_VERSION_METADATA` | No | Version metadata binding configured through `[version_metadata]` |
 
 ## Example Files Reference
 
 | Service | Example File | Copy To | Notes |
 |---------|-------------|---------|-------|
-| Frontend | `src\frontend\.env.example` | `src\frontend\.env` | Uses empty Sentry DSN and local service URLs |
-| Admin API | `src\backend\wrangler.local.toml.example` | `src\backend\wrangler.local.toml` | Uses `compatibility_flags = ["nodejs_compat"]`, source maps, `CF_VERSION_METADATA`, observability, and empty `SENTRY_DSN` |
-| Admin API legacy env example | `src\backend\.env.example` | Do not copy | Legacy/reference-only keys; Worker bindings and runtime vars belong in `wrangler.local.toml` |
-| Redirect | `src\redirect\wrangler.local.toml.example` | `src\redirect\wrangler.local.toml` | Uses `compatibility_flags = ["nodejs_compat"]`, source maps, `CF_VERSION_METADATA`, observability, and empty `SENTRY_DSN` |
+| Frontend | `src/frontend/.env.example` | `src/frontend/.env` | Uses empty Sentry DSN and local service URLs |
+| Admin API | `src/backend/wrangler.local.toml.example` | `src/backend/wrangler.local.toml` | Uses `compatibility_flags = ["nodejs_compat"]`, source maps, `CF_VERSION_METADATA`, observability, and empty `SENTRY_DSN` |
+| Admin API legacy env example | `src/backend/.env.example` | Do not copy | Legacy/reference-only keys; Worker bindings and runtime vars belong in `wrangler.local.toml` |
+| Redirect | `src/redirect/wrangler.local.toml.example` | `src/redirect/wrangler.local.toml` | Uses `compatibility_flags = ["nodejs_compat"]`, source maps, `CF_VERSION_METADATA`, observability, and empty `SENTRY_DSN` |
 
 The `wrangler.local.toml` files are listed in `.gitignore` to prevent credential leaks. The tracked `wrangler.toml` files contain `database_id = ""` (empty). Supply your actual database ID in the `.local.toml` copies for local development; the release workflow populates it automatically for CI/CD deployment.
 

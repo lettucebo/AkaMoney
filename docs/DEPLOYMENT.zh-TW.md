@@ -83,6 +83,7 @@ on:
 ### Workflow Secrets
 
 - `CLOUDFLARE_API_TOKEN`：具備 Workers、Pages、D1 與 R2 權限之 Cloudflare API Token（需包含 `Edit Cloudflare Workers`、`D1:Edit`、`R2:Edit`、`Pages:Edit` 權限）。
+- `SENTRY_AUTH_TOKEN`：**必要的 production environment secret。** 僅供受保護的前端部署工作上傳 source maps。請勿存為 repository secret，並應要求 production environment reviewer 核准。
 - `ENTRA_ID_CLIENT_SECRET`：*（選填）* Release workflow 只會在此值存在時注入；runtime backend 不會讀取此值，也不會執行 SSO 權杖交換。
 - `AZURE_STORAGE_SAS_TOKEN`：*（選填）* Azure Blob Storage SAS 權杖（僅在 `STORAGE_PROVIDER=azure` 時需要）。
 
@@ -94,10 +95,16 @@ on:
 - `ENTRA_ID_CLIENT_ID`：Microsoft Entra ID 應用程式（用戶端）識別碼（Client ID）。
 - `ENTRA_ID_REDIRECT_URI`：前端重定向網址（例如 `https://admin.aka.money`）。
 - `VITE_API_URL`：後端管理 API 基礎網址（例如 `https://api.aka.money`）。
+- `VITE_SENTRY_DSN`：前端正式環境建置所需的公開 DSN。
+- `VITE_SENTRY_REPLAY_ENABLED`：設為 `true` 啟用錯誤工作階段 Replay，設為 `false` 則停用。
+- `SENTRY_BACKEND_DSN`：注入管理 API Worker 的必要公開 DSN。
+- `SENTRY_REDIRECT_DSN`：注入重新導向 Worker 的必要公開 DSN。
 - `SHORT_DOMAIN`：產生之縮短網址網域（例如 `https://aka.money` 或 `https://go.aka.money`）。
 - `STORAGE_PROVIDER`：`"r2"`（預設）或 `"azure"`。
 - `AZURE_STORAGE_ACCOUNT` 與 `AZURE_STORAGE_CONTAINER`：*（選填）* Azure 儲存帳戶與容器名稱。
 - `ENVIRONMENT`：正式 Worker 應設為 `"production"`。已追蹤設定預設為 `"development"`，目前 release workflow 不會覆寫此值。
+
+發布流程會在任何建置或 Cloudflare 變更前驗證三組 DSN；缺少或格式無效時會停止。前端 source maps 只會在受保護的 `production` environment 上傳，並在 Pages 部署前刪除。
 
 ### 廢棄/未接入變數說明
 

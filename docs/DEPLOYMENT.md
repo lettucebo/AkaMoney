@@ -83,6 +83,7 @@ Configure the following GitHub Secrets and Variables under **Settings > Secrets 
 ### Workflow Secrets
 
 - `CLOUDFLARE_API_TOKEN`: Cloudflare API token with permissions for Workers, Pages, D1, and R2 (`Edit Cloudflare Workers`, `D1:Edit`, `R2:Edit`, `Pages:Edit`).
+- `SENTRY_AUTH_TOKEN`: **Required production environment secret.** Used only by the protected frontend deploy job to inject and upload source maps. Keep it out of repository secrets and require a production environment reviewer.
 - `ENTRA_ID_CLIENT_SECRET`: *(Optional)* The release workflow injects it only when present. The runtime backend does not read it or perform an SSO token exchange.
 - `AZURE_STORAGE_SAS_TOKEN`: *(Optional)* Azure Blob Storage SAS token (only required when `STORAGE_PROVIDER=azure`).
 
@@ -94,10 +95,16 @@ Configure the following GitHub Secrets and Variables under **Settings > Secrets 
 - `ENTRA_ID_CLIENT_ID`: Microsoft Entra ID Application (client) ID.
 - `ENTRA_ID_REDIRECT_URI`: Frontend redirect URL (e.g., `https://admin.aka.money`).
 - `VITE_API_URL`: Backend Admin API base URL (e.g., `https://api.aka.money`).
+- `VITE_SENTRY_DSN`: Required public DSN for the frontend production build.
+- `VITE_SENTRY_REPLAY_ENABLED`: Set to `true` to enable error-session Replay or `false` to disable it.
+- `SENTRY_BACKEND_DSN`: Required public DSN injected into the Admin API Worker.
+- `SENTRY_REDIRECT_DSN`: Required public DSN injected into the redirect Worker.
 - `SHORT_DOMAIN`: Short domain URL used for generated links (e.g., `https://aka.money` or `https://go.aka.money`).
 - `STORAGE_PROVIDER`: `"r2"` (default) or `"azure"`.
 - `AZURE_STORAGE_ACCOUNT` & `AZURE_STORAGE_CONTAINER`: *(Optional)* Azure Blob storage account and container names.
 - `ENVIRONMENT`: Set to `"production"` for a production Worker. The tracked config defaults to `"development"`, and the current release workflow does not override it.
+
+The release workflow validates all three DSNs before any build or Cloudflare mutation. It fails closed for missing or malformed values. Frontend source maps are uploaded from the protected `production` environment and deleted before Pages deployment.
 
 ### Dead Scaffolding Variables Notice
 
