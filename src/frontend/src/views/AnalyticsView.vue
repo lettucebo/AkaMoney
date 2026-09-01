@@ -26,8 +26,10 @@
         <div class="analytics-subject">
           <span>分析對象</span>
           <b>{{ shortHost }}/{{ analytics.url.short_code }}</b>
+          <!-- Replay must not record customer destinations: they can carry signed query credentials. -->
           <a
             v-if="safeOriginalUrl"
+            data-sentry-block
             :href="safeOriginalUrl"
             target="_blank"
             rel="noopener noreferrer"
@@ -35,7 +37,7 @@
           >
             {{ analytics.url.original_url }} ↗
           </a>
-          <span v-else class="original-url" :title="analytics.url.original_url">{{ analytics.url.original_url }}</span>
+          <span v-else class="original-url" data-sentry-block :title="analytics.url.original_url">{{ analytics.url.original_url }}</span>
         </div>
       </header>
 

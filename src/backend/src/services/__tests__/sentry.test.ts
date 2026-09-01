@@ -72,6 +72,37 @@ describe('Sentry service', () => {
       });
     });
 
+    it('removes parsed request cookies, with or without a cookie header', () => {
+      const withHeader = {
+        event_id: 'event-parsed-cookies',
+        request: {
+          url: 'https://admin.example.test/api/urls',
+          headers: {
+            Cookie: 'session=secret-cookie',
+            'x-request-id': 'request-123'
+          },
+          cookies: { session: 'secret-cookie' }
+        }
+      } as Event;
+
+      expect(scrubSentryEventCredentials(withHeader).request).toEqual({
+        url: 'https://admin.example.test/api/urls',
+        headers: { 'x-request-id': 'request-123' }
+      });
+
+      const withoutHeader = {
+        event_id: 'event-parsed-cookies-only',
+        request: {
+          url: 'https://admin.example.test/api/urls',
+          cookies: { session: 'secret-cookie' }
+        }
+      } as Event;
+
+      expect(scrubSentryEventCredentials(withoutHeader).request).toEqual({
+        url: 'https://admin.example.test/api/urls'
+      });
+    });
+
     it('preserves events without request headers', () => {
       const event = {
         event_id: 'event-2',

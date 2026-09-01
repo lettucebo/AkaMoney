@@ -19,13 +19,23 @@ This document is the canonical source of truth for environment variables, Worker
 | `VITE_SKIP_AUTH` | Dev only | `false` | Set to `true` to bypass Entra ID and use an in-memory stub API |
 | `VITE_SENTRY_DSN` | Production release: Yes; local: No | empty | Public Sentry DSN for the `akamoney-web` project; empty disables local frontend Sentry initialization, while the release workflow fails closed if it is missing |
 | `VITE_SENTRY_ENVIRONMENT` | No | Vite mode | Sentry environment name reported by the frontend SDK |
-| `VITE_SENTRY_REPLAY_ENABLED` | No | `false` in `.env.example` | Controls error-session Replay; source enables error-session Replay unless the value is `false`, while normal Replay sessions remain sampled at 0% |
+| `VITE_SENTRY_REPLAY_ENABLED` | No | `false` in `.env.example` | Controls error-session Replay; source enables error-session Replay unless the trimmed, lower-cased value is `false`, while normal Replay sessions remain sampled at 0% |
 
 \* Required for real Entra ID authentication; optional when `VITE_SKIP_AUTH=true`.
 
 > **`VITE_SKIP_AUTH` is dev-only.** The flag is gated on `import.meta.env.DEV`; it has no effect in production builds even if the variable is set.
 
 The tracked `src/frontend/.env.example` uses local service URLs and empty Sentry values. Do not commit concrete DSN values.
+
+### Build-Process Variables (`process.env`, read by `vite.config.ts`)
+
+These are read by the Vite config during the build and are not part of `import.meta.env`:
+
+| Variable | Effect |
+|----------|--------|
+| `GITHUB_ACTIONS` | When present and non-blank, `build.sourcemap` is `'hidden'`; otherwise source maps are disabled so a manual build cannot publish them |
+| `SENTRY_AUTH_TOKEN` | When present and non-blank, enables hidden source maps and activates the Sentry Vite plugin, which uploads the maps and then deletes them from `dist/` |
+| `SENTRY_ORG` / `SENTRY_PROJECT` | Override the default `money-5c` / `akamoney-web` upload target for that plugin |
 
 ### Injected by Release Workflow — Not Read by Source
 
@@ -53,7 +63,7 @@ Bindings are declared in `wrangler.toml` / `wrangler.local.toml` and accessed as
 |----------|----------|-------------|
 | `ENTRA_ID_TENANT_ID` | Yes | Entra ID tenant ID for JWKS endpoint construction during token verification |
 | `ENTRA_ID_CLIENT_ID` | Yes | Entra ID app client ID for token audience validation |
-| `ENVIRONMENT` | Yes | Deployment environment reported to Sentry and used by runtime behavior |
+| `ENVIRONMENT` | Yes | Deployment environment reported to Sentry and used by runtime behavior. The tracked config ships `"development"`; the release workflow replaces it with `"production"` before deploying. |
 | `SENTRY_DSN` | Production release: Yes; local: No | Public Sentry DSN for the Admin API Worker. Empty value disables local transport by passing `undefined` to the SDK. The release workflow requires and injects this from the `SENTRY_BACKEND_DSN` repository variable. |
 | `STORAGE_PROVIDER` | No — default `r2` | Storage backend: `r2` (default) or `azure` |
 | `R2_PUBLIC_URL` | No | Base URL for publicly accessible R2-served content |
@@ -115,7 +125,7 @@ These variables appear in the `Env` interface (`src/backend/src/types/index.ts`)
 | Variable / Binding | Required | Description |
 | --- | --- | --- |
 | `DB` | Yes | D1 binding used to resolve active short codes and record clicks |
-| `ENVIRONMENT` | Yes | Deployment environment reported to Sentry |
+| `ENVIRONMENT` | Yes | Deployment environment reported to Sentry. The tracked config ships `"development"`; the release workflow replaces it with `"production"` before deploying. |
 | `SENTRY_DSN` | Production release: Yes; local: No | Public Sentry DSN for the redirect Worker. Empty value disables local transport by passing `undefined` to the SDK. The release workflow requires and injects this from the `SENTRY_REDIRECT_DSN` repository variable. |
 | `CF_VERSION_METADATA` | No | Version metadata binding configured through `[version_metadata]` |
 

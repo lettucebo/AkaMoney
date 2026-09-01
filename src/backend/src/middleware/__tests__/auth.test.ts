@@ -445,6 +445,57 @@ describe('Auth Middleware', () => {
     });
   });
 
+  describe('successful verification logging', () => {
+    it('never logs the raw Entra object id or subject after a successful verification', async () => {
+      const consoleLog = vi.mocked(console.log);
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: {
+          oid: 'oid-raw-identifier',
+          sub: 'sub-raw-identifier',
+          iss: `https://login.microsoftonline.com/${TENANT_ID}/v2.0`,
+          aud: CLIENT_ID,
+          email: 'test@example.com',
+          name: 'Test User'
+        },
+        protectedHeader: { alg: 'RS256' }
+      } as any);
+      vi.mocked(upsertUser).mockResolvedValueOnce({
+        id: 'db-user-123',
+        email: 'test@example.com',
+        name: 'Test User',
+        sso_provider: 'entra',
+        sso_id: 'oid-raw-identifier',
+        password_hash: null,
+        entra_id: null,
+        role: 'user',
+        created_at: Date.now(),
+        updated_at: Date.now(),
+        last_login_at: Date.now(),
+        is_active: 1
+      });
+
+      const app = new Hono();
+      app.use('*', async (c, next) => {
+        (c.env as any) = {
+          ENTRA_ID_TENANT_ID: TENANT_ID,
+          ENTRA_ID_CLIENT_ID: CLIENT_ID,
+          DB: {} as D1Database
+        };
+        await next();
+      });
+      app.get('/protected', authMiddleware, (c) => c.json({ success: true }));
+
+      const res = await app.request('/protected', { headers: { Authorization: 'Bearer valid-token' } });
+      expect(res.status).toBe(200);
+
+      const logged = JSON.stringify(consoleLog.mock.calls);
+      expect(logged).not.toContain('oid-raw-identifier');
+      expect(logged).not.toContain('sub-raw-identifier');
+      expect(logged).not.toContain('userId');
+      expect(logged).toContain('Token verified successfully');
+    });
+  });
+
   describe('getAuthUser', () => {
     it('should return null when no user is set', async () => {
       const app = new Hono();

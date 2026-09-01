@@ -47,8 +47,9 @@ async function verifyEntraIdToken(
       audience: [clientId, `api://${clientId}`],
     });
 
+    // The verified user identifier is deliberately absent: this log is captured as a
+    // Sentry log/breadcrumb, and the Entra object id is the raw account identifier.
     console.log('Token verified successfully:', {
-      userId: payload.oid || payload.sub,
       issuer: payload.iss,
       audience: payload.aud
     });

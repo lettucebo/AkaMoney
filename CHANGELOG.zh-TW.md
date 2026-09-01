@@ -264,6 +264,14 @@ AkaMoney 專案的所有重要變更都將記錄在此檔案中。
 
 ### 變更
 - 管理 API 的 5xx 回應改為通用錯誤封包，不再回傳原始例外細節或堆疊追蹤；適用的 4xx 回應仍可保留安全的驗證資訊。
+- 發布流程改為在部署前將兩個 Worker 設定的 `ENVIRONMENT` 設為 `"production"`，正式環境遙測不再被回報為 `development`。
+- 前端建置改為只有在具備 `GITHUB_ACTIONS` 或 `SENTRY_AUTH_TOKEN` 時才產生 hidden source maps，手動建置與部署不可能再發布 source maps。
+- `VITE_SENTRY_REPLAY_ENABLED` 判斷改為先去除前後空白並轉小寫，因此 `false`、`False` 與含空白的寫法都會停用 error Replay。
+
+### 安全性
+- 前端遙測不再帶出客戶目的地網址：URL store 的 console error 只記錄 error name、code 與 HTTP status，且連結列表、成效分析與熱門連結統計中呈現或以屬性帶出 `original_url` 的元素都以 `data-sentry-block` 排除於 Session Replay 之外。
+- 管理 API 的 Sentry events 除 `Cookie` 標頭外，也一併移除已解析的 request cookies，與重新導向 Worker 一致。
+- 移除管理 API 權杖驗證成功日誌中的原始 Entra object id/subject。
 
 ### 計畫功能
 - 為短網址產生 QR code

@@ -19,13 +19,23 @@
 | `VITE_SKIP_AUTH` | 僅開發 | `false` | 設為 `true` 以略過 Entra ID 並使用記憶體內 Stub API |
 | `VITE_SENTRY_DSN` | 正式發布：是；本地：否 | 空值 | `akamoney-web` 專案的公開 Sentry DSN；空值會停用本地前端 Sentry 初始化，正式發布流程缺少此值時則會停止 |
 | `VITE_SENTRY_ENVIRONMENT` | 否 | Vite mode | 前端 SDK 回報給 Sentry 的環境名稱 |
-| `VITE_SENTRY_REPLAY_ENABLED` | 否 | `.env.example` 中為 `false` | 控制 error-session Replay；原始碼除非值為 `false`，否則會啟用 error-session Replay，而一般 Replay sessions 仍維持 0% 採樣 |
+| `VITE_SENTRY_REPLAY_ENABLED` | 否 | `.env.example` 中為 `false` | 控制 error-session Replay；除非去除前後空白並轉小寫後的值為 `false`，否則原始碼會啟用 error-session Replay，而一般 Replay sessions 仍維持 0% 採樣 |
 
 \* 進行真實 Entra ID 驗證時必填；當 `VITE_SKIP_AUTH=true` 時為選填。
 
 > **`VITE_SKIP_AUTH` 僅限開發環境。** 此旗標與 `import.meta.env.DEV` 同時判斷，即使設定了此變數，在正式環境建置中也不會生效。
 
 已追蹤的 `src/frontend/.env.example` 使用本地服務 URL 與空的 Sentry 值。不得提交實際 DSN 值。
+
+### 建置流程變數（`process.env`，由 `vite.config.ts` 讀取）
+
+以下變數在建置期間由 Vite 設定讀取，不屬於 `import.meta.env`：
+
+| 變數 | 效果 |
+|------|------|
+| `GITHUB_ACTIONS` | 存在且非空白時，`build.sourcemap` 為 `'hidden'`；否則停用 source maps，避免手動建置把 map 發布出去 |
+| `SENTRY_AUTH_TOKEN` | 存在且非空白時，會啟用 hidden source maps 並啟動 Sentry Vite plugin，由 plugin 上傳並自 `dist/` 刪除 map |
+| `SENTRY_ORG` / `SENTRY_PROJECT` | 覆寫該 plugin 預設的 `money-5c` / `akamoney-web` 上傳目標 |
 
 ### 由發佈工作流程注入 — 原始碼未讀取
 
@@ -53,7 +63,7 @@ Bindings 在 `wrangler.toml` / `wrangler.local.toml` 中宣告，並作為 `c.en
 |------|------|------|
 | `ENTRA_ID_TENANT_ID` | 是 | 用於 Token 驗證期間 JWKS 端點建構的 Entra ID 租用戶 ID |
 | `ENTRA_ID_CLIENT_ID` | 是 | 用於 Token 受眾驗證的 Entra ID 應用程式用戶端 ID |
-| `ENVIRONMENT` | 是 | 回報給 Sentry 並供執行時行為使用的部署環境 |
+| `ENVIRONMENT` | 是 | 回報給 Sentry 並供執行時行為使用的部署環境。已追蹤設定為 `"development"`；release workflow 會在部署前取代為 `"production"`。 |
 | `SENTRY_DSN` | 正式發布：是；本地：否 | 管理 API Worker 的公開 Sentry DSN。空值會讓本地 SDK 收到 `undefined`，等同停用傳輸。正式發布流程會要求並從 `SENTRY_BACKEND_DSN` repository variable 注入此值。 |
 | `STORAGE_PROVIDER` | 否 — 預設 `r2` | 儲存後端：`r2`（預設）或 `azure` |
 | `R2_PUBLIC_URL` | 否 | 可公開存取的 R2 內容基礎 URL |
@@ -115,7 +125,7 @@ Secrets 靜態加密，不會在 `wrangler.toml` 或 logs 中顯示。
 | 變數 / Binding | 必填 | 說明 |
 | --- | --- | --- |
 | `DB` | 是 | 用於解析 active short codes 並記錄 clicks 的 D1 binding |
-| `ENVIRONMENT` | 是 | 回報給 Sentry 的部署環境 |
+| `ENVIRONMENT` | 是 | 回報給 Sentry 的部署環境。已追蹤設定為 `"development"`；release workflow 會在部署前取代為 `"production"`。 |
 | `SENTRY_DSN` | 正式發布：是；本地：否 | 重新導向 Worker 的公開 Sentry DSN。空值會讓本地 SDK 收到 `undefined`，等同停用傳輸。正式發布流程會要求並從 `SENTRY_REDIRECT_DSN` repository variable 注入此值。 |
 | `CF_VERSION_METADATA` | 否 | 透過 `[version_metadata]` 設定的 version metadata binding |
 

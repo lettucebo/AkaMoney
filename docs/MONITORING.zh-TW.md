@@ -18,27 +18,29 @@
 
 | 能力 | 前端 `akamoney-web` | 管理 API `akamoney-api` | 重新導向 `akamoney-redirect` | 依據 |
 | --- | --- | --- | --- | --- |
-| Issues / errors | `VITE_SENTRY_DSN` 非空時，`@sentry/vue` 會初始化。 | `@sentry/cloudflare` 會包裝 Worker handler。 | `@sentry/cloudflare/nodejs_compat` 會包裝 Worker handler。 | `src/frontend/src/utils/sentry.ts:18-31`；`src/backend/src/index.ts:731`；`src/redirect/src/index.ts:73-78`；[Sentry Vue 文件](https://docs.sentry.io/platforms/javascript/guides/vue/)；[Sentry Cloudflare 文件](https://docs.sentry.io/platforms/javascript/guides/cloudflare/) |
-| Logs | SDK logs 已啟用，並捕捉 console `warn` / `error`。 | SDK logs 已啟用，並捕捉 console `log` / `warn` / `error`。 | SDK logs 已啟用，並捕捉 console `log` / `warn` / `error`。 | `src/frontend/src/utils/sentry.ts:36-39`；`src/backend/src/services/sentry.ts:105-113`；`src/redirect/src/sentry.ts:114-123`；[Sentry Logs 文件](https://docs.sentry.io/platforms/javascript/guides/vue/logs/) |
-| Tracing sample rate | 正式環境建置採樣 20%；開發模式採樣 100% 供本地診斷。 | 20%。 | 1%。 | `src/frontend/src/utils/sentry.ts:40`；`src/backend/src/services/sentry.ts:105`；`src/redirect/src/sentry.ts:114` |
-| Replay | Error-only Replay：一般 session 0%，error session 100%，除非 `VITE_SENTRY_REPLAY_ENABLED=false`。 | N/A。 | N/A。 | `src/frontend/src/utils/sentry.ts:35`；`src/frontend/src/utils/sentry.ts:42-43`；[Sentry Replay 文件](https://docs.sentry.io/platforms/javascript/guides/vue/session-replay/) |
+| Issues / errors | `VITE_SENTRY_DSN` 非空時，`@sentry/vue` 會初始化。 | `@sentry/cloudflare` 會包裝 Worker handler。 | `@sentry/cloudflare/nodejs_compat` 會包裝 Worker handler。 | `src/frontend/src/utils/sentry.ts:21-34`；`src/backend/src/index.ts:731`；`src/redirect/src/index.ts:73-78`；[Sentry Vue 文件](https://docs.sentry.io/platforms/javascript/guides/vue/)；[Sentry Cloudflare 文件](https://docs.sentry.io/platforms/javascript/guides/cloudflare/) |
+| Logs | SDK logs 已啟用，並捕捉 console `warn` / `error`。 | SDK logs 已啟用，並捕捉 console `log` / `warn` / `error`。 | SDK logs 已啟用，並捕捉 console `log` / `warn` / `error`。 | `src/frontend/src/utils/sentry.ts:39-42`；`src/backend/src/services/sentry.ts:105-117`；`src/redirect/src/sentry.ts:114-123`；[Sentry Logs 文件](https://docs.sentry.io/platforms/javascript/guides/vue/logs/) |
+| Tracing sample rate | 正式環境建置採樣 20%；開發模式採樣 100% 供本地診斷。 | 20%。 | 1%。 | `src/frontend/src/utils/sentry.ts:43`；`src/backend/src/services/sentry.ts:109`；`src/redirect/src/sentry.ts:114` |
+| Replay | Error-only Replay：一般 session 0%，error session 100%，除非 `VITE_SENTRY_REPLAY_ENABLED` 為 `false`（會先去除前後空白並忽略大小寫）。列表、成效分析與統計頁中呈現客戶 `original_url` 的元素都標記 `data-sentry-block`。 | N/A。 | N/A。 | `src/frontend/src/utils/sentry.ts:18-19`；`src/frontend/src/utils/sentry.ts:38`；`src/frontend/src/utils/sentry.ts:45-46`；`src/frontend/src/components/dashboard/UrlTable.vue:22`；`src/frontend/src/views/AnalyticsView.vue:32-40`；`src/frontend/src/views/OverallStatsView.vue:49`；[Sentry Replay 文件](https://docs.sentry.io/platforms/javascript/guides/vue/session-replay/) |
 | Cloudflare Workers Logs | N/A。 | Wrangler observability 已啟用。 | Wrangler observability 已啟用。 | `src/backend/wrangler.toml:13-15`；`src/redirect/wrangler.toml:13-15`；[Cloudflare Workers Logs 文件](https://developers.cloudflare.com/workers/observability/logs/workers-logs/) |
-| Worker source maps 與 version metadata | 發布流程會在受保護的部署工作上傳前端 hidden source maps；其他受信任的建置環境若提供上傳權杖，也可啟用 Vite plugin。 | 已設定 `upload_source_maps = true` 與 `CF_VERSION_METADATA` binding。 | 已設定 `upload_source_maps = true` 與 `CF_VERSION_METADATA` binding。 | `src/frontend/vite.config.ts:12-29`；`src/backend/wrangler.toml:8-11`；`src/redirect/wrangler.toml:8-11`；[Sentry source maps 文件](https://docs.sentry.io/platforms/javascript/sourcemaps/)；[Cloudflare Worker source maps 文件](https://developers.cloudflare.com/workers/observability/source-maps/)；[Cloudflare version metadata 文件](https://developers.cloudflare.com/workers/runtime-apis/bindings/version-metadata/) |
+| Worker source maps 與 version metadata | 前端建置只有在具備 `GITHUB_ACTIONS` 或 `SENTRY_AUTH_TOKEN` 時才會產生 hidden source maps；單純在本機執行 `npm run build` 不會產生任何 map。發布流程會在受保護的部署工作上傳後刪除它們。 | 已設定 `upload_source_maps = true` 與 `CF_VERSION_METADATA` binding。 | 已設定 `upload_source_maps = true` 與 `CF_VERSION_METADATA` binding。 | `src/frontend/vite.config.ts:8-43`；`src/backend/wrangler.toml:8-11`；`src/redirect/wrangler.toml:8-11`；[Sentry source maps 文件](https://docs.sentry.io/platforms/javascript/sourcemaps/)；[Cloudflare Worker source maps 文件](https://developers.cloudflare.com/workers/observability/source-maps/)；[Cloudflare version metadata 文件](https://developers.cloudflare.com/workers/runtime-apis/bindings/version-metadata/) |
+| 部署環境名稱 | 由發布建置回報為 `production`（`VITE_SENTRY_ENVIRONMENT`）。 | 發布流程會在部署前寫死 `ENVIRONMENT = "production"`。 | 發布流程會在部署前寫死 `ENVIRONMENT = "production"`。 | `.github/workflows/release.yml:62`；`.github/workflows/release.yml:231-247`；`.github/workflows/release.yml:696-709` |
 
 ## 本地行為
 
-- Sentry DSN 留空時，本地環境不會送出遙測資料：前端會在呼叫 `Sentry.init` 前返回；Workers 會把 `undefined` 傳給 SDK（`src/frontend/src/utils/sentry.ts:23-26`；`src/backend/src/services/sentry.ts:103`；`src/redirect/src/sentry.ts:112`）。正式發布必須具備三組 DSN，缺少或格式錯誤時會停止。
-- 前端遙測使用者內容失敗不得影響驗證流程。`setSentryUser` 與 `clearSentryUser` 會捕捉 Sentry／雜湊失敗，且只寫入不含識別資訊的警告（`src/frontend/src/utils/sentry.ts:52-76`；`src/frontend/src/stores/auth.ts:47-74`）。
+- Sentry DSN 留空時，本地環境不會送出遙測資料：前端會在呼叫 `Sentry.init` 前返回；Workers 會把 `undefined` 傳給 SDK（`src/frontend/src/utils/sentry.ts:26-29`；`src/backend/src/services/sentry.ts:107`；`src/redirect/src/sentry.ts:112`）。正式發布必須具備三組 DSN，缺少或格式錯誤時會停止。
+- 前端遙測使用者內容失敗不得影響驗證流程。`setSentryUser` 與 `clearSentryUser` 會捕捉 Sentry／雜湊失敗，且只寫入不含識別資訊的警告（`src/frontend/src/utils/sentry.ts:55-79`；`src/frontend/src/stores/auth.ts:47-74`）。
 - 本地驗證可使用本機 `.env` / `wrangler.local.toml` 複本，但這些檔案必須維持 ignored，且不得提交。
 
 ## 隱私與資料處理
 
 | 項目 | 目前行為 | 剩餘影響 |
 | --- | --- | --- |
-| PII 模式 | 三個 SDK 都選用 `sendDefaultPii: true`，保留 Sentry 預設的較完整內容（`src/frontend/src/utils/sentry.ts:32`；`src/backend/src/services/sentry.ts:107`；`src/redirect/src/sentry.ts:117`）。 | 必須把 Sentry 視為已授權的營運遙測目的地；不要把業務機密加到日誌或錯誤訊息。 |
-| 使用者身分 | 前端會先以 SHA-256 雜湊 Microsoft Entra account ID，再呼叫 `Sentry.setUser({ id })`（`src/frontend/src/utils/sentry.ts:52-61`）。 | 此雜湊值是穩定且假名化的識別值；若其他地方可取得原始識別值，則不等同匿名。 |
-| 憑證標頭 | 後端與重新導向 Sentry events/spans 會移除 `authorization`、`x-api-key`、`cookie` 標頭（`src/backend/src/services/sentry.ts:4-80`；`src/redirect/src/sentry.ts:8-104`）。 | 仍須避免把憑證放進自訂標籤、breadcrumbs 或日誌訊息。 |
-| Replay | 使用 Sentry Replay default masking；一般 session sampling 為 0%，error-session sampling 由 `VITE_SENTRY_REPLAY_ENABLED` 控制。 | 連到 Replay 或 event 的 console entries 仍可能包含使用者可見的供應商訊息。 |
+| PII 模式 | 三個 SDK 都選用 `sendDefaultPii: true`，保留 Sentry 預設的較完整內容（`src/frontend/src/utils/sentry.ts:35`；`src/backend/src/services/sentry.ts:111`；`src/redirect/src/sentry.ts:117`）。 | 必須把 Sentry 視為已授權的營運遙測目的地；不要把業務機密加到日誌或錯誤訊息。 |
+| 使用者身分 | 前端會先以 SHA-256 雜湊 Microsoft Entra account ID，再呼叫 `Sentry.setUser({ id })`（`src/frontend/src/utils/sentry.ts:55-64`）。 | 此雜湊值是穩定且假名化的識別值；若其他地方可取得原始識別值，則不等同匿名。 |
+| 憑證標頭 | 後端與重新導向 Sentry events/spans 會移除 `authorization`、`x-api-key`、`cookie` 標頭，以及任何已解析的 `request.cookies`（`src/backend/src/services/sentry.ts:5-103`；`src/redirect/src/sentry.ts:8-104`）。 | 仍須避免把憑證放進自訂標籤、breadcrumbs 或日誌訊息。 |
+| 目的地網址 | 前端不再記錄原始 error 物件：URL 相關的 store 失敗只記錄 error name、code 與 HTTP status（`src/frontend/src/utils/safeError.ts`；`src/frontend/src/stores/url.ts`）。連結列表、成效分析對象與熱門連結統計中呈現或以屬性帶出 `original_url` 的元素都標記 `data-sentry-block`；建立／編輯表單欄位則沿用 Sentry 預設的 input masking。 | `original_url` 可能夾帶簽章查詢字串憑證；新增 UI 或 console 輸出時也不得帶出。管理 API events 仍可能包含失敗路由的 request body 與 query，這是已接受的寬鬆 PII 取捨。 |
+| Replay | 使用 Sentry Replay default masking；一般 session sampling 為 0%，error-session sampling 由 `VITE_SENTRY_REPLAY_ENABLED` 控制。列表、成效分析與統計頁中呈現的目的地網址以 `data-sentry-block` 阻擋錄製。 | 連到 Replay 或 event 的 console entries 仍可能包含使用者可見的供應商訊息。 |
 | Tokens 與 DSNs | 不得記錄 auth tokens、Entra bearer tokens、SAS tokens、x-api-key 值、cookies 或實際 Sentry DSN 值。 | 使用 GitHub variables/secrets 與本機 ignored files；下方範例只使用環境變數名稱。 |
 
 請參閱 [Sentry Replay 預設遮罩文件](https://docs.sentry.io/platforms/javascript/guides/vue/session-replay/)與 [Sentry 驗證權杖文件](https://docs.sentry.io/account/auth-tokens/)。
@@ -48,7 +50,7 @@
 | 名稱 | GitHub 儲存位置 | 執行時目標 | 用途 | 注意事項 |
 | --- | --- | --- | --- | --- |
 | `VITE_SENTRY_DSN` | Repository variable | 前端建置環境 | `akamoney-web` 的公開 DSN。 | 正式發布時必填；本地留空會停用 SDK。不要把值貼到文件、日誌或 commits。 |
-| `VITE_SENTRY_REPLAY_ENABLED` | Repository variable | 前端建置環境 | 除非設為 `false`，否則啟用 error-session Replay。 | 一般 Replay sessions 維持 0%；啟用時 error sessions 為 100%。 |
+| `VITE_SENTRY_REPLAY_ENABLED` | Repository variable | 前端建置環境 | 除非設為 `false`，否則啟用 error-session Replay。 | 判斷時會去除前後空白並忽略大小寫，因此 `false`、`False` 或含空白的寫法都會停用。一般 Replay sessions 維持 0%；啟用時 error sessions 為 100%。 |
 | `SENTRY_BACKEND_DSN` | Repository variable | 管理 API deploy workflow | 注入 Worker `SENTRY_DSN` var，供 `akamoney-api` 使用。 | 正式發布時必填；發布流程會先驗證 DSN，再執行部署變更。 |
 | `SENTRY_REDIRECT_DSN` | Repository variable | 重新導向 deploy workflow | 注入 Worker `SENTRY_DSN` var，供 `akamoney-redirect` 使用。 | 正式發布時必填；發布流程會先驗證 DSN，再執行部署變更。 |
 | `SENTRY_AUTH_TOKEN` | Production environment secret | 只給受保護的前端 deploy job | 驗證 `sentry-cli` source-map inject/upload。 | 不得提供給不受信任的 PR-head build job。 |
@@ -63,10 +65,10 @@
 ## 安全 source-map 流程
 
 1. 發布流程的不受信任 PR head build 會收到公開 DSN variables，但不會收到 Sentry 上傳憑證（`.github/workflows/release.yml:61-67`）。
-2. Vite 正式環境建置會產生 hidden frontend source maps（`src/frontend/vite.config.ts:12-29`）。
-3. 受保護的部署工作只會在 environment protection 通過後取得 `SENTRY_AUTH_TOKEN`（`.github/workflows/release.yml:848-874`）。
-4. 受保護的工作會針對已建置好的前端 artifact 執行 `sentry-cli sourcemaps inject` 與 `sentry-cli sourcemaps upload`（`.github/workflows/release.yml:862-891`）。
-5. Workflow 會刪除 `.map` 檔，並在 Cloudflare Pages 部署前檢查沒有任何 `.map` 檔殘留（`.github/workflows/release.yml:892-921`）。
+2. 只有能把 source maps 交給 Sentry 的建置才會產生 hidden source maps：Vite 設定在具備 `GITHUB_ACTIONS` 或 `SENTRY_AUTH_TOKEN` 時才啟用，其餘情況一律關閉，因此手動 `npm run build` 後再執行 `wrangler pages deploy` 不可能發布 map（`src/frontend/vite.config.ts:8-43`）。
+3. 受保護的部署工作只會在 environment protection 通過後取得 `SENTRY_AUTH_TOKEN`（`.github/workflows/release.yml:881-907`）。
+4. 受保護的工作會針對已建置好的前端 artifact 執行 `sentry-cli sourcemaps inject` 與 `sentry-cli sourcemaps upload`（`.github/workflows/release.yml:895-924`）。
+5. Workflow 會刪除 `.map` 檔，並在 Cloudflare Pages 部署前檢查沒有任何 `.map` 檔殘留（`.github/workflows/release.yml:925-954`）。
 
 在第一次正式環境 release 於 Sentry 確認 symbolication 前，不要宣稱 production source maps 已驗證。
 
@@ -166,8 +168,8 @@ curl.exe --oauth2-bearer $env:SENTRY_AUTH_TOKEN "$env:SENTRY_BASE_URL/api/0/orga
 | 症狀 | 檢查 |
 | --- | --- |
 | 沒有前端 events | 確認該次 build 的 `VITE_SENTRY_DSN` 非空、build 已重新部署，且瀏覽器網路阻擋沒有擋住 Sentry ingestion。 |
-| 沒有 Worker events | 確認已部署 Worker 有非空 `SENTRY_DSN`、`ENVIRONMENT`、observability enabled，且 release workflow DSN validation 沒有失敗。 |
+| 沒有 Worker events | 確認已部署 Worker 有非空 `SENTRY_DSN`、`ENVIRONMENT`（發布流程會設為 `production`）、observability enabled，且 release workflow DSN validation 沒有失敗。 |
 | 沒有 logs | 確認 SDK `enableLogs` 為 true，且查詢正確的 Sentry project/dataset。 |
-| Replay 缺漏 | 確認 `VITE_SENTRY_REPLAY_ENABLED` 不是 `false`；一般 sessions 依設計採樣 0%。 |
-| 部署後缺少 source maps | 確認受保護 job 已執行 `sentry-cli sourcemaps inject/upload`；不要部署仍含有 `.map` 檔的 artifacts。 |
+| Replay 缺漏 | 確認 `VITE_SENTRY_REPLAY_ENABLED` 不是 `false`（含大小寫變化或前後空白）；一般 sessions 依設計採樣 0%。 |
+| 部署後缺少 source maps | 確認受保護 job 已執行 `sentry-cli sourcemaps inject/upload`；不要部署仍含有 `.map` 檔的 artifacts。本機 `npm run build` 在沒有 `GITHUB_ACTIONS` 或 `SENTRY_AUTH_TOKEN` 時依設計不會產生 map。 |
 | 非預期 PII | 檢查 logs、自訂 breadcrumbs、exception messages 與供應商 console text；應從上游訊息 scrub，而不只仰賴 SDK defaults。 |

@@ -56,15 +56,19 @@ export function scrubSentryEventCredentials(event: Event): Event {
   const result: Event = { ...event };
   const headers = event.request?.headers;
 
-  if (headers) {
-    const scrubbedHeaders = Object.fromEntries(
-      Object.entries(headers).filter(([name]) => !CREDENTIAL_HEADERS.has(name.toLowerCase()))
-    );
+  if (event.request) {
+    // Cookies are dropped as a whole: the SDK can attach them parsed as
+    // `request.cookies` even when the raw Cookie header is absent.
+    const { cookies: _cookies, ...requestWithoutCookies } = event.request;
 
-    result.request = {
-      ...event.request,
-      headers: scrubbedHeaders
-    };
+    result.request = headers
+      ? {
+          ...requestWithoutCookies,
+          headers: Object.fromEntries(
+            Object.entries(headers).filter(([name]) => !CREDENTIAL_HEADERS.has(name.toLowerCase()))
+          )
+        }
+      : requestWithoutCookies;
   }
 
   if (event.breadcrumbs) {

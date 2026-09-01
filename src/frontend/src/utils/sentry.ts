@@ -15,6 +15,9 @@ const buildTracePropagationTargets = (): Array<string | RegExp> => {
   return targets;
 };
 
+const isReplayEnabled = (): boolean =>
+  import.meta.env.VITE_SENTRY_REPLAY_ENABLED?.trim().toLowerCase() !== 'false';
+
 export const initSentry = (app: App<Element>, router: Router): void => {
   if (sentryInitialized || typeof window === 'undefined') {
     return;
@@ -40,7 +43,7 @@ export const initSentry = (app: App<Element>, router: Router): void => {
     tracesSampleRate: import.meta.env.DEV ? 1.0 : 0.2,
     tracePropagationTargets: buildTracePropagationTargets(),
     replaysSessionSampleRate: 0,
-    replaysOnErrorSampleRate: import.meta.env.VITE_SENTRY_REPLAY_ENABLED === 'false' ? 0 : 1.0
+    replaysOnErrorSampleRate: isReplayEnabled() ? 1.0 : 0
   });
 
   sentryInitialized = true;

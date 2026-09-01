@@ -56,6 +56,7 @@ on:
    - 針對後端與重定向服務執行部署乾跑檢查（`wrangler deploy --dry-run`）。
 
 2. **`deploy-admin-api` Job**（目標環境：`production`）：
+   - 在任何 Cloudflare 呼叫前驗證 `SENTRY_BACKEND_DSN`，並將 `src/backend/wrangler.toml` 的 `ENVIRONMENT` 寫死為 `"production"`，同時確認結果剛好只有一筆 production 指派。
    - 自動檢查 D1 資料庫 `akamoney-clicks` 是否存在；若不存在則透過 `wrangler d1 create` 自動建立。
    - 透過 `wrangler d1 list --json` 動態取得 D1 UUID 並注入至 `src/backend/wrangler.toml`：
      ```bash
@@ -66,6 +67,7 @@ on:
    - 透過 `cloudflare/wrangler-action@v3` 部署 Worker。
 
 3. **`deploy-redirect` Job**（目標環境：`production`）：
+   - 在任何 Cloudflare 呼叫前驗證 `SENTRY_REDIRECT_DSN`，並將 `src/redirect/wrangler.toml` 的 `ENVIRONMENT` 寫死為 `"production"`。
    - 取得 `akamoney-clicks` 的 D1 資料庫 ID 並注入至 `src/redirect/wrangler.toml`。
    - 透過 `cloudflare/wrangler-action@v3` 部署重定向服務 Worker。
 
@@ -96,15 +98,15 @@ on:
 - `ENTRA_ID_REDIRECT_URI`：前端重定向網址（例如 `https://admin.aka.money`）。
 - `VITE_API_URL`：後端管理 API 基礎網址（例如 `https://api.aka.money`）。
 - `VITE_SENTRY_DSN`：前端正式環境建置所需的公開 DSN。
-- `VITE_SENTRY_REPLAY_ENABLED`：設為 `true` 啟用錯誤工作階段 Replay，設為 `false` 則停用。
+- `VITE_SENTRY_REPLAY_ENABLED`：設為 `true` 啟用錯誤工作階段 Replay，設為 `false` 則停用。判斷時會去除前後空白並忽略大小寫。
 - `SENTRY_BACKEND_DSN`：注入管理 API Worker 的必要公開 DSN。
 - `SENTRY_REDIRECT_DSN`：注入重新導向 Worker 的必要公開 DSN。
 - `SHORT_DOMAIN`：產生之縮短網址網域（例如 `https://aka.money` 或 `https://go.aka.money`）。
 - `STORAGE_PROVIDER`：`"r2"`（預設）或 `"azure"`。
 - `AZURE_STORAGE_ACCOUNT` 與 `AZURE_STORAGE_CONTAINER`：*（選填）* Azure 儲存帳戶與容器名稱。
-- `ENVIRONMENT`：正式 Worker 應設為 `"production"`。已追蹤設定預設為 `"development"`，目前 release workflow 不會覆寫此值。
+Worker 的 `ENVIRONMENT` **不是** repository variable。已追蹤設定維持 `"development"`，避免本機執行被誤認為正式環境；兩個部署工作都會在任何 Cloudflare 變更前將其取代為 `ENVIRONMENT = "production"`，且必須剛好產生一筆 production 指派，否則停止。
 
-發布流程會在前端建置前驗證前端 DSN；兩個 Worker 的 DSN 則會在各自部署工作進行任何 Cloudflare 或設定變更前驗證。三條路徑遇到缺少或格式無效的值時都會停止。前端 source maps 只會在受保護的 `production` environment 上傳，並在 Pages 部署前刪除。
+發布流程會在前端建置前驗證前端 DSN；兩個 Worker 的 DSN 則會在各自部署工作進行任何 Cloudflare 或設定變更前驗證。三條路徑遇到缺少或格式無效的值時都會停止。前端 source maps 只會在受保護的 `production` environment 上傳，並在 Pages 部署前刪除；Vite 建置只有在具備 `GITHUB_ACTIONS` 或 `SENTRY_AUTH_TOKEN` 時才會產生 map，因此手動本機建置不可能發布 hidden map。
 
 ### 廢棄/未接入變數說明
 
@@ -149,7 +151,7 @@ npx wrangler d1 migrations apply DB --remote --config wrangler.toml
 
 ### 1. 手動部署管理 API
 
-以下指令會修改已追蹤的 `wrangler.toml` 設定。請勿提交環境專用修改；建議優先使用會注入正式資料庫 ID 的 release workflow。
+以下指令會修改已追蹤的 `wrangler.toml` 設定。請勿提交環境專用修改；建議優先使用會注入正式資料庫 ID 的 release workflow。手動部署時也必須自行設定 `ENVIRONMENT = "production"` 與非空 `SENTRY_DSN`：已追蹤設定提供的是 `"development"` 與空 DSN，只有 release workflow 會取代它們。
 
 ```bash
 cd src/backend
@@ -190,6 +192,8 @@ npm run build
 # 部署至 Cloudflare Pages
 npx wrangler pages deploy dist --project-name=akamoney-admin
 ```
+
+除非設定 `GITHUB_ACTIONS` 或 `SENTRY_AUTH_TOKEN`，否則手動建置不會產生 source maps，因此可直接發布 `dist/`；代價是手動部署的前端錯誤在 Sentry 不會還原成原始碼位置。若要手動上傳 maps，請在建置時提供 Sentry 上傳權杖，並於部署前確認 `dist/` 內沒有任何 `.map` 檔。
 
 ---
 

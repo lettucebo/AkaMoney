@@ -264,6 +264,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Changed Admin API 5xx responses to return generic error envelopes without raw exception details or stack traces; safe validation details remain available for applicable 4xx responses.
+- Changed the release workflow to set `ENVIRONMENT = "production"` in both Worker configurations before deployment, so production telemetry is no longer reported as `development`.
+- Changed the frontend build to emit hidden source maps only when `GITHUB_ACTIONS` or `SENTRY_AUTH_TOKEN` is present, so a manual build and deploy can never publish source maps.
+- Changed `VITE_SENTRY_REPLAY_ENABLED` handling to trim and lower-case the value, so `false`, `False`, and padded variants all disable error Replay.
+
+### Security
+- Removed customer destination URLs from frontend telemetry: URL store console errors now report only an error name, code, and HTTP status, and the link list, analytics, and top-link stats elements that render or attribute an `original_url` are excluded from Session Replay with `data-sentry-block`.
+- Removed parsed request cookies from Admin API Sentry events in addition to the `Cookie` header, matching the redirect Worker.
+- Removed the raw Entra object id/subject from the successful Admin API token-verification log.
 
 ### Planned Features
 - QR code generation for short URLs

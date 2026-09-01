@@ -228,6 +228,24 @@ jobs:
           '
           echo "SENTRY_BACKEND_DSN validated before any external change"
 
+      # Production must report environment=production to Sentry. The tracked config keeps
+      # "development" so local runs are never mistaken for production, and the value is
+      # hardcoded here rather than read from an optional repository variable, which would
+      # silently fall back to "development" if unset. This runs after the DSN gate and
+      # before any Cloudflare mutation, so a failure leaves nothing changed externally.
+      - name: Set production environment in wrangler.toml
+        run: |
+          set -euo pipefail
+          cd src/backend
+          sed -i 's|^[[:space:]]*ENVIRONMENT[[:space:]]*=.*|ENVIRONMENT = "production"|' wrangler.toml
+          ENVIRONMENT_TOTAL=$(grep -cE '^[[:space:]]*ENVIRONMENT[[:space:]]*=' wrangler.toml || true)
+          ENVIRONMENT_PRODUCTION=$(grep -c '^ENVIRONMENT = "production"$' wrangler.toml || true)
+          if [ "$ENVIRONMENT_TOTAL" != "1" ] || [ "$ENVIRONMENT_PRODUCTION" != "1" ]; then
+            echo "Error: expected exactly one production ENVIRONMENT assignment in src/backend/wrangler.toml (total=${ENVIRONMENT_TOTAL}, production=${ENVIRONMENT_PRODUCTION})"
+            exit 1
+          fi
+          echo "Admin API ENVIRONMENT set to production"
+
       - name: Verify pinned Wrangler version
         run: |
           set -euo pipefail
@@ -674,6 +692,21 @@ jobs:
             if (dsn.protocol !== "https" || dsn.publicKey !== url.username || dsn.host.toLowerCase() !== url.hostname || dsnPort !== urlPort || dsn.path !== "" || dsn.projectId !== url.pathname.slice(1)) reject("is parsed differently by @sentry/core than by the URL parser, so the deployed value would not be what Sentry receives");
           '
           echo "SENTRY_REDIRECT_DSN validated before any external change"
+
+      # Same production hardcoding as the Admin API job: the redirect Worker must not report
+      # environment=development from production, and must not depend on an optional variable.
+      - name: Set production environment in wrangler.toml
+        run: |
+          set -euo pipefail
+          cd src/redirect
+          sed -i 's|^[[:space:]]*ENVIRONMENT[[:space:]]*=.*|ENVIRONMENT = "production"|' wrangler.toml
+          ENVIRONMENT_TOTAL=$(grep -cE '^[[:space:]]*ENVIRONMENT[[:space:]]*=' wrangler.toml || true)
+          ENVIRONMENT_PRODUCTION=$(grep -c '^ENVIRONMENT = "production"$' wrangler.toml || true)
+          if [ "$ENVIRONMENT_TOTAL" != "1" ] || [ "$ENVIRONMENT_PRODUCTION" != "1" ]; then
+            echo "Error: expected exactly one production ENVIRONMENT assignment in src/redirect/wrangler.toml (total=${ENVIRONMENT_TOTAL}, production=${ENVIRONMENT_PRODUCTION})"
+            exit 1
+          fi
+          echo "Redirect Worker ENVIRONMENT set to production"
 
       - name: Verify pinned Wrangler version
         run: |

@@ -6,11 +6,25 @@ import { sentryVitePlugin } from '@sentry/vite-plugin';
 import { fileURLToPath, URL } from 'node:url';
 
 // https://vitejs.dev/config/
-const sentryAuthToken = process.env.SENTRY_AUTH_TOKEN;
+const readBuildEnvironmentValue = (name: string): string | undefined => {
+  const value = process.env[name];
+  return typeof value === 'string' && value.trim() !== '' ? value : undefined;
+};
+
+const sentryAuthToken = readBuildEnvironmentValue('SENTRY_AUTH_TOKEN');
+/**
+ * Source maps are emitted only for builds that can hand them to Sentry: the
+ * release workflow (which uploads and deletes them from the protected deploy
+ * job) and trusted local builds that supply an upload token. A plain
+ * `npm run build` produces none, so a manual `wrangler pages deploy` of `dist/`
+ * can never publish a hidden map.
+ */
+const emitSourceMaps =
+  readBuildEnvironmentValue('GITHUB_ACTIONS') !== undefined || sentryAuthToken !== undefined;
 
 export default defineConfig({
   build: {
-    sourcemap: 'hidden'
+    sourcemap: emitSourceMaps ? 'hidden' : false
   },
   plugins: [
     vue(),

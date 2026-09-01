@@ -122,6 +122,37 @@ describe('Sentry frontend utility', () => {
     expect(options.replaysOnErrorSampleRate).toBe(0);
   });
 
+  it('disables error replay for case-insensitive and padded false values', async () => {
+    for (const rawFlag of ['false', 'False', 'FALSE', '  false  ', '\tFalse\n']) {
+      vi.stubEnv('VITE_SENTRY_DSN', 'https://public@example.ingest.sentry.io/123');
+      vi.stubEnv('VITE_SENTRY_REPLAY_ENABLED', rawFlag);
+      const { initSentry } = await loadSentry();
+
+      initSentry({ name: 'app' } as never, { name: 'router' } as never);
+
+      const options = sentryInit.mock.calls.at(-1)?.[0];
+      expect(options.replaysOnErrorSampleRate, `flag ${JSON.stringify(rawFlag)}`).toBe(0);
+    }
+  });
+
+  it('keeps error replay enabled when the flag is unset, blank, or not false', async () => {
+    for (const rawFlag of [undefined, '', '   ', 'true', 'True', 'yes']) {
+      vi.stubEnv('VITE_SENTRY_DSN', 'https://public@example.ingest.sentry.io/123');
+      if (rawFlag === undefined) {
+        vi.unstubAllEnvs();
+        vi.stubEnv('VITE_SENTRY_DSN', 'https://public@example.ingest.sentry.io/123');
+      } else {
+        vi.stubEnv('VITE_SENTRY_REPLAY_ENABLED', rawFlag);
+      }
+      const { initSentry } = await loadSentry();
+
+      initSentry({ name: 'app' } as never, { name: 'router' } as never);
+
+      const options = sentryInit.mock.calls.at(-1)?.[0];
+      expect(options.replaysOnErrorSampleRate, `flag ${JSON.stringify(rawFlag)}`).toBe(1.0);
+    }
+  });
+
   it('does not hash or set a user when Sentry is not initialized without a DSN', async () => {
     vi.stubEnv('VITE_SENTRY_DSN', '');
     const digest = vi.spyOn(globalThis.crypto.subtle, 'digest');

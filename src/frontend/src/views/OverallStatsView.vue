@@ -46,7 +46,7 @@
         <ol v-else>
           <li v-for="(link, index) in topLinks" :key="link.short_code">
             <span class="rank">{{ index + 1 }}</span>
-            <div class="link-main"><router-link :to="`/analytics/${link.short_code}`">aka.money/{{ link.short_code }}</router-link><span>{{ link.title || link.original_url }}</span><i :style="{ width: `${linkWidth(link.click_count)}%` }" /></div>
+            <div class="link-main"><router-link :to="`/analytics/${link.short_code}`">aka.money/{{ link.short_code }}</router-link><span data-sentry-block>{{ link.title || link.original_url }}</span><i :style="{ width: `${linkWidth(link.click_count)}%` }" /></div>
             <b>{{ formatNumber(link.click_count) }}</b>
           </li>
         </ol>

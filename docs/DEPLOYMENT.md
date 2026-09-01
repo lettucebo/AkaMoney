@@ -56,6 +56,7 @@ The workflow contains four coordinated jobs:
    - Runs dry-run deployment checks (`wrangler deploy --dry-run`) for backend and redirect workers.
 
 2. **`deploy-admin-api` Job** (Target environment: `production`):
+   - Validates `SENTRY_BACKEND_DSN` and hardcodes `ENVIRONMENT = "production"` in `src/backend/wrangler.toml` before any Cloudflare call, verifying that exactly one production assignment exists.
    - Automatically checks if D1 database `akamoney-clicks` exists; creates it via `wrangler d1 create` if missing.
    - Dynamically retrieves the D1 UUID via `wrangler d1 list --json` and injects it into `src/backend/wrangler.toml`:
      ```bash
@@ -66,6 +67,7 @@ The workflow contains four coordinated jobs:
    - Deploys the worker via `cloudflare/wrangler-action@v3`.
 
 3. **`deploy-redirect` Job** (Target environment: `production`):
+   - Validates `SENTRY_REDIRECT_DSN` and hardcodes `ENVIRONMENT = "production"` in `src/redirect/wrangler.toml` before any Cloudflare call.
    - Retrieves the D1 database ID for `akamoney-clicks` and injects it into `src/redirect/wrangler.toml`.
    - Deploys the redirect worker via `cloudflare/wrangler-action@v3`.
 
@@ -96,15 +98,15 @@ Configure the following GitHub Secrets and Variables under **Settings > Secrets 
 - `ENTRA_ID_REDIRECT_URI`: Frontend redirect URL (e.g., `https://admin.aka.money`).
 - `VITE_API_URL`: Backend Admin API base URL (e.g., `https://api.aka.money`).
 - `VITE_SENTRY_DSN`: Required public DSN for the frontend production build.
-- `VITE_SENTRY_REPLAY_ENABLED`: Set to `true` to enable error-session Replay or `false` to disable it.
+- `VITE_SENTRY_REPLAY_ENABLED`: Set to `true` to enable error-session Replay or `false` to disable it. The value is trimmed and compared case-insensitively.
 - `SENTRY_BACKEND_DSN`: Required public DSN injected into the Admin API Worker.
 - `SENTRY_REDIRECT_DSN`: Required public DSN injected into the redirect Worker.
 - `SHORT_DOMAIN`: Short domain URL used for generated links (e.g., `https://aka.money` or `https://go.aka.money`).
 - `STORAGE_PROVIDER`: `"r2"` (default) or `"azure"`.
 - `AZURE_STORAGE_ACCOUNT` & `AZURE_STORAGE_CONTAINER`: *(Optional)* Azure Blob storage account and container names.
-- `ENVIRONMENT`: Set to `"production"` for a production Worker. The tracked config defaults to `"development"`, and the current release workflow does not override it.
+The Worker `ENVIRONMENT` value is **not** a repository variable. The tracked configs keep `"development"` so local runs are never mistaken for production, and both deploy jobs replace it with `ENVIRONMENT = "production"` before any Cloudflare mutation, failing closed unless exactly one production assignment results.
 
-The release workflow validates the frontend DSN before the frontend build. Each Worker DSN is validated in its deploy job before any Cloudflare or configuration mutation. All three paths fail closed for missing or malformed values. Frontend source maps are uploaded from the protected `production` environment and deleted before Pages deployment.
+The release workflow validates the frontend DSN before the frontend build. Each Worker DSN is validated in its deploy job before any Cloudflare or configuration mutation. All three paths fail closed for missing or malformed values. Frontend source maps are uploaded from the protected `production` environment and deleted before Pages deployment; the Vite build only emits them when `GITHUB_ACTIONS` or `SENTRY_AUTH_TOKEN` is present, so manual local builds cannot publish a hidden map.
 
 ### Dead Scaffolding Variables Notice
 
@@ -149,7 +151,7 @@ If you need to deploy services manually using Wrangler CLI:
 
 ### 1. Manual Admin API Deployment
 
-The commands below modify the tracked `wrangler.toml` configuration. Do not commit environment-specific edits; prefer the release workflow, which injects the production database ID.
+The commands below modify the tracked `wrangler.toml` configuration. Do not commit environment-specific edits; prefer the release workflow, which injects the production database ID. A manual deployment must also set `ENVIRONMENT = "production"` and a non-empty `SENTRY_DSN` itself: the tracked config ships `"development"` and an empty DSN, and only the release workflow replaces them.
 
 ```bash
 cd src/backend
@@ -190,6 +192,8 @@ npm run build
 # Deploy to Cloudflare Pages
 npx wrangler pages deploy dist --project-name=akamoney-admin
 ```
+
+A manual build emits no source maps unless `GITHUB_ACTIONS` or `SENTRY_AUTH_TOKEN` is set, so `dist/` is safe to publish as-is; the trade-off is that manually deployed frontend errors are not symbolicated in Sentry. To upload maps manually, run the build with a Sentry upload token and confirm no `.map` file remains in `dist/` before deploying.
 
 ---
 
