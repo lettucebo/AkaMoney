@@ -76,7 +76,7 @@ database_name = "akamoney-clicks"
 database_id = "<貼上您的資料庫 ID>"
 ```
 
-> 後端範例使用 Wrangler v4 的 `compatibility_flags = ["nodejs_compat"]`。重新導向服務仍固定使用 Wrangler v3，因此保留舊版 `node_compat = true`；請勿將該 key 複製到後端設定。
+> 後端與重新導向範例都使用 `compatibility_flags = ["nodejs_compat"]`；請勿將舊版 `node_compat = true` key 重新加入本地 Wrangler 設定。
 
 ### 5. 配置重新導向服務
 

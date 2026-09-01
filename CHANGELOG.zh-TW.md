@@ -255,6 +255,12 @@ AkaMoney 專案的所有重要變更都將記錄在此檔案中。
 
 ## [未發布]
 
+### 新增
+- 記錄前端、管理 API 與重新導向專案的 Sentry 監控設定，包含 Issues、Logs、Tracing、error-only Replay、Cloudflare Workers Logs、source maps、uptime checks 與 alert routing。
+
+### 變更
+- 釐清 API 5xx responses 會被 sanitize，而 4xx responses 可以保留安全的驗證細節。
+
 ### 計畫功能
 - 為短網址產生 QR code
 - 密碼保護連結
@@ -268,9 +274,7 @@ AkaMoney 專案的所有重要變更都將記錄在此檔案中。
 - API 速率限制
 - 增強快取策略
 - 連線池最佳化
-- 錯誤追蹤整合（Sentry）
 - 監控儀表板
-- 警報系統
 
 ---
 

@@ -67,7 +67,7 @@ Cloudflare Workers configurations for local execution require local `.toml` file
    cd src/redirect
    cp wrangler.local.toml.example wrangler.local.toml
    ```
-   - **Wrangler v3 & Future Upgrade**: The redirect service currently uses Wrangler v3 (exact `3.114.17`) with `node_compat = true`. Note that when upgrading redirect service to Wrangler v4 in the future, `node_compat = true` must be updated to `compatibility_flags = ["nodejs_compat"]`.
+   - **Wrangler compatibility flag**: The redirect service currently uses Wrangler v3 (exact `3.114.17`) with `compatibility_flags = ["nodejs_compat"]`. Do not reintroduce the older `node_compat = true` key when copying or refreshing local Wrangler config.
 
 3. **Frontend Environment**:
    ```bash

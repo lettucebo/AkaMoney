@@ -255,6 +255,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Documented the Sentry monitoring setup for frontend, Admin API, and redirect projects, including Issues, Logs, Tracing, error-only Replay, Cloudflare Workers Logs, source maps, uptime checks, and alert routing.
+
+### Changed
+- Clarified that API 5xx responses are sanitized while 4xx responses may keep safe validation details.
+
 ### Planned Features
 - QR code generation for short URLs
 - Password-protected links
@@ -268,9 +274,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - API rate limiting
 - Enhanced caching strategies
 - Connection pooling optimization
-- Error tracking integration (Sentry)
 - Monitoring dashboards
-- Alert system
 
 ---
 
