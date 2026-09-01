@@ -127,10 +127,13 @@ describe('Sentry service', () => {
             span_id: '0123456789abcdef',
             start_timestamp: 1,
             trace_id: '0123456789abcdef0123456789abcdef',
+            description: 'PUT https://blob.example.test/container/uploads/oid-raw-user/file.png?sig=secret-signature',
             data: {
               url: 'https://api.example.test/api/storage/files/uploads/oid-raw-user/file.png?download=1',
               'url.full': 'https://api.example.test/api/storage/files/uploads/oid-raw-user/file.png?download=1',
-              'url.path': '/api/storage/files/uploads/oid-raw-user/file.png'
+              'url.path': '/api/storage/files/uploads/oid-raw-user/file.png',
+              'cloudflare.r2.request.key': 'uploads/oid-raw-user/file.png',
+              'cloudflare.r2.request.prefix': 'uploads/oid-raw-user/'
             }
           }
         ]
@@ -144,10 +147,15 @@ describe('Sentry service', () => {
       expect(scrubbed.transaction).toBe(
         'DELETE /api/storage/files/uploads/[redacted-identity]/file.png'
       );
+      expect(scrubbed.spans?.[0]?.description).toBe(
+        'PUT https://blob.example.test/container/uploads/[redacted-identity]/file.png'
+      );
       expect(scrubbed.spans?.[0]?.data).toEqual({
         url: 'https://api.example.test/api/storage/files/uploads/[redacted-identity]/file.png',
         'url.full': 'https://api.example.test/api/storage/files/uploads/[redacted-identity]/file.png',
-        'url.path': '/api/storage/files/uploads/[redacted-identity]/file.png'
+        'url.path': '/api/storage/files/uploads/[redacted-identity]/file.png',
+        'cloudflare.r2.request.key': 'uploads/[redacted-identity]/file.png',
+        'cloudflare.r2.request.prefix': 'uploads/[redacted-identity]/'
       });
     });
 

@@ -148,6 +148,10 @@ describe('Error Middleware', () => {
         },
         500
       );
+      const logged = JSON.stringify(vi.mocked(console.error).mock.calls);
+      expect(logged).not.toContain('Something went wrong');
+      expect(logged).toContain('Request handling failed');
+      expect(logged).toContain('"name":"Error"');
     });
 
     it('should handle non-Error objects thrown', async () => {

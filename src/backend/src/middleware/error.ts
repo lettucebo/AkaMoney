@@ -9,7 +9,9 @@ export async function errorMiddleware(c: Context, next: () => Promise<void>) {
   try {
     await next();
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Request handling failed:', {
+      name: error instanceof Error ? error.name : 'NonErrorThrow'
+    });
     
     // Handle custom HTTP errors with status codes
     if (error instanceof HttpError) {

@@ -5,14 +5,28 @@ import type { Env } from '../types';
 const CREDENTIAL_HEADERS = new Set(['authorization', 'cookie', 'x-api-key']);
 const URL_DATA_KEYS = new Set(['url', 'http.url', 'url.full', 'url.path', 'http.route', 'http.target']);
 const QUERY_DATA_KEYS = new Set(['http.query', 'query', 'query_string', 'url.query']);
+const STORAGE_PATH_DATA_KEYS = new Set([
+  'cloudflare.r2.request.key',
+  'cloudflare.r2.request.prefix'
+]);
 
 type SentrySpanData = NonNullable<Event['spans']>[number]['data'];
 type SentryTransactionEvent = Event & { type: 'transaction' };
 
 export function redactStorageIdentityPath(value: unknown) {
   return typeof value === 'string'
-    ? value.replace(/(\/uploads\/)[^/?#]+/gi, '$1[redacted-identity]')
+    ? value.replace(/(^|\/)(uploads\/)[^/?#]+/gi, '$1$2[redacted-identity]')
     : value;
+}
+
+function scrubSpanDescription(value: string | undefined) {
+  if (!value) {
+    return value;
+  }
+
+  return redactStorageIdentityPath(
+    value.replace(/https?:\/\/\S+/gi, (url) => String(stripUrlQuery(url)))
+  ) as string;
 }
 
 function stripUrlQuery(value: unknown) {
@@ -44,6 +58,10 @@ function scrubUnknownData(data: Record<string, unknown>) {
 
       if (URL_DATA_KEYS.has(normalizedKey)) {
         return [[key, stripUrlQuery(value)]];
+      }
+
+      if (STORAGE_PATH_DATA_KEYS.has(normalizedKey)) {
+        return [[key, redactStorageIdentityPath(value)]];
       }
 
       return [[key, value]];
@@ -95,6 +113,7 @@ export function scrubSentryEventCredentials(event: Event): Event {
   if (event.spans) {
     result.spans = event.spans.map((span) => ({
       ...span,
+      description: scrubSpanDescription(span.description),
       data: span.data ? scrubSpanData(span.data) : span.data
     }));
   }
