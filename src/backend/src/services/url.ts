@@ -277,6 +277,21 @@ function formatUrlResponse(url: Url, baseUrl?: string): UrlResponse {
   };
 }
 
+function redactText(value: string | undefined, redactions: string[]): string | undefined {
+  if (!value) {
+    return value;
+  }
+
+  const orderedRedactions = redactions
+    .filter(Boolean)
+    .sort((left, right) => right.length - left.length);
+
+  return orderedRedactions.reduce(
+    (text, secret) => text.split(secret).join('[redacted-user-id]'),
+    value
+  );
+}
+
 /**
  * Get all URLs for a user
  */
@@ -287,7 +302,7 @@ export async function getUserUrls(
   limit: number = 20
 ): Promise<{ urls: UrlResponse[], total: number }> {
   try {
-    console.log('getUserUrls called with:', { userId, page, limit });
+    console.log('getUserUrls called with:', { page, limit });
 
     const offset = (page - 1) * limit;
 
@@ -302,7 +317,7 @@ export async function getUserUrls(
       .bind(userId, limit, offset)
       .all<Url>();
 
-    console.log('SELECT query completed, rows:', results?.length || 0);
+    console.log('SELECT query completed:', { count: results?.length || 0 });
 
     console.log('Executing COUNT query...');
     const countResult = await db
@@ -310,20 +325,21 @@ export async function getUserUrls(
       .bind(userId)
       .first<{ count: number }>();
 
-    console.log('COUNT query completed:', countResult);
+    console.log('COUNT query completed:', { count: countResult?.count || 0 });
 
     return {
       urls: results.map(url => formatUrlResponse(url)),
       total: countResult?.count || 0
     };
   } catch (error) {
+    const redactions = [userId];
+    const diagnosticMessage = redactText(error instanceof Error ? error.message : String(error), redactions);
     console.error('Error in getUserUrls:', {
-      error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-      userId,
+      error: diagnosticMessage,
+      stack: redactText(error instanceof Error ? error.stack : undefined, redactions),
       page,
       limit
     });
-    throw error;
+    throw new Error(diagnosticMessage || 'Failed to get user URLs');
   }
 }

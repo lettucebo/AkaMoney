@@ -37,7 +37,7 @@
 | 項目 | 目前行為 | 剩餘影響 |
 | --- | --- | --- |
 | PII 模式 | 三個 SDK 都選用 `sendDefaultPii: true`，保留 Sentry 預設的較完整內容（`src/frontend/src/utils/sentry.ts:35`；`src/backend/src/services/sentry.ts:111`；`src/redirect/src/sentry.ts:117`）。 | 必須把 Sentry 視為已授權的營運遙測目的地；不要把業務機密加到日誌或錯誤訊息。 |
-| 使用者身分 | 前端會先以 SHA-256 雜湊 Microsoft Entra account ID，再呼叫 `Sentry.setUser({ id })`（`src/frontend/src/utils/sentry.ts:55-64`）。 | 此雜湊值是穩定且假名化的識別值；若其他地方可取得原始識別值，則不等同匿名。 |
+| 使用者身分 | 前端會先以 SHA-256 雜湊 Microsoft Entra account ID，再呼叫 `Sentry.setUser({ id })`（`src/frontend/src/utils/sentry.ts:55-64`）。後端 route 與 service logs 不帶原始 Entra `oid`／`sub`、email 或 SSO ID，改用不具識別性的操作脈絡，例如驗證狀態、route ID、分頁、筆數、檔案大小與保留天數（`src/backend/src/index.ts`；`src/backend/src/services/url.ts`；`src/backend/src/services/user.ts`；`src/backend/src/middleware/auth.ts`）。 | 前端雜湊值是穩定且假名化的識別值；若其他地方可取得原始識別值，則不等同匿名。後端管理 API 失敗路由仍可能依已接受的寬鬆 PII 取捨捕捉 request body 與 query string。 |
 | 憑證標頭 | 後端與重新導向 Sentry events/spans 會移除 `authorization`、`x-api-key`、`cookie` 標頭，以及任何已解析的 `request.cookies`（`src/backend/src/services/sentry.ts:5-103`；`src/redirect/src/sentry.ts:8-104`）。 | 仍須避免把憑證放進自訂標籤、breadcrumbs 或日誌訊息。 |
 | 目的地網址 | 前端不再記錄原始 error 物件：URL 相關的 store 失敗只記錄 error name、code 與 HTTP status（`src/frontend/src/utils/safeError.ts`；`src/frontend/src/stores/url.ts`）。連結列表、成效分析對象與熱門連結統計中呈現或以屬性帶出 `original_url` 的元素都標記 `data-sentry-block`；建立／編輯表單欄位則沿用 Sentry 預設的 input masking。 | `original_url` 可能夾帶簽章查詢字串憑證；新增 UI 或 console 輸出時也不得帶出。管理 API events 仍可能包含失敗路由的 request body 與 query，這是已接受的寬鬆 PII 取捨。 |
 | Replay | 使用 Sentry Replay default masking；一般 session sampling 為 0%，error-session sampling 由 `VITE_SENTRY_REPLAY_ENABLED` 控制。列表、成效分析與統計頁中呈現的目的地網址以 `data-sentry-block` 阻擋錄製。 | 連到 Replay 或 event 的 console entries 仍可能包含使用者可見的供應商訊息。 |

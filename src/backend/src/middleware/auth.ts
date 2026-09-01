@@ -19,6 +19,28 @@ function getJWKS(tenantId: string): JWTVerifyGetKey {
   return jwksCache.get(tenantId)!;
 }
 
+function redactText(value: string | undefined, redactions: Array<string | undefined>): string | undefined {
+  if (!value) {
+    return value;
+  }
+
+  const orderedRedactions = redactions
+    .filter((value): value is string => !!value)
+    .sort((left, right) => right.length - left.length);
+
+  return orderedRedactions.reduce(
+    (text, secret) => text.split(secret).join('[redacted-identity]'),
+    value
+  );
+}
+
+function safeErrorDetails(error: unknown, redactions: Array<string | undefined>) {
+  return {
+    error: redactText(error instanceof Error ? error.message : String(error), redactions),
+    stack: redactText(error instanceof Error ? error.stack : undefined, redactions)
+  };
+}
+
 /**
  * Verify Microsoft Entra ID token and extract user information
  */
@@ -143,14 +165,15 @@ export async function authMiddleware(c: Context<{ Bindings: Env }>, next: () => 
         dbUserId: dbUser.id
       });
     } catch (dbError) {
-      console.error('Failed to upsert user in auth middleware:', dbError);
+      console.error('Failed to upsert user in auth middleware:', safeErrorDetails(dbError, [user.userId, user.email, user.name]));
       // Fall back to using the verified token payload without DB-derived fields
       c.set('user', user);
     }
     
     await next();
   } catch (error) {
-    console.error('Auth middleware error:', error);
+    const user = getAuthUser(c);
+    console.error('Auth middleware error:', safeErrorDetails(error, [user?.userId, user?.email, user?.name]));
     return c.json({
       error: 'Internal Server Error',
       message: 'Authentication failed'
@@ -188,7 +211,7 @@ export async function optionalAuthMiddleware(c: Context<{ Bindings: Env }>, next
             dbUserId: dbUser.id
           });
         } catch (error) {
-          console.error('Failed to upsert user in optional auth:', error);
+          console.error('Failed to upsert user in optional auth:', safeErrorDetails(error, [user.userId, user.email, user.name]));
           // Continue without setting user context if upsert fails
         }
       }

@@ -41,6 +41,44 @@ function routeError(c: Context<{ Bindings: Env }>, error: unknown, message: stri
   return c.json(serverError(message), 500);
 }
 
+function authLogContext(user: ReturnType<typeof getAuthUser>) {
+  return { authenticated: !!user };
+}
+
+function redactText(value: string | undefined, redactions: string[]): string | undefined {
+  if (!value) {
+    return value;
+  }
+
+  const orderedRedactions = redactions
+    .filter(Boolean)
+    .sort((left, right) => right.length - left.length);
+
+  return orderedRedactions.reduce(
+    (text, secret) => text.split(secret).join('[redacted-identity]'),
+    value
+  );
+}
+
+function redactStoragePath(path: string): string {
+  return path.replace(/\/uploads\/[^/]+/g, '/uploads/[redacted-identity]');
+}
+
+function identityRedactions(c: Context<{ Bindings: Env }>, extra: Array<string | undefined> = []): string[] {
+  const user = getAuthUser(c);
+  return [user?.userId, user?.email, user?.name, ...extra].filter((value): value is string => !!value);
+}
+
+function safeErrorDetails(error: unknown, redactions: string[] = []) {
+  const name = error instanceof Error ? error.name : undefined;
+
+  return {
+    ...(name ? { name } : {}),
+    error: redactText(error instanceof Error ? error.message : String(error), redactions),
+    stack: redactText(error instanceof Error ? error.stack : undefined, redactions)
+  };
+}
+
 // Apply global middleware
 app.use('*', corsMiddleware);
 app.use('*', errorMiddleware);
@@ -59,7 +97,7 @@ app.post('/api/shorten', optionalAuthMiddleware, async (c) => {
   try {
     const user = getAuthUser(c);
     
-    console.log('Creating short URL', user ? `for user: ${user.userId}` : '(anonymous)');
+    console.log('Creating short URL', authLogContext(user));
 
     // Check if DB is available
     if (!c.env.DB) {
@@ -82,7 +120,7 @@ app.post('/api/shorten', optionalAuthMiddleware, async (c) => {
     
     return c.json(url, 201);
   } catch (error) {
-    console.error('Error in POST /api/shorten:', error);
+    console.error('Error in POST /api/shorten:', safeErrorDetails(error, identityRedactions(c)));
     return routeError(c, error, 'Failed to create short URL');
   }
 });
@@ -94,8 +132,6 @@ app.get('/api/urls', authMiddleware, async (c) => {
     if (!user) {
       return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
     }
-
-    console.log('Fetching URLs for user:', user.userId);
 
     // Check if DB is available
     if (!c.env.DB) {
@@ -109,7 +145,7 @@ app.get('/api/urls', authMiddleware, async (c) => {
     const page = parseInt(c.req.query('page') || '1');
     const limit = parseInt(c.req.query('limit') || '20');
 
-    console.log('Query parameters:', { page, limit, userId: user.userId });
+    console.log('Fetching URLs', { ...authLogContext(user), page, limit });
 
     const result = await getUserUrls(c.env.DB, user.userId, page, limit);
 
@@ -128,7 +164,7 @@ app.get('/api/urls', authMiddleware, async (c) => {
       }
     });
   } catch (error) {
-    console.error('Error in GET /api/urls:', error);
+    console.error('Error in GET /api/urls:', safeErrorDetails(error, identityRedactions(c)));
     return routeError(c, error, 'Failed to fetch URLs');
   }
 });
@@ -141,7 +177,8 @@ app.get('/api/urls/:id', authMiddleware, async (c) => {
       return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
     }
 
-    console.log('Fetching URL by ID:', c.req.param('id'), 'for user:', user.userId);
+    const id = c.req.param('id');
+    console.log('Fetching URL by ID:', { ...authLogContext(user), id });
 
     // Check if DB is available
     if (!c.env.DB) {
@@ -152,7 +189,6 @@ app.get('/api/urls/:id', authMiddleware, async (c) => {
       }, 500);
     }
 
-    const id = c.req.param('id');
     const url = await getUrlById(c.env.DB, id);
 
     if (!url) {
@@ -180,7 +216,7 @@ app.get('/api/urls/:id', authMiddleware, async (c) => {
       click_count: url.click_count
     });
   } catch (error) {
-    console.error('Error in GET /api/urls/:id:', error);
+    console.error('Error in GET /api/urls/:id:', safeErrorDetails(error, identityRedactions(c, [c.req.param('id')])));
     return routeError(c, error, 'Failed to fetch URL');
   }
 });
@@ -193,7 +229,8 @@ app.put('/api/urls/:id', authMiddleware, async (c) => {
       return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
     }
 
-    console.log('Updating URL:', c.req.param('id'), 'for user:', user.userId);
+    const id = c.req.param('id');
+    console.log('Updating URL:', { ...authLogContext(user), id });
 
     // Check if DB is available
     if (!c.env.DB) {
@@ -204,7 +241,6 @@ app.put('/api/urls/:id', authMiddleware, async (c) => {
       }, 500);
     }
 
-    const id = c.req.param('id');
     const body = await c.req.json<UpdateUrlRequest>();
 
     const url = await updateUrl(c.env.DB, id, body, user.userId);
@@ -213,7 +249,7 @@ app.put('/api/urls/:id', authMiddleware, async (c) => {
 
     return c.json(url);
   } catch (error) {
-    console.error('Error in PUT /api/urls/:id:', error);
+    console.error('Error in PUT /api/urls/:id:', safeErrorDetails(error, identityRedactions(c, [c.req.param('id')])));
     return routeError(c, error, 'Failed to update URL');
   }
 });
@@ -226,7 +262,8 @@ app.delete('/api/urls/:id', authMiddleware, async (c) => {
       return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
     }
 
-    console.log('Deleting URL:', c.req.param('id'), 'for user:', user.userId);
+    const id = c.req.param('id');
+    console.log('Deleting URL:', { ...authLogContext(user), id });
 
     // Check if DB is available
     if (!c.env.DB) {
@@ -237,15 +274,13 @@ app.delete('/api/urls/:id', authMiddleware, async (c) => {
       }, 500);
     }
 
-    const id = c.req.param('id');
-
     await deleteUrl(c.env.DB, id, user.userId);
 
     console.log('URL deleted successfully:', { id });
 
     return c.json({ message: 'URL deleted successfully' });
   } catch (error) {
-    console.error('Error in DELETE /api/urls/:id:', error);
+    console.error('Error in DELETE /api/urls/:id:', safeErrorDetails(error, identityRedactions(c, [c.req.param('id')])));
     return routeError(c, error, 'Failed to delete URL');
   }
 });
@@ -258,7 +293,8 @@ app.get('/api/analytics/:shortCode', authMiddleware, async (c) => {
       return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
     }
 
-    console.log('Fetching analytics for short code:', c.req.param('shortCode'), 'for user:', user.userId);
+    const shortCode = c.req.param('shortCode');
+    console.log('Fetching analytics for short code:', { ...authLogContext(user), shortCode });
 
     // Check if DB is available
     if (!c.env.DB) {
@@ -268,8 +304,6 @@ app.get('/api/analytics/:shortCode', authMiddleware, async (c) => {
         message: 'Database is not configured'
       }, 500);
     }
-
-    const shortCode = c.req.param('shortCode');
 
     const analytics = await getAnalytics(c.env.DB, shortCode, user.userId);
 
@@ -281,7 +315,7 @@ app.get('/api/analytics/:shortCode', authMiddleware, async (c) => {
 
     return c.json(analytics);
   } catch (error) {
-    console.error('Error in GET /api/analytics/:shortCode:', error);
+    console.error('Error in GET /api/analytics/:shortCode:', safeErrorDetails(error, identityRedactions(c, [c.req.param('shortCode')])));
     return routeError(c, error, 'Failed to fetch analytics');
   }
 });
@@ -312,7 +346,7 @@ app.get('/api/stats/overall', authMiddleware, async (c) => {
       return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
     }
 
-    console.log('Fetching overall stats for user:', user.userId);
+    console.log('Fetching overall stats', authLogContext(user));
 
     // Check if DB is available
     if (!c.env.DB) {
@@ -368,7 +402,7 @@ app.get('/api/stats/overall', authMiddleware, async (c) => {
 
     return c.json(stats);
   } catch (error) {
-    console.error('Error in GET /api/stats/overall:', error);
+    console.error('Error in GET /api/stats/overall:', safeErrorDetails(error, identityRedactions(c)));
     return routeError(c, error, 'Failed to fetch overall statistics');
   }
 });
@@ -404,7 +438,7 @@ app.post('/api/admin/cleanup', authMiddleware, async (c) => {
       }, 400);
     }
     
-    console.log(`Manual cleanup triggered by user: ${user.userId}, retention days: ${retentionDays}`);
+    console.log('Manual cleanup triggered:', { ...authLogContext(user), retentionDays });
     const result = await cleanupOldClickRecords(c.env.DB, retentionDays);
 
     return c.json({
@@ -414,7 +448,7 @@ app.post('/api/admin/cleanup', authMiddleware, async (c) => {
       retentionDays
     });
   } catch (error) {
-    console.error('Manual cleanup failed:', error);
+    console.error('Manual cleanup failed:', safeErrorDetails(error, identityRedactions(c)));
     return c.json({
       error: 'Cleanup failed',
       message: 'Cleanup failed'
@@ -448,6 +482,8 @@ app.get('/api/storage/config', authMiddleware, async (c) => {
 
 // Upload an image
 app.post('/api/storage/upload', authMiddleware, async (c) => {
+  let uploadKey: string | undefined;
+
   try {
     const user = getAuthUser(c);
     if (!user) {
@@ -507,6 +543,7 @@ app.post('/api/storage/upload', authMiddleware, async (c) => {
     // Generate unique key with user prefix
     const timestamp = Date.now();
     const key = `uploads/${user.userId}/${timestamp}-${crypto.randomUUID()}.${extension}`;
+    uploadKey = key;
 
     const arrayBuffer = await file.arrayBuffer();
     
@@ -519,7 +556,7 @@ app.post('/api/storage/upload', authMiddleware, async (c) => {
       }
     });
 
-    console.log('File uploaded successfully:', { key: result.key, size: result.size });
+    console.log('File uploaded successfully:', { size: result.size });
 
     return c.json({
       key: result.key,
@@ -529,7 +566,7 @@ app.post('/api/storage/upload', authMiddleware, async (c) => {
       originalName: file.name
     }, 201);
   } catch (error) {
-    console.error('Error uploading file:', error);
+    console.error('Error uploading file:', safeErrorDetails(error, identityRedactions(c, [uploadKey])));
     return c.json({
       error: 'Internal Server Error',
       message: 'Failed to upload file'
@@ -577,7 +614,7 @@ app.get('/api/storage/files/:key{.+}', authMiddleware, async (c) => {
       url: storage.getPublicUrl?.(key)
     });
   } catch (error) {
-    console.error('Error getting file info:', error);
+    console.error('Error getting file info:', safeErrorDetails(error, identityRedactions(c, [c.req.param('key')])));
     return c.json({
       error: 'Internal Server Error',
       message: 'Failed to get file info'
@@ -626,7 +663,7 @@ app.get('/api/storage/files', authMiddleware, async (c) => {
       cursor: result.cursor
     });
   } catch (error) {
-    console.error('Error listing files:', error);
+    console.error('Error listing files:', safeErrorDetails(error, identityRedactions(c)));
     return c.json({
       error: 'Internal Server Error',
       message: 'Failed to list files'
@@ -662,11 +699,11 @@ app.delete('/api/storage/files/:key{.+}', authMiddleware, async (c) => {
 
     await storage.delete(key);
 
-    console.log('File deleted successfully:', { key });
+    console.log('File deleted successfully');
 
     return c.json({ message: 'File deleted successfully' });
   } catch (error) {
-    console.error('Error deleting file:', error);
+    console.error('Error deleting file:', safeErrorDetails(error, identityRedactions(c, [c.req.param('key')])));
     return c.json({
       error: 'Internal Server Error',
       message: 'Failed to delete file'
@@ -682,9 +719,9 @@ app.notFound((c) => {
 // Global error handler
 app.onError((err, c) => {
   console.error('Unhandled error:', {
-    error: err instanceof Error ? err.message : String(err),
-    stack: err instanceof Error ? err.stack : undefined,
-    path: c.req.path,
+    error: redactText(err instanceof Error ? err.message : String(err), identityRedactions(c)),
+    stack: redactText(err instanceof Error ? err.stack : undefined, identityRedactions(c)),
+    path: redactStoragePath(c.req.path),
     method: c.req.method
   });
 
