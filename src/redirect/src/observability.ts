@@ -32,10 +32,19 @@ export const REDACTION_PLACEHOLDER = '[redacted]';
 
 /**
  * Upper bound on the raw message length that is scanned for sensitive
- * substrings. Redaction runs before truncation so a secret cannot be split in
- * half, and this bound keeps the scan cost constant for pathological messages.
+ * substrings. Truncation to this bound happens *before* any scanning, so the
+ * cost of every pattern below is bounded no matter how long the throwable's
+ * message is, and it is wider than the reported length so a secret cannot be cut
+ * in half and survive redaction.
  */
-const MAX_SCANNED_ERROR_MESSAGE_LENGTH = MAX_REPORTED_ERROR_MESSAGE_LENGTH * 5;
+export const MAX_SCANNED_ERROR_MESSAGE_LENGTH = MAX_REPORTED_ERROR_MESSAGE_LENGTH * 5;
+
+/**
+ * Longest textual IPv6 address, `0000:0000:0000:0000:0000:ffff:255.255.255.255`.
+ * Compression only shortens a literal, so a longer candidate can never be an
+ * address and is skipped without validation.
+ */
+export const MAX_IPV6_ADDRESS_LENGTH = 45;
 
 /**
  * A throwable message is the only free-form text that leaves the Worker. A
@@ -57,25 +66,23 @@ const SENSITIVE_MESSAGE_PATTERNS: readonly RegExp[] = [
 ];
 
 /**
- * IPv6 literals are matched in two steps because a single expression that
- * covers compressed (`::1`), zoned (`fe80::1%eth0`) and IPv4-mapped
- * (`::ffff:203.0.113.9`) forms without also matching clock times or `a::b`
- * scope operators is not readable. The candidate pattern is deliberately loose;
- * `isIpv6Literal` decides.
+ * IPv6 literals are matched in two steps because a single expression that covers
+ * compressed (`::1`), zoned (`fe80::1%eth0`) and IPv4-mapped
+ * (`::ffff:203.0.113.9`) forms without also matching clock times or `a::b` scope
+ * operators is neither readable nor cheap: overlapping optional halves let a
+ * hostile colon run be re-split and re-tested until the scan costs seconds.
+ *
+ * Instead the message is tokenized into maximal runs of address characters. The
+ * pattern is one character class with one quantifier, so each character is
+ * consumed once and the scan is linear in the message length. Length-bounded
+ * validation then decides, in `isIpv6Address`, whether a token is an address.
  */
-const IPV6_CANDIDATE_PATTERN =
-  /(?<![0-9a-z:._-])[0-9a-f:]*:[0-9a-f:.]*:[0-9a-f:.]*(?:%[0-9a-z_.-]+)?(?![0-9a-z:._-])/gi;
+const IPV6_TOKEN_PATTERN = /[0-9A-Za-z:._%-]+/g;
 
 const IPV6_GROUP_PATTERN = /^[0-9a-f]{1,4}$/i;
 const IPV4_PATTERN = /^\d{1,3}(?:\.\d{1,3}){3}$/;
 
-function isIpv6Literal(candidate: string): boolean {
-  const [address, zone, ...extraZones] = candidate.split('%');
-
-  if (extraZones.length > 0 || zone === '' || address === undefined) {
-    return false;
-  }
-
+function isIpv6Address(address: string): boolean {
   const halves = address.split('::');
 
   if (halves.length > 2) {
@@ -104,9 +111,27 @@ function isIpv6Literal(candidate: string): boolean {
   return isCompressed ? groups.length <= maxGroups - 1 : groups.length === maxGroups;
 }
 
+/**
+ * A zone id (`%eth0`) is not part of the address, and a hostile token may repeat
+ * or empty the separator, so every `%`-separated segment is validated and the
+ * whole token is redacted when any segment is an address. Each segment is
+ * checked only when it is short enough to be one, so the total work stays
+ * proportional to the token length.
+ */
+function containsIpv6Address(token: string): boolean {
+  return token
+    .split('%')
+    .some(
+      (segment) =>
+        segment.length <= MAX_IPV6_ADDRESS_LENGTH &&
+        segment.includes(':') &&
+        isIpv6Address(segment)
+    );
+}
+
 function redactIpv6Literals(message: string): string {
-  return message.replace(IPV6_CANDIDATE_PATTERN, (candidate) =>
-    isIpv6Literal(candidate) ? REDACTION_PLACEHOLDER : candidate
+  return message.replace(IPV6_TOKEN_PATTERN, (token) =>
+    containsIpv6Address(token) ? REDACTION_PLACEHOLDER : token
   );
 }
 

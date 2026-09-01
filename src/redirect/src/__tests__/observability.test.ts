@@ -4,8 +4,10 @@ import {
   BACKGROUND_CLICK_RECORDING_OPERATION,
   BACKGROUND_OPERATION_TAG_KEY,
   CLICK_RECORDING_OPERATION_NAME,
+  MAX_IPV6_ADDRESS_LENGTH,
   MAX_REPORTED_ERROR_MESSAGE_LENGTH,
   MAX_REPORTED_ERROR_NAME_LENGTH,
+  MAX_SCANNED_ERROR_MESSAGE_LENGTH,
   describeThrowable,
   toBoundedErrorMessage,
   toErrorName,
@@ -131,6 +133,30 @@ describe('background observability primitives', () => {
     );
   });
 
+  it('redacts IPv6 literals at the longest textual form and behind any zone id', () => {
+    const longestLiteral = '0000:0000:0000:0000:0000:ffff:255.255.255.255';
+
+    expect(longestLiteral.length).toBe(MAX_IPV6_ADDRESS_LENGTH);
+    expect(toBoundedErrorMessage(new Error(`D1 write failed from ${longestLiteral}`))).toBe(
+      'D1 write failed from [redacted]'
+    );
+    expect(
+      toBoundedErrorMessage(new Error(`D1 write failed from fe80::1%${'a'.repeat(200)}`))
+    ).toBe('D1 write failed from [redacted]');
+    expect(toBoundedErrorMessage(new Error('D1 write failed from ::1%'))).toBe(
+      'D1 write failed from [redacted]'
+    );
+    expect(toBoundedErrorMessage(new Error('D1 write failed from ::1%eth0%bad'))).toBe(
+      'D1 write failed from [redacted]'
+    );
+    expect(toBoundedErrorMessage(new Error('D1 write failed from [::1]:8080'))).toBe(
+      'D1 write failed from [[redacted]]:8080'
+    );
+    expect(
+      toBoundedErrorMessage(new Error(`D1 write failed from 2001:db8::1${'z'.repeat(60)}`))
+    ).toBe(`D1 write failed from 2001:db8::1${'z'.repeat(60)}`);
+  });
+
   it('redacts credential keys that carry prefixes, suffixes and extra cookie pairs', () => {
     expect(toBoundedErrorMessage(new Error('rejected x_api_key=sk_live_ABC123'))).toBe(
       'rejected [redacted]'
@@ -235,3 +261,105 @@ describe('background observability primitives', () => {
     expect(hostile.message).toBe('');
   });
 });
+
+/**
+ * The background reporter runs inside the Worker's CPU budget after the 302 has
+ * been returned, so redaction has to stay cheap even for a hostile throwable. A
+ * `recordClick` failure can echo an attacker-controlled `user-agent` or
+ * `referer`, so these inputs are reachable in production.
+ */
+describe('redaction scan cost', () => {
+  /**
+   * Generous: the bounded implementation needs well under a millisecond, so this
+   * leaves roughly three orders of magnitude of headroom for a slow or noisy CI
+   * machine. Meaningful: the superseded backtracking IPv6 scan needed hundreds
+   * of milliseconds for the colon run below on Node 24, so any return to
+   * super-linear address scanning fails.
+   */
+  const MAX_SCAN_DURATION_MS = 50;
+
+  /**
+   * A run of ambiguous characters that ends in a character no address may
+   * contain. The terminator has to sit inside the scanned prefix, because that
+   * is what forces a scanner to reconsider every way of splitting the run.
+   */
+  function adversarialRun(unit: string, terminator: string): string {
+    return `${unit.repeat(Math.floor(900 / unit.length))}${terminator}`;
+  }
+
+  function adversarialMessage(run: string, totalLength: number): string {
+    const prefix = 'D1_ERROR: write failed for ';
+    const repeats = Math.ceil((totalLength - prefix.length) / (run.length + 1));
+
+    return `${prefix}${`${run} `.repeat(repeats)}`;
+  }
+
+  function fastestRun(scan: () => void, attempts = 2): number {
+    let fastest = Number.POSITIVE_INFINITY;
+
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      const start = performance.now();
+      scan();
+      fastest = Math.min(fastest, performance.now() - start);
+    }
+
+    return fastest;
+  }
+
+  it(
+    'scans a long adversarial colon run in bounded time without redacting it',
+    () => {
+      const adversarial = adversarialMessage(adversarialRun(':', 'z'), 2000);
+      let redacted = '';
+
+      expect(adversarial.length).toBeGreaterThan(2000 - 1);
+
+      const elapsed = fastestRun(() => {
+        redacted = toBoundedErrorMessage(new Error(adversarial));
+      });
+
+      expect(elapsed).toBeLessThan(MAX_SCAN_DURATION_MS);
+      expect(redacted).not.toContain('[redacted]');
+      expect(redacted).toBe(`${adversarial.slice(0, MAX_REPORTED_ERROR_MESSAGE_LENGTH)}...`);
+    },
+    30_000
+  );
+
+  it(
+    'keeps the scan cost independent of how long the throwable message is',
+    () => {
+      const runs = [
+        adversarialRun(':', 'z'),
+        adversarialRun('0:', 'z'),
+        adversarialRun('a:', '_'),
+        adversarialRun(':.', 'z'),
+        adversarialRun('fe80::1%', 'z'),
+        adversarialRun('a_', '='),
+      ];
+
+      for (const run of runs) {
+        for (const length of [1000, 2000, 20_000]) {
+          const elapsed = fastestRun(() => {
+            toBoundedErrorMessage(new Error(adversarialMessage(run, length)));
+          });
+
+          expect(elapsed).toBeLessThan(MAX_SCAN_DURATION_MS);
+        }
+      }
+    },
+    60_000
+  );
+
+  it('scans a bounded prefix that is wider than the reported message', () => {
+    // A secret must not survive because truncation split it before redaction.
+    expect(MAX_SCANNED_ERROR_MESSAGE_LENGTH).toBeGreaterThan(MAX_REPORTED_ERROR_MESSAGE_LENGTH);
+
+    const straddling = `${'x'.repeat(MAX_REPORTED_ERROR_MESSAGE_LENGTH - 5)} 2001:db8::1 tail`;
+    const redacted = toBoundedErrorMessage(new Error(straddling));
+
+    expect(redacted).not.toContain('2001:db8');
+    expect(redacted).toContain('[red');
+    expect(redacted.length).toBe(MAX_REPORTED_ERROR_MESSAGE_LENGTH + 3);
+  });
+});
+
