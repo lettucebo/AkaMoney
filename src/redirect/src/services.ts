@@ -1,23 +1,38 @@
+import {
+  BACKGROUND_ANALYTICS_ERROR_MESSAGE,
+  CLICK_RECORDING_OPERATION_NAME,
+  nativeConsoleError,
+} from './observability';
+import type { ClickRecordingContext, ClickRecordingErrorReporter } from './observability';
 import type { Url, ClickRecord, RequestWithCf } from './types';
 
-export interface ClickRecordingContext {
-  shortCode: string;
-  urlId: string;
-}
+export type { ClickRecordingContext, ClickRecordingErrorReporter } from './observability';
 
 export async function observeClickRecording(
   recording: Promise<void>,
-  context: ClickRecordingContext
+  context: ClickRecordingContext,
+  reportError?: ClickRecordingErrorReporter
 ): Promise<void> {
   try {
     await recording;
+    return;
   } catch (error) {
-    console.error('Redirect background analytics failed', {
-      operation: 'recordClick',
+    nativeConsoleError(BACKGROUND_ANALYTICS_ERROR_MESSAGE, {
+      operation: CLICK_RECORDING_OPERATION_NAME,
       shortCode: context.shortCode,
       urlId: context.urlId,
       error,
     });
+
+    if (!reportError) {
+      return;
+    }
+
+    try {
+      await reportError(error, context);
+    } catch {
+      // Observability must never reject waitUntil or affect the redirect response.
+    }
   }
 }
 

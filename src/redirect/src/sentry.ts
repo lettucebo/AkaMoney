@@ -1,12 +1,21 @@
 import * as Sentry from '@sentry/cloudflare/nodejs_compat';
 import type { CloudflareOptions, Event } from '@sentry/cloudflare/nodejs_compat';
+import {
+  BACKGROUND_ANALYTICS_ERROR_MESSAGE,
+  BACKGROUND_CLICK_RECORDING_OPERATION,
+  BACKGROUND_OPERATION_TAG_KEY,
+  CLICK_RECORDING_OPERATION_NAME,
+  toBoundedErrorMessage,
+  toErrorName,
+} from './observability';
+import type { ClickRecordingErrorReporter } from './observability';
 import type { Env } from './types';
 
 type JsonObject = Record<string, unknown>;
 type StreamedSpan = Parameters<Parameters<typeof Sentry.withStreamedSpan>[0]>[0];
+type SentryClient = NonNullable<ReturnType<typeof Sentry.getClient>>;
 
 const CREDENTIAL_HEADER_NAMES = new Set(['authorization', 'x-api-key', 'cookie']);
-export const BACKGROUND_ANALYTICS_ERROR_MESSAGE = 'Redirect background analytics failed';
 
 function isRecord(value: unknown): value is JsonObject {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -18,16 +27,20 @@ function scrubHeaderRecord(headers: JsonObject): JsonObject {
   );
 }
 
-function isBackgroundAnalyticsErrorEvent(event: JsonObject): boolean {
-  if (typeof event.message === 'string' && event.message.startsWith(BACKGROUND_ANALYTICS_ERROR_MESSAGE)) {
-    return true;
+/**
+ * Background click-recording reports are identified by a stable event tag set on
+ * the explicit report scope, not by the event message, so the check cannot be
+ * spoofed or broken by message formatting. Only exception-shaped events qualify.
+ */
+function isBackgroundClickRecordingException(event: JsonObject): boolean {
+  if (event.type !== undefined) {
+    return false;
   }
 
-  const logentry = event.logentry;
+  const tags = event.tags;
+
   return (
-    isRecord(logentry) &&
-    typeof logentry.message === 'string' &&
-    logentry.message.startsWith(BACKGROUND_ANALYTICS_ERROR_MESSAGE)
+    isRecord(tags) && tags[BACKGROUND_OPERATION_TAG_KEY] === BACKGROUND_CLICK_RECORDING_OPERATION
   );
 }
 
@@ -74,7 +87,7 @@ function scrubCredentialHeaderFields(value: unknown, currentKey?: string): unkno
 export function scrubCredentialHeaders<T extends Event>(event: T): T {
   const scrubbed = scrubCredentialHeaderFields(event);
 
-  if (isRecord(scrubbed) && isBackgroundAnalyticsErrorEvent(scrubbed)) {
+  if (isRecord(scrubbed) && isBackgroundClickRecordingException(scrubbed)) {
     return removeBackgroundRequestContext(scrubbed) as T;
   }
 
@@ -123,4 +136,68 @@ export function createSentryOptions(env: Env): CloudflareOptions {
       Sentry.captureConsoleIntegration({ levels: ['error'] }),
     ],
   };
+}
+
+/**
+ * Builds a background error reporter bound to the Sentry client that is active
+ * while the redirect handler runs.
+ *
+ * The client is resolved synchronously, before background work is registered,
+ * because `ctx.waitUntil` continuations no longer resolve to the request client.
+ * Reporting uses freshly constructed, empty current and isolation scopes that
+ * carry only that client, so no ambient request data (headers, cookies, IP,
+ * breadcrumbs, tags, contexts) can be merged into the report.
+ *
+ * Returns `undefined` when no client is available or when construction fails, so
+ * the redirect response is never affected.
+ */
+export function createBackgroundClickErrorReporter(
+  resolveClient: () => SentryClient | undefined = () => Sentry.getClient()
+): ClickRecordingErrorReporter | undefined {
+  try {
+    const client = resolveClient();
+
+    if (!client) {
+      return undefined;
+    }
+
+    const reportScope = new Sentry.Scope();
+    reportScope.setClient(client);
+    reportScope.setLevel('error');
+    reportScope.setTag(BACKGROUND_OPERATION_TAG_KEY, BACKGROUND_CLICK_RECORDING_OPERATION);
+
+    const reportIsolationScope = new Sentry.Scope();
+    reportIsolationScope.setClient(client);
+
+    return (error, context) => {
+      const scope = reportScope.clone();
+      scope.setTag('short_code', context.shortCode);
+      scope.setTag('url_id', context.urlId);
+
+      // Both sinks run inside the same explicit empty isolation scope so neither
+      // the exception nor the log can inherit ambient isolation data, and neither
+      // performs an implicit current-client lookup.
+      Sentry.withIsolationScope(reportIsolationScope, () => {
+        client.captureException(
+          error,
+          { mechanism: { handled: true, type: BACKGROUND_CLICK_RECORDING_OPERATION } },
+          scope
+        );
+
+        Sentry.logger.error(
+          BACKGROUND_ANALYTICS_ERROR_MESSAGE,
+          {
+            operation: CLICK_RECORDING_OPERATION_NAME,
+            shortCode: context.shortCode,
+            urlId: context.urlId,
+            errorName: toErrorName(error),
+            errorMessage: toBoundedErrorMessage(error),
+          },
+          { scope }
+        );
+      });
+    };
+  } catch {
+    return undefined;
+  }
 }

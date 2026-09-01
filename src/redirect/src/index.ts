@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import * as Sentry from '@sentry/cloudflare/nodejs_compat';
 import type { Env } from './types';
 import { getUrlByShortCode, observeClickRecording, recordClick } from './services';
-import { createSentryOptions } from './sentry';
+import { createBackgroundClickErrorReporter, createSentryOptions } from './sentry';
 
 export const app = new Hono<{ Bindings: Env }>();
 
@@ -43,11 +43,16 @@ app.get('/:shortCode', async (c) => {
     return c.json({ error: 'Gone', message: 'This short URL has expired' }, 410);
   }
 
+  // Capture the request-scoped Sentry client before registering background work,
+  // because the waitUntil continuation no longer resolves to the request client.
+  const reportBackgroundClickError = createBackgroundClickErrorReporter();
+
   // Record click asynchronously
   c.executionCtx.waitUntil(
     observeClickRecording(
       recordClick(c.env.DB, c.req.raw, shortCode, url.id),
-      { shortCode, urlId: url.id }
+      { shortCode, urlId: url.id },
+      reportBackgroundClickError
     )
   );
 

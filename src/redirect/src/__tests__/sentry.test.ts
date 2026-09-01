@@ -2,10 +2,10 @@ import type { Event } from '@sentry/cloudflare/nodejs_compat';
 import { describe, expect, it } from 'vitest';
 import {
   BACKGROUND_ANALYTICS_ERROR_MESSAGE,
-  createSentryOptions,
-  scrubCredentialHeaders,
-  scrubStreamedSpan,
-} from '../sentry';
+  BACKGROUND_CLICK_RECORDING_OPERATION,
+  BACKGROUND_OPERATION_TAG_KEY,
+} from '../observability';
+import { createSentryOptions, scrubCredentialHeaders, scrubStreamedSpan } from '../sentry';
 import type { Env } from '../types';
 
 describe('Sentry configuration', () => {
@@ -78,9 +78,13 @@ describe('Sentry configuration', () => {
     });
   });
 
-  it('removes inherited request headers and IP from background analytics error events', () => {
+  it('removes inherited request headers and IP from tagged background click recording exceptions', () => {
     const event = {
-      message: `${BACKGROUND_ANALYTICS_ERROR_MESSAGE} [object Object]`,
+      message: 'D1 insert failed',
+      tags: {
+        [BACKGROUND_OPERATION_TAG_KEY]: BACKGROUND_CLICK_RECORDING_OPERATION,
+        short_code: 'abc123',
+      },
       request: {
         headers: {
           'x-request-id': 'safe-for-normal-events',
@@ -101,6 +105,64 @@ describe('Sentry configuration', () => {
     expect(scrubbed.user).toEqual({
       id: 'user-id',
     });
+    expect(scrubbed.tags).toEqual({
+      [BACKGROUND_OPERATION_TAG_KEY]: BACKGROUND_CLICK_RECORDING_OPERATION,
+      short_code: 'abc123',
+    });
+  });
+
+  it('keeps safe request context for untagged events that merely share the background message', () => {
+    const event = {
+      message: `${BACKGROUND_ANALYTICS_ERROR_MESSAGE} [object Object]`,
+      request: {
+        headers: {
+          'x-request-id': 'safe-for-normal-events',
+        },
+        url: 'https://aka.money/abc123',
+      },
+      user: {
+        id: 'user-id',
+        ip_address: '203.0.113.1',
+      },
+    } as unknown as Event;
+
+    const scrubbed = scrubCredentialHeaders(event);
+
+    expect(scrubbed.request).toEqual({
+      headers: { 'x-request-id': 'safe-for-normal-events' },
+      url: 'https://aka.money/abc123',
+    });
+    expect(scrubbed.user).toEqual({
+      id: 'user-id',
+      ip_address: '203.0.113.1',
+    });
+  });
+
+  it('leaves transaction-shaped events untouched even when they carry the background tag', () => {
+    const transaction = {
+      type: 'transaction',
+      transaction: 'GET /:shortCode',
+      tags: {
+        [BACKGROUND_OPERATION_TAG_KEY]: BACKGROUND_CLICK_RECORDING_OPERATION,
+      },
+      request: {
+        headers: {
+          'user-agent': 'safe-agent',
+        },
+        url: 'https://aka.money/abc123',
+      },
+      user: {
+        ip_address: '203.0.113.1',
+      },
+    } as unknown as Event;
+
+    const scrubbed = scrubCredentialHeaders(transaction);
+
+    expect(scrubbed.request).toEqual({
+      headers: { 'user-agent': 'safe-agent' },
+      url: 'https://aka.money/abc123',
+    });
+    expect(scrubbed.user).toEqual({ ip_address: '203.0.113.1' });
   });
 
   it('scrubs credential header attributes from streamed spans', () => {

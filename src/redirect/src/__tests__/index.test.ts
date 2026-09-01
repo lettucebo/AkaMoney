@@ -43,14 +43,16 @@ function createEnv(url: Url | null, clickRunResult?: Promise<unknown>) {
       return statement;
     }),
   } as unknown as D1Database;
+  const waitUntil = vi.fn<(promise: Promise<unknown>) => void>();
   const executionCtx = {
-    waitUntil: vi.fn(),
+    waitUntil,
     passThroughOnException: vi.fn(),
   } as unknown as ExecutionContext;
 
   return {
     env: { DB: db, ENVIRONMENT: 'test' } satisfies Env,
     executionCtx,
+    waitUntil,
     lookupStatement,
     insertStatement,
     updateStatement,
@@ -135,5 +137,36 @@ describe('redirect routes', () => {
     });
     expect(response.headers.get('Access-Control-Allow-Origin')).toBe('*');
     expect(executionCtx.waitUntil).not.toHaveBeenCalled();
+  });
+
+  it('resolves the background waitUntil promise and still returns 302 when click recording fails', async () => {
+    vi.resetModules();
+    const nativeConsoleError = vi.fn();
+    const originalConsoleError = console.error;
+    console.error = nativeConsoleError as typeof console.error;
+
+    let redirectApp: typeof app;
+    try {
+      ({ app: redirectApp } = await import('../index'));
+    } finally {
+      console.error = originalConsoleError;
+    }
+
+    const clickWriteFailure = Promise.reject(new Error('D1 insert failed'));
+    clickWriteFailure.catch(() => {});
+    const { env, executionCtx, waitUntil } = createEnv(createUrl(), clickWriteFailure);
+
+    const response = await redirectApp.fetch(
+      new Request('https://aka.money/abc123'),
+      env,
+      executionCtx
+    );
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get('Location')).toBe('https://example.com/page');
+    expect(waitUntil).toHaveBeenCalledTimes(1);
+
+    await expect(waitUntil.mock.calls[0]?.[0]).resolves.toBeUndefined();
+    expect(nativeConsoleError).toHaveBeenCalledTimes(1);
   });
 });
