@@ -791,24 +791,25 @@ describe('credential assignment redaction parity', () => {
 
   /**
    * The destructive rules run before the credential scan, so a URL, bearer
-   * token or IPv6 literal that ends on a credential key removes the very key
-   * the scan needs, and the value behind it survives. This is a different
-   * defect from the nesting extension and predates it: every output below is
-   * byte-identical before and after that change. It is tracked as #157 and
-   * pinned here so that closing it has to update this expectation deliberately.
+   * token or IPv6 literal that ends on a credential key removed the very key
+   * the scan needed, and the value behind it survived (#157). The pipeline now
+   * evaluates the credential scanner against the original bounded source as
+   * well as against the current sequential order, so the erased key is still
+   * seen and the assignment behind it is redacted.
    */
-  it('documents that an earlier redaction can erase the key of a later assignment', () => {
-    const knownLimitation: readonly (readonly [string, string])[] = [
-      [`token=https://example.test/token = ${NESTED_SECRET}`, `[redacted] = ${NESTED_SECRET}`],
-      [`token=bearer token = ${NESTED_SECRET}`, `[redacted] = ${NESTED_SECRET}`],
-      [`token=2001:db8::1%token = ${NESTED_SECRET}`, `[redacted] = ${NESTED_SECRET}`],
+  it('redacts an assignment whose key an earlier redaction would erase', () => {
+    const closed: readonly (readonly [string, string])[] = [
+      [`token=https://example.test/token = ${NESTED_SECRET}`, REDACTION_PLACEHOLDER],
+      [`token=bearer token = ${NESTED_SECRET}`, REDACTION_PLACEHOLDER],
+      [`token=2001:db8::1%token = ${NESTED_SECRET}`, REDACTION_PLACEHOLDER],
       // The URL match also swallows the delimiter, which is why a
-      // placeholder-aware tail rule would not be enough on its own.
-      [`token=https://example.test/token= ${NESTED_SECRET}`, `[redacted] ${NESTED_SECRET}`],
+      // placeholder-aware tail rule would not have been enough on its own.
+      [`token=https://example.test/token= ${NESTED_SECRET}`, REDACTION_PLACEHOLDER],
     ];
 
-    for (const [message, expected] of knownLimitation) {
+    for (const [message, expected] of closed) {
       expect(toBoundedErrorMessage(new Error(message)), message).toBe(expected);
+      expect(toBoundedErrorMessage(new Error(message)), message).not.toContain(NESTED_SECRET);
     }
   });
 
