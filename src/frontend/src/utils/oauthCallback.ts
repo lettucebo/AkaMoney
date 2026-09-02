@@ -63,14 +63,10 @@ export interface OAuthCallbackInspection {
 
 const RESPONSE_KEYS: ReadonlySet<string> = new Set<string>(OAUTH_RESPONSE_KEYS);
 
-/** A fragment is read two ways: as MSAL parses it, and as a route with a query. */
 interface UrlParts {
   readonly base: string;
   readonly query: string;
-  /** The single `/` MSAL strips from `#/code=...` before parsing a response. */
-  readonly hashPrefix: '' | '/';
-  /** Everything after that prefix. */
-  readonly hashRest: string;
+  readonly hash: string;
 }
 
 const decodeParameterName = (rawName: string): string => {
@@ -88,40 +84,47 @@ const parameterName = (segment: string): string => {
 
 const splitSegments = (raw: string): string[] => (raw === '' ? [] : raw.split('&'));
 
-const containsResponseKey = (raw: string): boolean =>
-  splitSegments(raw).some((segment) => RESPONSE_KEYS.has(parameterName(segment)));
-
 const isSensitiveName = (name: string): boolean =>
   RESPONSE_KEYS.has(name) || name === OAUTH_STATE_KEY;
 
-/**
- * Reports whether a fragment payload is the authorization response MSAL would
- * deserialize.
- *
- * MSAL strips at most one leading `#/` (or `#`) and hands the rest to
- * `URLSearchParams`, which separates parameters on `&` only and refuses a
- * payload without `=` (`stripLeadingHashOrQuery`/`getDeserializedResponse` in
- * `@azure/msal-common`). `?` is therefore part of a value, never a delimiter:
- * `#code=a?b` is one `code` parameter. `#/code` stays a route to `/code`, and
- * `#//code=v` and `#!/route&code=v` keep the parameter names `/code` and
- * `!/route`.
- */
-const carriesMsalResponse = (rest: string): boolean =>
-  rest.includes('=') && containsResponseKey(rest);
+const containsResponseKey = (raw: string): boolean =>
+  splitSegments(raw).some((segment) => RESPONSE_KEYS.has(parameterName(segment)));
 
-/**
- * Reports whether a hash *route* carries a response in its own query, the
- * `#/route?code=...` form a hash-routed application produces. MSAL would read
- * `route?code` as one parameter name, so this view exists in addition to the
- * MSAL one, never instead of it.
- */
-const carriesRouteQueryResponse = (rest: string): boolean => {
-  const queryIndex = rest.indexOf('?');
-  return queryIndex >= 0 && containsResponseKey(rest.slice(queryIndex + 1));
+const containsSensitiveParameter = (raw: string): boolean =>
+  splitSegments(raw).some((segment) => isSensitiveName(parameterName(segment)));
+
+/** `#/code=...`: the payload MSAL reads after stripping one leading slash. */
+const msalPayload = (hash: string): string => (hash.startsWith('/') ? hash.slice(1) : hash);
+
+/** `#/route?code=...`: the query a hash-routed application appends to a route. */
+const routeQuery = (payload: string): { readonly path: string; readonly query: string } | null => {
+  const queryIndex = payload.indexOf('?');
+  return queryIndex < 0
+    ? null
+    : { path: payload.slice(0, queryIndex), query: payload.slice(queryIndex + 1) };
 };
 
-const fragmentCarriesResponse = (rest: string): boolean =>
-  carriesMsalResponse(rest) || carriesRouteQueryResponse(rest);
+/**
+ * Reports whether a fragment carries an authorization response.
+ *
+ * The fragment is read both ways at once. MSAL strips at most one leading `#/`
+ * (or `#`) and hands the rest to `URLSearchParams`, which separates parameters
+ * on `&` only and refuses a payload without `=`
+ * (`stripLeadingHashOrQuery`/`getDeserializedResponse` in `@azure/msal-common`):
+ * a `?` belongs to a value there, so `#code=a?b` is one `code` parameter,
+ * `#/code` stays a route to `/code`, and `#//code=v` and `#!/route&code=v`
+ * keep the parameter names `/code` and `!/route`. A hash-routed application
+ * additionally puts its own query behind `?`, which the second view covers.
+ */
+const hashCarriesResponse = (hash: string): boolean => {
+  const payload = msalPayload(hash);
+  const route = routeQuery(payload);
+
+  return (
+    (payload.includes('=') && containsResponseKey(payload)) ||
+    (route !== null && containsResponseKey(route.query))
+  );
+};
 
 /**
  * Splits a URL by string position instead of parsing it, so unrelated origin,
@@ -137,8 +140,7 @@ const parseUrlParts = (href: string): UrlParts => {
   const base = queryIndex >= 0 ? beforeHash.slice(0, queryIndex) : beforeHash;
   const query = queryIndex >= 0 ? beforeHash.slice(queryIndex + 1) : '';
 
-  const hashPrefix = hash.startsWith('/') ? '/' : '';
-  return { base, query, hashPrefix, hashRest: hash.slice(hashPrefix.length) };
+  return { base, query, hash };
 };
 
 const removeSensitiveSegments = (raw: string): string =>
@@ -147,37 +149,53 @@ const removeSensitiveSegments = (raw: string): string =>
     .join('&');
 
 /**
- * Removes every response parameter, in whichever view it appears.
+ * Removes the sensitive parameters of both fragment views once.
  *
- * The MSAL view runs first and drops each matching parameter whole, so a value
- * containing a raw `?` cannot leave a tail behind; the payload is then
- * re-examined, because a removed value can have hidden a route query
- * (`#x=?code=<value>`). Only a payload that is not an MSAL response is treated
- * as a route with its own query. Every recursive pass drops at least one
- * parameter, so the recursion always terminates.
+ * The MSAL view drops each matching parameter whole, so a value that contains
+ * a raw `?` cannot leave a tail behind; the route view then cleans a query
+ * whose parameters MSAL would have read as part of a route name. Both views
+ * also drop `state`, because the pairing that makes it sensitive is decided
+ * for the whole URL before anything is removed.
  */
-const sanitizeFragment = (rest: string): string => {
-  if (carriesMsalResponse(rest)) {
-    return sanitizeFragment(removeSensitiveSegments(rest));
+const cleanHashOnce = (hash: string): string => {
+  const prefix = hash.startsWith('/') ? '/' : '';
+  let payload = msalPayload(hash);
+
+  if (containsSensitiveParameter(payload)) {
+    payload = removeSensitiveSegments(payload);
   }
 
-  const queryIndex = rest.indexOf('?');
-  if (queryIndex < 0 || !containsResponseKey(rest.slice(queryIndex + 1))) {
-    return rest;
+  const route = routeQuery(payload);
+  if (route !== null && containsSensitiveParameter(route.query)) {
+    const query = removeSensitiveSegments(route.query);
+    payload = query === '' ? route.path : `${route.path}?${query}`;
   }
 
-  const path = rest.slice(0, queryIndex);
-  const query = removeSensitiveSegments(rest.slice(queryIndex + 1));
-  return query === '' ? path : `${path}?${query}`;
-};
-
-const buildUrl = (parts: UrlParts, query: string, hashRest: string): string => {
   // An emptied fragment drops the `#/` marker with it: what remains of a
   // response is not a route.
-  const hash = hashRest === '' ? '' : parts.hashPrefix + hashRest;
-
-  return `${parts.base}${query === '' ? '' : `?${query}`}${hash === '' ? '' : `#${hash}`}`;
+  return payload === '' ? '' : prefix + payload;
 };
+
+/**
+ * Cleans until the fragment stops changing: rebuilding can expose a parameter
+ * that a removed one hid, as in `#code&/code=<value>`, whose leading slash
+ * becomes MSAL's marker only once the first parameter is gone. Every pass that
+ * changes anything removes a parameter, so the loop always terminates.
+ */
+const sanitizeHash = (hash: string): string => {
+  let current = hash;
+  let previous = '';
+
+  while (current !== previous) {
+    previous = current;
+    current = cleanHashOnce(current);
+  }
+
+  return current;
+};
+
+const buildUrl = (base: string, query: string, hash: string): string =>
+  `${base}${query === '' ? '' : `?${query}`}${hash === '' ? '' : `#${hash}`}`;
 
 /**
  * Reports whether a URL carries OAuth response parameters and returns the URL
@@ -186,16 +204,16 @@ const buildUrl = (parts: UrlParts, query: string, hashRest: string): string => {
 export const inspectOAuthCallback = (href: string): OAuthCallbackInspection => {
   const parts = parseUrlParts(href);
 
-  if (!containsResponseKey(parts.query) && !fragmentCarriesResponse(parts.hashRest)) {
+  if (!containsResponseKey(parts.query) && !hashCarriesResponse(parts.hash)) {
     return { isCallback: false, sanitizedUrl: href };
   }
 
   return {
     isCallback: true,
     sanitizedUrl: buildUrl(
-      parts,
+      parts.base,
       removeSensitiveSegments(parts.query),
-      sanitizeFragment(parts.hashRest)
+      sanitizeHash(parts.hash)
     )
   };
 };

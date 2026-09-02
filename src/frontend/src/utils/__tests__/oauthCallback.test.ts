@@ -96,6 +96,16 @@ describe.each(OAUTH_RESPONSE_KEYS)('response key "%s"', (key) => {
 
     expect(sanitized).toBe(PAGE);
   });
+
+  it('removes fragment state when the response key is in the query', () => {
+    expect(sanitize(`${PAGE}?${key}=${CANARY}#${OAUTH_STATE_KEY}=${CANARY}-state`)).toBe(PAGE);
+  });
+
+  it('removes route-query state after its paired response key is removed', () => {
+    expect(
+      sanitize(`${PAGE}?${key}=${CANARY}#/dashboard?${OAUTH_STATE_KEY}=${CANARY}-state`)
+    ).toBe(`${PAGE}#/dashboard`);
+  });
 });
 
 describe('slash-prefixed fragment responses', () => {
@@ -250,6 +260,30 @@ describe('fragments MSAL parses as a flat parameter list', () => {
     expect(detect(href)).toBe(true);
     expect(sanitized).not.toContain(CANARY);
     expect(detect(sanitized)).toBe(false);
+  });
+
+  it('removes a paired state that sits in the other fragment view', () => {
+    expect(sanitize(`${PAGE}#/?${OAUTH_STATE_KEY}=${CANARY}&code=${CANARY}2`)).toBe(PAGE);
+    expect(sanitize(`${PAGE}#?${OAUTH_STATE_KEY}=${CANARY}&code=${CANARY}2`)).toBe(PAGE);
+    expect(
+      sanitize(`${PAGE}#/dashboard?${OAUTH_STATE_KEY}=${CANARY}&code=${CANARY}2&view=grid`)
+    ).toBe(`${PAGE}#/dashboard?view=grid`);
+    expect(sanitize(`${PAGE}#/code=${CANARY}?${OAUTH_STATE_KEY}=${CANARY}2`)).toBe(PAGE);
+  });
+
+  it('sanitizes a response that a removed parameter would otherwise have hidden', () => {
+    for (const href of [
+      `${PAGE}#code&/code=${CANARY}`,
+      `${PAGE}#x=?id_token=${CANARY}`,
+      `${PAGE}#/?code=${CANARY}&${OAUTH_STATE_KEY}=${CANARY}2`
+    ]) {
+      const sanitized = sanitize(href);
+
+      expect(detect(href)).toBe(true);
+      expect(sanitized).not.toContain(CANARY);
+      expect(detect(sanitized)).toBe(false);
+      expect(sanitize(sanitized)).toBe(sanitized);
+    }
   });
 
   it('keeps the route query separator when only some parameters are removed', () => {
