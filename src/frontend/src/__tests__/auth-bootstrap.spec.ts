@@ -4,6 +4,7 @@ import type { AccountInfo } from '@azure/msal-browser';
 import type { App as VueApp } from 'vue';
 import { START_LOCATION } from 'vue-router';
 import type { Router } from 'vue-router';
+import type { AuthInitializationResult } from '@/services/auth';
 
 interface Deferred<T> {
   promise: Promise<T>;
@@ -11,7 +12,7 @@ interface Deferred<T> {
 }
 
 interface MockAuthService {
-  initialize: ReturnType<typeof vi.fn<() => Promise<void>>>;
+  initialize: ReturnType<typeof vi.fn<() => Promise<AuthInitializationResult>>>;
   login: ReturnType<typeof vi.fn<() => Promise<AccountInfo | undefined>>>;
   loginRedirect: ReturnType<typeof vi.fn<() => Promise<void>>>;
   logout: ReturnType<typeof vi.fn<() => Promise<void>>>;
@@ -50,9 +51,10 @@ const createAuthServiceMock = (authInitialization: Deferred<void>): MockAuthServ
   let initialized = false;
 
   return {
-    initialize: vi.fn(async () => {
+    initialize: vi.fn(async (): Promise<AuthInitializationResult> => {
       await authInitialization.promise;
       initialized = true;
+      return { status: 'none', callbackPresent: false };
     }),
     login: vi.fn(async () => account),
     loginRedirect: vi.fn(async () => {}),
@@ -111,7 +113,7 @@ const bootstrapRealAppAt = async (path: string): Promise<BootstrapScenario> => {
     }
   }));
 
-  const [{ createApp }, { createPinia }, { default: App }, { default: router }] = await Promise.all([
+  const [{ createApp }, { createPinia }, { default: App }, { createAppRouter }] = await Promise.all([
     import('vue'),
     import('pinia'),
     import('@/App.vue'),
@@ -120,6 +122,7 @@ const bootstrapRealAppAt = async (path: string): Promise<BootstrapScenario> => {
 
   const app = createApp(App);
   const pinia = createPinia();
+  const router = createAppRouter();
 
   app.use(pinia);
   app.use(router);

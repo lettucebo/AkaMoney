@@ -25,6 +25,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { AuthConfigurationError, isAuthSkipped } from '@/services/auth';
 import { getValidatedRedirect } from '@/utils/redirect';
+import { toSafeErrorContext } from '@/utils/safeError';
 
 const router = useRouter();
 const route = useRoute();
@@ -40,7 +41,7 @@ onMounted(async () => {
     await authStore.login();
     await router.push(getValidatedRedirect(route.query.redirect));
   } catch (caught: unknown) {
-    console.error('Auto-login failed:', caught);
+    console.error('[Auth] Auto-login failed.', toSafeErrorContext(caught));
     error.value = '開發環境設定錯誤：略過驗證模式的自動登入失敗，請查看主控台。';
   } finally {
     loading.value = false;
@@ -56,7 +57,7 @@ const handleLogin = async (): Promise<void> => {
     error.value = caught instanceof AuthConfigurationError
       ? caught.message || '驗證尚未設定，請聯絡系統管理員。'
       : '登入失敗，請再試一次。';
-    console.error('Login error:', caught);
+    console.error('[Auth] Login failed.', toSafeErrorContext(caught));
   } finally {
     loading.value = false;
   }

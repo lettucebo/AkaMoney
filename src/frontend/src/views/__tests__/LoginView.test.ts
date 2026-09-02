@@ -89,7 +89,9 @@ describe('LoginView', () => {
       const authStore = useAuthStore();
       authStore.isAuthenticated = true;
       authStore.initialized = false;
-      const initializeSpy = vi.spyOn(authStore, 'initialize').mockResolvedValue();
+      const initializeSpy = vi
+        .spyOn(authStore, 'initialize')
+        .mockResolvedValue({ status: 'none', callbackPresent: false });
       const pushSpy = vi.spyOn(router, 'push');
 
       mountLoginView();
@@ -151,7 +153,10 @@ describe('LoginView', () => {
       vi.mocked(isAuthSkipped).mockReturnValue(true);
       await setRoute('/login?redirect=/stats');
       const authStore = useAuthStore();
-      const error = new Error('Skip-auth login failed');
+      const canary = 'CANARY-authorization-code';
+      const error = Object.assign(new Error(`Skip-auth login failed ${canary}`), {
+        name: 'BrowserAuthError'
+      });
       const loginSpy = vi.spyOn(authStore, 'login').mockRejectedValue(error);
       const pushSpy = vi.spyOn(router, 'push');
       const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -161,7 +166,10 @@ describe('LoginView', () => {
       await flushPromises();
 
       expect(loginSpy).toHaveBeenCalledOnce();
-      expect(consoleErrorSpy).toHaveBeenCalledWith('Auto-login failed:', error);
+      expect(consoleErrorSpy).toHaveBeenCalledWith('[Auth] Auto-login failed.', {
+        name: 'BrowserAuthError'
+      });
+      expect(JSON.stringify(consoleErrorSpy.mock.calls)).not.toContain(canary);
       expect(pushSpy).not.toHaveBeenCalled();
       expect(wrapper.text()).toContain(
         '開發環境設定錯誤：略過驗證模式的自動登入失敗，請查看主控台。'
@@ -195,9 +203,12 @@ describe('LoginView', () => {
       authStore.isAuthenticated = false;
       authStore.initialized = true;
 
-      const error = new Error('Login failed');
+      const canary = 'CANARY-authorization-code';
+      const error = Object.assign(new Error(`Login failed ${canary}`), {
+        name: 'BrowserAuthError'
+      });
       vi.mocked(authService.loginRedirect).mockRejectedValue(error);
-      vi.spyOn(console, 'error').mockImplementation(() => {});
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
       const wrapper = mountLoginView();
 
@@ -209,6 +220,10 @@ describe('LoginView', () => {
       await flushPromises();
 
       expect(wrapper.text()).toContain('登入失敗，請再試一次。');
+      expect(consoleErrorSpy).toHaveBeenCalledWith('[Auth] Login failed.', {
+        name: 'BrowserAuthError'
+      });
+      expect(JSON.stringify(consoleErrorSpy.mock.calls)).not.toContain(canary);
     });
 
     it('should show configuration error message', async () => {
