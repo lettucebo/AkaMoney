@@ -150,7 +150,8 @@ afterEach(async () => {
   window.history.replaceState({}, '', '/');
 });
 
-describe('auth bootstrap routing', () => {
+// Cold resetModules + dynamic imports make this integration suite pay bootstrap cost, not app behavior.
+describe('auth bootstrap routing', { timeout: 15_000 }, () => {
   it('redirects an authenticated bootstrap from /login to /dashboard after auth initialization resolves', async () => {
     const { authInitialization, router } = await bootstrapRealAppAt('/login');
 

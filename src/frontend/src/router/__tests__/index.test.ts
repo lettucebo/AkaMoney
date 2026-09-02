@@ -132,7 +132,8 @@ afterEach(() => {
   window.history.replaceState({}, '', '/');
 });
 
-describe('router module lifecycle', () => {
+// Cold resetModules + dynamic imports make these integration suites pay bootstrap cost, not app behavior.
+describe('router module lifecycle', { timeout: 15_000 }, () => {
   it('creates no router and reads no launch URL when the module is imported', async () => {
     const routerModule = await loadRouterModule();
 
@@ -157,7 +158,7 @@ describe('router module lifecycle', () => {
   });
 });
 
-describe('router auth guard redirect validation', () => {
+describe('router auth guard redirect validation', { timeout: 15_000 }, () => {
   it.each([
     ['protocol-relative', '/login?redirect=//evil.example/path'],
     ['external', '/login?redirect=https%3A%2F%2Fevil.example%2Fpath']
