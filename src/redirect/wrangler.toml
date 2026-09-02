@@ -1,10 +1,18 @@
 name = "akamoney-redirect"
 main = "src/index.ts"
 compatibility_date = "2024-12-17"
-node_compat = true
+compatibility_flags = ["nodejs_compat"]
 
 # Workers configuration
 workers_dev = true
+upload_source_maps = true
+
+[version_metadata]
+binding = "CF_VERSION_METADATA"
+
+[observability]
+enabled = true
+head_sampling_rate = 1
 
 # D1 Database binding (read-only access for redirect service)
 # IMPORTANT: For CD deployment, database_id is injected from GitHub Secrets (CLOUDFLARE_D1_DATABASE_ID).
@@ -18,6 +26,9 @@ database_id = ""
 # Environment variables
 [vars]
 ENVIRONMENT = "development"
+# Public Sentry DSN placeholder. This is not a secret; release/CD will inject the project DSN later.
+# Do not put Sentry auth tokens in Wrangler config; store tokens only in CI/secrets.
+SENTRY_DSN = ""
 
 # Routes for production (redirect service - public access, no authentication)
 # [[routes]]

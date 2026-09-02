@@ -66,7 +66,7 @@ Cloudflare Workers 本地執行所需之設定檔會被 git 忽略（`.gitignore
    cd src/redirect
    cp wrangler.local.toml.example wrangler.local.toml
    ```
-   - **Wrangler v3 與未來升級**：重定向服務目前使用 Wrangler v3（精確版本 `3.114.17`）並設定 `node_compat = true`。請注意未來若將重定向服務升級至 Wrangler v4，必須將 `node_compat = true` 改為 `compatibility_flags = ["nodejs_compat"]`。
+   - **Wrangler 相容性旗標**：重新導向服務目前使用 Wrangler v3（精確版本 `3.114.17`）並設定 `compatibility_flags = ["nodejs_compat"]`。複製或更新本地 Wrangler 設定時，請勿重新加入舊版 `node_compat = true` key。
 
 3. **前端環境變數**:
    ```bash

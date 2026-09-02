@@ -3,6 +3,7 @@ import { mount } from '@vue/test-utils';
 import { createRouter, createMemoryHistory } from 'vue-router';
 import type { UrlResponse } from '@/types';
 import UrlTable from '../UrlTable.vue';
+import { expectValueBlockedFromReplay, isReplayBlocked } from '@/__tests__/helpers/replayBlock';
 
 const buildUrl = (overrides: Partial<UrlResponse> = {}): UrlResponse => ({
   id: 'url-1',
@@ -129,5 +130,21 @@ describe('UrlTable', () => {
     const wrapper = await mountTable([buildUrl({ id: 'a' })], 'a');
 
     expect(wrapper.get('[data-testid="row-copy"]').attributes('title')).toContain('已複製');
+  });
+
+  it('blocks every element that renders or attributes the original url from Replay', async () => {
+    const originalUrl = 'https://blob.example.com/report.pdf?sig=SECRET-SIGNATURE';
+    const wrapper = await mountTable([buildUrl({ original_url: originalUrl })]);
+
+    expectValueBlockedFromReplay(wrapper.element, originalUrl);
+    expect(wrapper.get('.url').attributes('data-sentry-block')).toBeDefined();
+  });
+
+  it('keeps the short-code link and row actions recordable by Replay', async () => {
+    const wrapper = await mountTable([buildUrl()]);
+
+    expect(isReplayBlocked(wrapper.get('.lk').element)).toBe(false);
+    expect(isReplayBlocked(wrapper.get('[data-testid="row-copy"]').element)).toBe(false);
+    expect(isReplayBlocked(wrapper.get('.badge').element)).toBe(false);
   });
 });

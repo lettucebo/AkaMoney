@@ -76,7 +76,7 @@ database_name = "akamoney-clicks"
 database_id = "<paste-your-database-id-here>"
 ```
 
-> The backend example uses `compatibility_flags = ["nodejs_compat"]`, the Wrangler v4 syntax. The redirect service still pins Wrangler v3 and therefore retains the older `node_compat = true`; do not copy that key into the backend config.
+> The backend and redirect examples both use `compatibility_flags = ["nodejs_compat"]`; do not reintroduce the older `node_compat = true` key into local Wrangler config.
 
 ### 5. Configure the Redirect Service
 

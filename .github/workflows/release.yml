@@ -1,43 +1,136 @@
 name: Release
 
+# Production release trust boundary (issue #140).
+#
+# Supported production triggers, and nothing else:
+#   1. Push of an exact SemVer tag such as `1.3.0`. The `*.*.*` filter is only a coarse prefilter;
+#      `prepare-release` enforces the exact `MAJOR.MINOR.PATCH` shape.
+#   2. `workflow_dispatch` started from `main`, with an explicit ref and a typed confirmation.
+#
+# The pull-request-target trigger and the release label that went with it are deliberately absent.
+# They executed unmerged pull request code in jobs that hold Cloudflare, Azure, Entra and Sentry
+# credentials, so a label was the only thing standing between PR-controlled dependency lifecycle
+# scripts and production. Merging a pull request now deploys nothing. See docs/DEPLOYMENT.md for
+# the full trigger policy.
+# No job may execute code from the released ref before `prepare-release` has proven that ref is a
+# commit on `main`, and the validator itself is always checked out from `main`. Every later job
+# consumes only that immutable validated SHA, never the raw event ref.
+#
+# Documented limitations, deliberately not claimed as solved:
+#   * The `production` required reviewer is the sole maintainer, self-review is permitted and
+#     repository admins can bypass the environment, so approval is a confirmation rather than
+#     independent authorization.
+#   * A SemVer tag created on a historical commit still runs *that commit's* workflow file,
+#     including versions from before this hardening. Neither the environment tag policy nor the
+#     reviewer can inspect workflow age; the maintainer must reject such a run.
+#   * Anyone with write access can push a tag or start a dispatch, and the repository has no branch
+#     protection, so trusted same-repo writers remain trusted. Only external/unmerged PR-head
+#     execution is removed here.
+#   * `CLOUDFLARE_API_TOKEN` and `AZURE_STORAGE_SAS_TOKEN` are still repository secrets and stay
+#     readable by any workflow run in this repository; only `SENTRY_AUTH_TOKEN` is environment
+#     scoped. Every job below that reads a secret still declares `environment: production`, so the
+#     required reviewer applies to it.
+#   * The `production` environment currently has no deployment branch/tag policy configured, so the
+#     environment itself does not restrict which ref may deploy; the checks in this workflow do.
+#     Adding a custom policy (branch `main` plus tag `*.*.*`) is recommended follow-up.
 on:
   push:
     tags:
-      - '*'
-  pull_request_target:
-    types: [labeled]
+      - '*.*.*'
   workflow_dispatch:
+    inputs:
+      release_ref:
+        description: 'Commit to deploy: the literal "main", or an exact 40-character commit SHA already on main'
+        required: true
+        default: 'main'
+        type: string
+      confirm_production:
+        description: 'Type DEPLOY_PRODUCTION exactly to confirm a production deployment'
+        required: true
+        type: string
 
 permissions:
   contents: read
   deployments: write
 
+# Production releases are serialised and never cancelled mid-flight: interrupting a release can
+# leave Cloudflare resources provisioned by one commit and Workers deployed from another.
+concurrency:
+  group: release-production
+  cancel-in-progress: false
+
 env:
   CLOUDFLARE_PAGES_PROJECT: akamoney-admin
 
 jobs:
-  build:
+  prepare-release:
     runs-on: ubuntu-latest
-    # Run if: tag push, workflow_dispatch, or PR with run-release label.
-    # Security model:
-    # - pull_request_target runs with the base repository's context; applying the run-release label
-    #   requires write access to this repo, so only trusted maintainers can trigger a PR-based release.
-    # When to use:
-    # - Prefer tag-based pushes (or workflow_dispatch) for normal production releases.
-    # - Use pull_request_target + run-release label only when you intentionally want to build/deploy
-    #   the unmerged PR head commit (for example to a pre-production or test environment).
-    # Risks:
-    # - Deploying unmerged PR code means production-like environments may run code that has not
-    #   yet been merged; restrict label usage and review changes carefully before triggering.
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request_target' && contains(github.event.pull_request.labels.*.name, 'run-release'))
+    # No environment and no secret: this job decides what may be deployed, so it must never hold a
+    # deployment credential itself.
+    permissions:
+      contents: read
+    outputs:
+      sha: ${{ steps.resolve.outputs.sha }}
 
     steps:
+      # Trusted policy source. Only `main` is checked out here, never the ref being released, so a
+      # tag or dispatch can never supply the validator that judges it.
+      - name: Checkout trusted release policy from main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: .release-policy
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.x'
+
+      # Every event value reaches the resolver through `env:` and is read by shell-free Node code,
+      # so no tag name, ref or dispatch input is ever expanded by a shell. The resolver requires an
+      # exact SemVer tag (or `main`/an exact SHA for manual runs), dereferences annotated tags with
+      # `^{commit}`, cross-checks the event SHA, and requires the result to be an ancestor of a
+      # freshly fetched `origin/main`.
+      - name: Resolve and validate the release commit
+        id: resolve
+        env:
+          RELEASE_MODE: resolve
+          RELEASE_REPO_DIR: .release-policy
+          RELEASE_EVENT_NAME: ${{ github.event_name }}
+          RELEASE_REF_TYPE: ${{ github.ref_type }}
+          RELEASE_REF_NAME: ${{ github.ref_name }}
+          RELEASE_EVENT_SHA: ${{ github.sha }}
+          RELEASE_DISPATCH_REF: ${{ inputs.release_ref }}
+          RELEASE_DISPATCH_CONFIRM: ${{ inputs.confirm_production }}
+        run: node .release-policy/.github/scripts/resolve-release-ref.mjs
+
+      - name: Add release validation summary
+        env:
+          RELEASE_SHA: ${{ steps.resolve.outputs.sha }}
+          RELEASE_TRIGGER: ${{ github.event_name }}
+          RELEASE_ACTOR: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+          echo "## Release Ref Validation :closed_lock_with_key:" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Property | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| --- | --- |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **Validated commit** | ${RELEASE_SHA} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **Trigger** | ${RELEASE_TRIGGER} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **Started by** | ${RELEASE_ACTOR} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **Mainline policy** | ancestor of origin/main |" >> "$GITHUB_STEP_SUMMARY"
+
+  build:
+    runs-on: ubuntu-latest
+    needs: prepare-release
+
+    steps:
+      # Only the immutable commit validated by prepare-release is ever built.
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          # When triggered by pull_request_target, checkout the PR head SHA while still running in the base branch context
-          # (permissions, env, and workflow config come from the base branch; workflow changes in the PR do not affect this run).
-          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
+          ref: ${{ needs.prepare-release.outputs.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -58,7 +151,72 @@ jobs:
           VITE_APP_NAME: AkaMoney
           VITE_SHORT_DOMAIN: ${{ vars.SHORT_DOMAIN }}
           VITE_ARCHIVED_REDIRECT_URL: ${{ vars.ARCHIVED_REDIRECT_URL }}
-        run: npm run build -w akamoney-frontend
+          VITE_SENTRY_DSN: ${{ vars.VITE_SENTRY_DSN }}
+          VITE_SENTRY_ENVIRONMENT: production
+          VITE_SENTRY_REPLAY_ENABLED: ${{ vars.VITE_SENTRY_REPLAY_ENABLED }}
+        # The Sentry upload credential is deliberately absent here. This job runs outside the
+        # protected production environment and executes the released commit's dependency and build
+        # scripts, so it must hold no deployment credential. The Vite Sentry plugin therefore stays
+        # inactive, hidden source maps stay in the artifact, and deploy-frontend uploads them from
+        # the protected production environment.
+        run: |
+          set -euo pipefail
+          if [ -z "${VITE_SENTRY_DSN:-}" ]; then
+            echo "Error: VITE_SENTRY_DSN variable is not set; refusing to build the frontend without error monitoring"
+            exit 1
+          fi
+          # Whitespace-only or whitespace-containing values are unusable DSNs: reject them before
+          # the build so a mistyped variable cannot be baked into the bundle.
+          case "$VITE_SENTRY_DSN" in
+            *[[:space:]]*)
+              echo "Error: VITE_SENTRY_DSN contains whitespace; refusing to build the frontend with an unusable DSN"
+              exit 1
+              ;;
+          esac
+          # The bash guards above are only a coarse first pass: POSIX [[:space:]] is locale-dependent
+          # (this workflow pins no locale), it never matches zero-width characters, and it checks nothing
+          # structural. Percent-encoded control characters and delimiters are worse: they survive a WHATWG
+          # URL parse untouched, while @sentry/core 10.71 either rejects them or silently truncates the
+          # project id - so a valid-looking DSN would deploy production without error monitoring. Node 24
+          # and the workspace dependencies are already installed for this job, so validate with the same
+          # parser that actually transports events (makeDsn) behind a printable-ASCII gate. The candidate
+          # is passed through the environment, never on argv, and only the variable name is ever printed.
+          SENTRY_DSN_VAR_NAME="VITE_SENTRY_DSN" \
+          SENTRY_DSN_CANDIDATE="${VITE_SENTRY_DSN:-}" \
+          node -e '
+            const name = process.env.SENTRY_DSN_VAR_NAME;
+            const raw = process.env.SENTRY_DSN_CANDIDATE ?? "";
+            const reject = (reason) => {
+              console.error("Error: " + name + " " + reason + "; refusing to continue without usable Sentry error monitoring");
+              process.exit(1);
+            };
+            if (raw === "") reject("is not set or is empty");
+            if (!/^[\x21-\x7e]+$/.test(raw)) reject("must contain only printable non-space ASCII (0x21-0x7E); space, control, invisible and non-ASCII characters are rejected");
+            if (raw.includes("%")) reject("must not contain a percent sign; percent-encoded delimiters and control characters survive a URL parse but are rejected or silently truncated by the Sentry SDK");
+            let url = null;
+            try { url = new URL(raw); } catch { reject("is not a parsable URL"); }
+            if (url.protocol !== "https:") reject("must use the https scheme");
+            if (url.username === "") reject("is missing the Sentry public key before @");
+            if (url.hostname === "") reject("is missing a host");
+            if (url.search !== "" || url.hash !== "") reject("must not carry a query string or fragment");
+            if (!/^\/[0-9]+$/.test(url.pathname)) reject("must end with a single numeric Sentry project id path segment");
+            let core = null;
+            let coreVersion = "";
+            try { core = require("@sentry/core"); coreVersion = require("@sentry/core/package.json").version; } catch { reject("cannot be validated because @sentry/core is not installed; workspace dependencies must be installed before this gate runs"); }
+            if (!/^10\./.test(coreVersion)) reject("cannot be validated because the installed @sentry/core is not the 10.x line this gate was verified against");
+            if (typeof core.makeDsn !== "function") reject("cannot be validated because the installed @sentry/core exposes no makeDsn parser");
+            const outWrite = process.stdout.write.bind(process.stdout);
+            const errWrite = process.stderr.write.bind(process.stderr);
+            let dsn = null;
+            process.stdout.write = () => true;
+            process.stderr.write = () => true;
+            try { dsn = core.makeDsn(raw); } catch { dsn = null; } finally { process.stdout.write = outWrite; process.stderr.write = errWrite; }
+            if (!dsn) reject("is rejected by the installed @sentry/core makeDsn parser, so it could never transport events");
+            const urlPort = url.port === "" ? "443" : url.port;
+            const dsnPort = dsn.port === "" ? "443" : dsn.port;
+            if (dsn.protocol !== "https" || dsn.publicKey !== url.username || dsn.host.toLowerCase() !== url.hostname || dsnPort !== urlPort || dsn.path !== "" || dsn.projectId !== url.pathname.slice(1)) reject("is parsed differently by @sentry/core than by the URL parser, so the deployed value would not be what Sentry receives");
+          '
+          npm run build -w akamoney-frontend
 
       - name: Build backend (dry run)
         run: npm run build -w akamoney-backend
@@ -75,15 +233,35 @@ jobs:
 
   deploy-admin-api:
     runs-on: ubuntu-latest
-    needs: build
+    needs: [prepare-release, build]
     environment: production
 
     steps:
+      # The validated commit is checked out first: actions/checkout cleans its target directory, so
+      # the trusted policy tree is created afterwards and cannot be removed by this checkout.
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          # Checkout the PR head ref when triggered by pull_request_target
-          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
+          ref: ${{ needs.prepare-release.outputs.sha }}
+
+      - name: Checkout trusted release policy from main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: .release-policy
+          fetch-depth: 0
+
+      # Waiting for the production reviewer can take arbitrarily long. Re-prove from the trusted
+      # main clone that the selected commit is still on mainline before anything from the released
+      # commit executes (npm lifecycle scripts run during `npm ci`) and before any secret is read.
+      # This runs on the runner's preinstalled Node, ahead of setup-node, so not even the npm cache
+      # is keyed on the selected tree until ancestry has been re-proved.
+      - name: Recheck the release commit against mainline
+        env:
+          RELEASE_MODE: recheck
+          RELEASE_REPO_DIR: .release-policy
+          RELEASE_SELECTED_SHA: ${{ needs.prepare-release.outputs.sha }}
+        run: node .release-policy/.github/scripts/resolve-release-ref.mjs
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -94,6 +272,93 @@ jobs:
 
       - name: Install workspace dependencies
         run: npm ci
+
+      - name: Validate Sentry DSN
+        env:
+          VAR_SENTRY_DSN: ${{ vars.SENTRY_BACKEND_DSN }}
+        # Ordering gate: this is the first step after dependency installation, before any build,
+        # any Cloudflare API call and any wrangler.toml edit. An unusable DSN therefore cannot
+        # leave a half-created D1 database or R2 bucket, or a mutated wrangler.toml, behind. The
+        # injection step later re-runs the byte-identical validator immediately before it writes
+        # the value (defence in depth), so the gate does not depend on step ordering alone.
+        run: |
+          set -euo pipefail
+          if [ -z "${VAR_SENTRY_DSN:-}" ]; then
+            echo "Error: SENTRY_BACKEND_DSN variable is not set; refusing to deploy the Admin API without error monitoring"
+            exit 1
+          fi
+          case "$VAR_SENTRY_DSN" in
+            *[[:space:]]*)
+              echo "Error: SENTRY_BACKEND_DSN is whitespace-only or contains whitespace; refusing to deploy the Admin API with an unusable DSN"
+              exit 1
+              ;;
+            *'"'*|*'\'*)
+              echo "Error: SENTRY_BACKEND_DSN contains characters that cannot be embedded in a TOML basic string"
+              exit 1
+              ;;
+          esac
+          # The bash guards above are only a coarse first pass: POSIX [[:space:]] is locale-dependent
+          # (this workflow pins no locale), it never matches zero-width characters, and it checks nothing
+          # structural. Percent-encoded control characters and delimiters are worse: they survive a WHATWG
+          # URL parse untouched, while @sentry/core 10.71 either rejects them or silently truncates the
+          # project id - so a valid-looking DSN would deploy production without error monitoring. Node 24
+          # and the workspace dependencies are already installed for this job, so validate with the same
+          # parser that actually transports events (makeDsn) behind a printable-ASCII gate. The candidate
+          # is passed through the environment, never on argv, and only the variable name is ever printed.
+          SENTRY_DSN_VAR_NAME="SENTRY_BACKEND_DSN" \
+          SENTRY_DSN_CANDIDATE="$VAR_SENTRY_DSN" \
+          node -e '
+            const name = process.env.SENTRY_DSN_VAR_NAME;
+            const raw = process.env.SENTRY_DSN_CANDIDATE ?? "";
+            const reject = (reason) => {
+              console.error("Error: " + name + " " + reason + "; refusing to continue without usable Sentry error monitoring");
+              process.exit(1);
+            };
+            if (raw === "") reject("is not set or is empty");
+            if (!/^[\x21-\x7e]+$/.test(raw)) reject("must contain only printable non-space ASCII (0x21-0x7E); space, control, invisible and non-ASCII characters are rejected");
+            if (raw.includes("%")) reject("must not contain a percent sign; percent-encoded delimiters and control characters survive a URL parse but are rejected or silently truncated by the Sentry SDK");
+            let url = null;
+            try { url = new URL(raw); } catch { reject("is not a parsable URL"); }
+            if (url.protocol !== "https:") reject("must use the https scheme");
+            if (url.username === "") reject("is missing the Sentry public key before @");
+            if (url.hostname === "") reject("is missing a host");
+            if (url.search !== "" || url.hash !== "") reject("must not carry a query string or fragment");
+            if (!/^\/[0-9]+$/.test(url.pathname)) reject("must end with a single numeric Sentry project id path segment");
+            let core = null;
+            let coreVersion = "";
+            try { core = require("@sentry/core"); coreVersion = require("@sentry/core/package.json").version; } catch { reject("cannot be validated because @sentry/core is not installed; workspace dependencies must be installed before this gate runs"); }
+            if (!/^10\./.test(coreVersion)) reject("cannot be validated because the installed @sentry/core is not the 10.x line this gate was verified against");
+            if (typeof core.makeDsn !== "function") reject("cannot be validated because the installed @sentry/core exposes no makeDsn parser");
+            const outWrite = process.stdout.write.bind(process.stdout);
+            const errWrite = process.stderr.write.bind(process.stderr);
+            let dsn = null;
+            process.stdout.write = () => true;
+            process.stderr.write = () => true;
+            try { dsn = core.makeDsn(raw); } catch { dsn = null; } finally { process.stdout.write = outWrite; process.stderr.write = errWrite; }
+            if (!dsn) reject("is rejected by the installed @sentry/core makeDsn parser, so it could never transport events");
+            const urlPort = url.port === "" ? "443" : url.port;
+            const dsnPort = dsn.port === "" ? "443" : dsn.port;
+            if (dsn.protocol !== "https" || dsn.publicKey !== url.username || dsn.host.toLowerCase() !== url.hostname || dsnPort !== urlPort || dsn.path !== "" || dsn.projectId !== url.pathname.slice(1)) reject("is parsed differently by @sentry/core than by the URL parser, so the deployed value would not be what Sentry receives");
+          '
+          echo "SENTRY_BACKEND_DSN validated before any external change"
+
+      # Production must report environment=production to Sentry. The tracked config keeps
+      # "development" so local runs are never mistaken for production, and the value is
+      # hardcoded here rather than read from an optional repository variable, which would
+      # silently fall back to "development" if unset. This runs after the DSN gate and
+      # before any Cloudflare mutation, so a failure leaves nothing changed externally.
+      - name: Set production environment in wrangler.toml
+        run: |
+          set -euo pipefail
+          cd src/backend
+          sed -i 's|^[[:space:]]*ENVIRONMENT[[:space:]]*=.*|ENVIRONMENT = "production"|' wrangler.toml
+          ENVIRONMENT_TOTAL=$(grep -cE '^[[:space:]]*ENVIRONMENT[[:space:]]*=' wrangler.toml || true)
+          ENVIRONMENT_PRODUCTION=$(grep -c '^ENVIRONMENT = "production"$' wrangler.toml || true)
+          if [ "$ENVIRONMENT_TOTAL" != "1" ] || [ "$ENVIRONMENT_PRODUCTION" != "1" ]; then
+            echo "Error: expected exactly one production ENVIRONMENT assignment in src/backend/wrangler.toml (total=${ENVIRONMENT_TOTAL}, production=${ENVIRONMENT_PRODUCTION})"
+            exit 1
+          fi
+          echo "Admin API ENVIRONMENT set to production"
 
       - name: Verify pinned Wrangler version
         run: |
@@ -188,10 +453,76 @@ jobs:
           VAR_STORAGE_PROVIDER: ${{ vars.STORAGE_PROVIDER }}
           VAR_AZURE_STORAGE_ACCOUNT: ${{ vars.AZURE_STORAGE_ACCOUNT }}
           VAR_AZURE_STORAGE_CONTAINER: ${{ vars.AZURE_STORAGE_CONTAINER }}
+          VAR_SENTRY_DSN: ${{ vars.SENTRY_BACKEND_DSN }}
         run: |
           set -e
           cd src/backend
           echo "Injecting Worker variables into wrangler.toml..."
+
+          # Sentry DSN is mandatory for the Admin API. Validation lives in a function so the same
+          # rules run before any file is modified and again immediately before the replacement.
+          validate_sentry_dsn() {
+            if [ -z "$VAR_SENTRY_DSN" ]; then
+              echo "Error: SENTRY_BACKEND_DSN variable is not set; refusing to deploy the Admin API without error monitoring"
+              return 1
+            fi
+            case "$VAR_SENTRY_DSN" in
+              *[[:space:]]*)
+                echo "Error: SENTRY_BACKEND_DSN is whitespace-only or contains whitespace; refusing to deploy the Admin API with an unusable DSN"
+                return 1
+                ;;
+              *'"'*|*'\'*)
+                echo "Error: SENTRY_BACKEND_DSN contains characters that cannot be embedded in a TOML basic string"
+                return 1
+                ;;
+            esac
+            # The bash guards above are only a coarse first pass: POSIX [[:space:]] is locale-dependent
+            # (this workflow pins no locale), it never matches zero-width characters, and it checks nothing
+            # structural. Percent-encoded control characters and delimiters are worse: they survive a WHATWG
+            # URL parse untouched, while @sentry/core 10.71 either rejects them or silently truncates the
+            # project id - so a valid-looking DSN would deploy production without error monitoring. Node 24
+            # and the workspace dependencies are already installed for this job, so validate with the same
+            # parser that actually transports events (makeDsn) behind a printable-ASCII gate. The candidate
+            # is passed through the environment, never on argv, and only the variable name is ever printed.
+            SENTRY_DSN_VAR_NAME="SENTRY_BACKEND_DSN" \
+            SENTRY_DSN_CANDIDATE="$VAR_SENTRY_DSN" \
+            node -e '
+              const name = process.env.SENTRY_DSN_VAR_NAME;
+              const raw = process.env.SENTRY_DSN_CANDIDATE ?? "";
+              const reject = (reason) => {
+                console.error("Error: " + name + " " + reason + "; refusing to continue without usable Sentry error monitoring");
+                process.exit(1);
+              };
+              if (raw === "") reject("is not set or is empty");
+              if (!/^[\x21-\x7e]+$/.test(raw)) reject("must contain only printable non-space ASCII (0x21-0x7E); space, control, invisible and non-ASCII characters are rejected");
+              if (raw.includes("%")) reject("must not contain a percent sign; percent-encoded delimiters and control characters survive a URL parse but are rejected or silently truncated by the Sentry SDK");
+              let url = null;
+              try { url = new URL(raw); } catch { reject("is not a parsable URL"); }
+              if (url.protocol !== "https:") reject("must use the https scheme");
+              if (url.username === "") reject("is missing the Sentry public key before @");
+              if (url.hostname === "") reject("is missing a host");
+              if (url.search !== "" || url.hash !== "") reject("must not carry a query string or fragment");
+              if (!/^\/[0-9]+$/.test(url.pathname)) reject("must end with a single numeric Sentry project id path segment");
+              let core = null;
+              let coreVersion = "";
+              try { core = require("@sentry/core"); coreVersion = require("@sentry/core/package.json").version; } catch { reject("cannot be validated because @sentry/core is not installed; workspace dependencies must be installed before this gate runs"); }
+              if (!/^10\./.test(coreVersion)) reject("cannot be validated because the installed @sentry/core is not the 10.x line this gate was verified against");
+              if (typeof core.makeDsn !== "function") reject("cannot be validated because the installed @sentry/core exposes no makeDsn parser");
+              const outWrite = process.stdout.write.bind(process.stdout);
+              const errWrite = process.stderr.write.bind(process.stderr);
+              let dsn = null;
+              process.stdout.write = () => true;
+              process.stderr.write = () => true;
+              try { dsn = core.makeDsn(raw); } catch { dsn = null; } finally { process.stdout.write = outWrite; process.stderr.write = errWrite; }
+              if (!dsn) reject("is rejected by the installed @sentry/core makeDsn parser, so it could never transport events");
+              const urlPort = url.port === "" ? "443" : url.port;
+              const dsnPort = dsn.port === "" ? "443" : dsn.port;
+              if (dsn.protocol !== "https" || dsn.publicKey !== url.username || dsn.host.toLowerCase() !== url.hostname || dsnPort !== urlPort || dsn.path !== "" || dsn.projectId !== url.pathname.slice(1)) reject("is parsed differently by @sentry/core than by the URL parser, so the deployed value would not be what Sentry receives");
+            '
+          }
+
+          # Fail before any file is modified or deployed.
+          validate_sentry_dsn
 
           # Create a temporary file for variables
           TEMP_VARS_FILE=$(mktemp)
@@ -295,6 +626,21 @@ jobs:
             echo "No variables to inject"
           fi
 
+          # Sentry DSN: replace the existing empty placeholder inside [vars] rather than appending a
+          # second key. Escape sed replacement metacharacters (& and \) plus the | delimiter.
+          # Re-validate immediately before the replacement so the value written into wrangler.toml
+          # is proven safe at the moment it is written.
+          validate_sentry_dsn
+          ESCAPED_SENTRY_DSN=$(printf '%s\n' "$VAR_SENTRY_DSN" | sed 's/[&|\\]/\\&/g')
+          sed -i "s|^[[:space:]]*SENTRY_DSN[[:space:]]*=.*|SENTRY_DSN = \"${ESCAPED_SENTRY_DSN}\"|" wrangler.toml
+          # Verify exactly one non-empty assignment without printing the DSN itself.
+          SENTRY_DSN_COUNT=$(grep -c '^SENTRY_DSN = "[^"]\+"$' wrangler.toml || true)
+          if [ "$SENTRY_DSN_COUNT" != "1" ]; then
+            echo "Error: expected exactly one non-empty SENTRY_DSN assignment in wrangler.toml, found ${SENTRY_DSN_COUNT}"
+            exit 1
+          fi
+          echo "Sentry DSN injected into src/backend/wrangler.toml"
+
           rm -f "$TEMP_VARS_FILE"
 
       - name: Configure Worker secrets
@@ -342,9 +688,15 @@ jobs:
 
       - name: Add deployment summary
         if: always()
+        # The summary reports the commit prepare-release validated, never the raw event ref, so it
+        # can never claim a commit that was not proven to be on mainline.
+        env:
+          JOB_STATUS: ${{ job.status }}
+          RELEASE_SHA: ${{ needs.prepare-release.outputs.sha }}
+          RELEASE_TRIGGER: ${{ github.event_name }}
+          RELEASE_ACTOR: ${{ github.actor }}
         run: |
-          STATUS="${{ job.status }}"
-          if [ "$STATUS" = "success" ]; then
+          if [ "$JOB_STATUS" = "success" ]; then
             echo "## Admin API Deployment Summary :rocket:" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
             echo "| Property | Value |" >> "$GITHUB_STEP_SUMMARY"
@@ -352,9 +704,9 @@ jobs:
             echo "| **Status** | ✅ Deployed successfully |" >> "$GITHUB_STEP_SUMMARY"
             echo "| **Service** | akamoney-admin-api |" >> "$GITHUB_STEP_SUMMARY"
             echo "| **Environment** | Production |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| **Commit** | ${{ github.sha }} |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| **Ref** | ${{ github.ref_name }} |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| **Triggered by** | ${{ github.actor }} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Commit** | ${RELEASE_SHA} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Trigger** | ${RELEASE_TRIGGER} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Triggered by** | ${RELEASE_ACTOR} |" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "## Admin API Deployment Summary :x:" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
@@ -363,24 +715,42 @@ jobs:
             echo "| **Status** | ❌ Deployment failed |" >> "$GITHUB_STEP_SUMMARY"
             echo "| **Service** | akamoney-admin-api |" >> "$GITHUB_STEP_SUMMARY"
             echo "| **Environment** | Production |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| **Commit** | ${{ github.sha }} |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| **Ref** | ${{ github.ref_name }} |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| **Triggered by** | ${{ github.actor }} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Commit** | ${RELEASE_SHA} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Trigger** | ${RELEASE_TRIGGER} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Triggered by** | ${RELEASE_ACTOR} |" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
             echo "Please check the workflow logs for more details." >> "$GITHUB_STEP_SUMMARY"
           fi
 
   deploy-redirect:
     runs-on: ubuntu-latest
-    needs: build
+    needs: [prepare-release, build]
     environment: production
 
     steps:
+      # The validated commit is checked out first: actions/checkout cleans its target directory, so
+      # the trusted policy tree is created afterwards and cannot be removed by this checkout.
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          # Checkout the PR head ref when triggered by pull_request_target
-          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
+          ref: ${{ needs.prepare-release.outputs.sha }}
+
+      - name: Checkout trusted release policy from main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: .release-policy
+          fetch-depth: 0
+
+      # Same approval-drift guard as the Admin API deployment: ancestry is re-proved from the
+      # trusted main clone, on the runner's preinstalled Node, before released code executes or any
+      # secret is read.
+      - name: Recheck the release commit against mainline
+        env:
+          RELEASE_MODE: recheck
+          RELEASE_REPO_DIR: .release-policy
+          RELEASE_SELECTED_SHA: ${{ needs.prepare-release.outputs.sha }}
+        run: node .release-policy/.github/scripts/resolve-release-ref.mjs
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -391,6 +761,90 @@ jobs:
 
       - name: Install workspace dependencies
         run: npm ci
+
+      - name: Validate Sentry DSN
+        env:
+          SENTRY_DSN: ${{ vars.SENTRY_REDIRECT_DSN }}
+        # Ordering gate: this is the first step after dependency installation, before any build,
+        # any Cloudflare API call and any wrangler.toml edit. An unusable DSN therefore cannot
+        # leave a mutated wrangler.toml behind. The injection step later re-runs the byte-identical
+        # validator immediately before it writes the value (defence in depth), so the gate does not
+        # depend on step ordering alone.
+        run: |
+          set -euo pipefail
+          if [ -z "${SENTRY_DSN:-}" ]; then
+            echo "Error: SENTRY_REDIRECT_DSN variable is not set; refusing to deploy the redirect Worker without error monitoring"
+            exit 1
+          fi
+          case "$SENTRY_DSN" in
+            *[[:space:]]*)
+              echo "Error: SENTRY_REDIRECT_DSN is whitespace-only or contains whitespace; refusing to deploy the redirect Worker with an unusable DSN"
+              exit 1
+              ;;
+            *'"'*|*'\'*)
+              echo "Error: SENTRY_REDIRECT_DSN contains characters that cannot be embedded in a TOML basic string"
+              exit 1
+              ;;
+          esac
+          # The bash guards above are only a coarse first pass: POSIX [[:space:]] is locale-dependent
+          # (this workflow pins no locale), it never matches zero-width characters, and it checks nothing
+          # structural. Percent-encoded control characters and delimiters are worse: they survive a WHATWG
+          # URL parse untouched, while @sentry/core 10.71 either rejects them or silently truncates the
+          # project id - so a valid-looking DSN would deploy production without error monitoring. Node 24
+          # and the workspace dependencies are already installed for this job, so validate with the same
+          # parser that actually transports events (makeDsn) behind a printable-ASCII gate. The candidate
+          # is passed through the environment, never on argv, and only the variable name is ever printed.
+          SENTRY_DSN_VAR_NAME="SENTRY_REDIRECT_DSN" \
+          SENTRY_DSN_CANDIDATE="$SENTRY_DSN" \
+          node -e '
+            const name = process.env.SENTRY_DSN_VAR_NAME;
+            const raw = process.env.SENTRY_DSN_CANDIDATE ?? "";
+            const reject = (reason) => {
+              console.error("Error: " + name + " " + reason + "; refusing to continue without usable Sentry error monitoring");
+              process.exit(1);
+            };
+            if (raw === "") reject("is not set or is empty");
+            if (!/^[\x21-\x7e]+$/.test(raw)) reject("must contain only printable non-space ASCII (0x21-0x7E); space, control, invisible and non-ASCII characters are rejected");
+            if (raw.includes("%")) reject("must not contain a percent sign; percent-encoded delimiters and control characters survive a URL parse but are rejected or silently truncated by the Sentry SDK");
+            let url = null;
+            try { url = new URL(raw); } catch { reject("is not a parsable URL"); }
+            if (url.protocol !== "https:") reject("must use the https scheme");
+            if (url.username === "") reject("is missing the Sentry public key before @");
+            if (url.hostname === "") reject("is missing a host");
+            if (url.search !== "" || url.hash !== "") reject("must not carry a query string or fragment");
+            if (!/^\/[0-9]+$/.test(url.pathname)) reject("must end with a single numeric Sentry project id path segment");
+            let core = null;
+            let coreVersion = "";
+            try { core = require("@sentry/core"); coreVersion = require("@sentry/core/package.json").version; } catch { reject("cannot be validated because @sentry/core is not installed; workspace dependencies must be installed before this gate runs"); }
+            if (!/^10\./.test(coreVersion)) reject("cannot be validated because the installed @sentry/core is not the 10.x line this gate was verified against");
+            if (typeof core.makeDsn !== "function") reject("cannot be validated because the installed @sentry/core exposes no makeDsn parser");
+            const outWrite = process.stdout.write.bind(process.stdout);
+            const errWrite = process.stderr.write.bind(process.stderr);
+            let dsn = null;
+            process.stdout.write = () => true;
+            process.stderr.write = () => true;
+            try { dsn = core.makeDsn(raw); } catch { dsn = null; } finally { process.stdout.write = outWrite; process.stderr.write = errWrite; }
+            if (!dsn) reject("is rejected by the installed @sentry/core makeDsn parser, so it could never transport events");
+            const urlPort = url.port === "" ? "443" : url.port;
+            const dsnPort = dsn.port === "" ? "443" : dsn.port;
+            if (dsn.protocol !== "https" || dsn.publicKey !== url.username || dsn.host.toLowerCase() !== url.hostname || dsnPort !== urlPort || dsn.path !== "" || dsn.projectId !== url.pathname.slice(1)) reject("is parsed differently by @sentry/core than by the URL parser, so the deployed value would not be what Sentry receives");
+          '
+          echo "SENTRY_REDIRECT_DSN validated before any external change"
+
+      # Same production hardcoding as the Admin API job: the redirect Worker must not report
+      # environment=development from production, and must not depend on an optional variable.
+      - name: Set production environment in wrangler.toml
+        run: |
+          set -euo pipefail
+          cd src/redirect
+          sed -i 's|^[[:space:]]*ENVIRONMENT[[:space:]]*=.*|ENVIRONMENT = "production"|' wrangler.toml
+          ENVIRONMENT_TOTAL=$(grep -cE '^[[:space:]]*ENVIRONMENT[[:space:]]*=' wrangler.toml || true)
+          ENVIRONMENT_PRODUCTION=$(grep -c '^ENVIRONMENT = "production"$' wrangler.toml || true)
+          if [ "$ENVIRONMENT_TOTAL" != "1" ] || [ "$ENVIRONMENT_PRODUCTION" != "1" ]; then
+            echo "Error: expected exactly one production ENVIRONMENT assignment in src/redirect/wrangler.toml (total=${ENVIRONMENT_TOTAL}, production=${ENVIRONMENT_PRODUCTION})"
+            exit 1
+          fi
+          echo "Redirect Worker ENVIRONMENT set to production"
 
       - name: Verify pinned Wrangler version
         run: |
@@ -443,6 +897,83 @@ jobs:
             exit 1
           fi
 
+      - name: Inject Sentry DSN into wrangler.toml
+        env:
+          SENTRY_DSN: ${{ vars.SENTRY_REDIRECT_DSN }}
+        run: |
+          set -euo pipefail
+          cd src/redirect
+          # Fail before deploy when the DSN is missing, whitespace, or cannot be embedded safely in
+          # TOML. This guard is immediately before the only replacement in this step.
+          if [ -z "${SENTRY_DSN:-}" ]; then
+            echo "Error: SENTRY_REDIRECT_DSN variable is not set; refusing to deploy the redirect Worker without error monitoring"
+            exit 1
+          fi
+          case "$SENTRY_DSN" in
+            *[[:space:]]*)
+              echo "Error: SENTRY_REDIRECT_DSN is whitespace-only or contains whitespace; refusing to deploy the redirect Worker with an unusable DSN"
+              exit 1
+              ;;
+            *'"'*|*'\'*)
+              echo "Error: SENTRY_REDIRECT_DSN contains characters that cannot be embedded in a TOML basic string"
+              exit 1
+              ;;
+          esac
+          # The bash guards above are only a coarse first pass: POSIX [[:space:]] is locale-dependent
+          # (this workflow pins no locale), it never matches zero-width characters, and it checks nothing
+          # structural. Percent-encoded control characters and delimiters are worse: they survive a WHATWG
+          # URL parse untouched, while @sentry/core 10.71 either rejects them or silently truncates the
+          # project id - so a valid-looking DSN would deploy production without error monitoring. Node 24
+          # and the workspace dependencies are already installed for this job, so validate with the same
+          # parser that actually transports events (makeDsn) behind a printable-ASCII gate. The candidate
+          # is passed through the environment, never on argv, and only the variable name is ever printed.
+          SENTRY_DSN_VAR_NAME="SENTRY_REDIRECT_DSN" \
+          SENTRY_DSN_CANDIDATE="$SENTRY_DSN" \
+          node -e '
+            const name = process.env.SENTRY_DSN_VAR_NAME;
+            const raw = process.env.SENTRY_DSN_CANDIDATE ?? "";
+            const reject = (reason) => {
+              console.error("Error: " + name + " " + reason + "; refusing to continue without usable Sentry error monitoring");
+              process.exit(1);
+            };
+            if (raw === "") reject("is not set or is empty");
+            if (!/^[\x21-\x7e]+$/.test(raw)) reject("must contain only printable non-space ASCII (0x21-0x7E); space, control, invisible and non-ASCII characters are rejected");
+            if (raw.includes("%")) reject("must not contain a percent sign; percent-encoded delimiters and control characters survive a URL parse but are rejected or silently truncated by the Sentry SDK");
+            let url = null;
+            try { url = new URL(raw); } catch { reject("is not a parsable URL"); }
+            if (url.protocol !== "https:") reject("must use the https scheme");
+            if (url.username === "") reject("is missing the Sentry public key before @");
+            if (url.hostname === "") reject("is missing a host");
+            if (url.search !== "" || url.hash !== "") reject("must not carry a query string or fragment");
+            if (!/^\/[0-9]+$/.test(url.pathname)) reject("must end with a single numeric Sentry project id path segment");
+            let core = null;
+            let coreVersion = "";
+            try { core = require("@sentry/core"); coreVersion = require("@sentry/core/package.json").version; } catch { reject("cannot be validated because @sentry/core is not installed; workspace dependencies must be installed before this gate runs"); }
+            if (!/^10\./.test(coreVersion)) reject("cannot be validated because the installed @sentry/core is not the 10.x line this gate was verified against");
+            if (typeof core.makeDsn !== "function") reject("cannot be validated because the installed @sentry/core exposes no makeDsn parser");
+            const outWrite = process.stdout.write.bind(process.stdout);
+            const errWrite = process.stderr.write.bind(process.stderr);
+            let dsn = null;
+            process.stdout.write = () => true;
+            process.stderr.write = () => true;
+            try { dsn = core.makeDsn(raw); } catch { dsn = null; } finally { process.stdout.write = outWrite; process.stderr.write = errWrite; }
+            if (!dsn) reject("is rejected by the installed @sentry/core makeDsn parser, so it could never transport events");
+            const urlPort = url.port === "" ? "443" : url.port;
+            const dsnPort = dsn.port === "" ? "443" : dsn.port;
+            if (dsn.protocol !== "https" || dsn.publicKey !== url.username || dsn.host.toLowerCase() !== url.hostname || dsnPort !== urlPort || dsn.path !== "" || dsn.projectId !== url.pathname.slice(1)) reject("is parsed differently by @sentry/core than by the URL parser, so the deployed value would not be what Sentry receives");
+          '
+          # Replace the existing empty placeholder inside [vars] rather than appending a second key.
+          # Escape sed replacement metacharacters (& and \) plus the | delimiter.
+          ESCAPED_SENTRY_DSN=$(printf '%s\n' "$SENTRY_DSN" | sed 's/[&|\\]/\\&/g')
+          sed -i "s|^[[:space:]]*SENTRY_DSN[[:space:]]*=.*|SENTRY_DSN = \"${ESCAPED_SENTRY_DSN}\"|" wrangler.toml
+          # Verify exactly one non-empty assignment without printing the DSN itself.
+          SENTRY_DSN_COUNT=$(grep -c '^SENTRY_DSN = "[^"]\+"$' wrangler.toml || true)
+          if [ "$SENTRY_DSN_COUNT" != "1" ]; then
+            echo "Error: expected exactly one non-empty SENTRY_DSN assignment in wrangler.toml, found ${SENTRY_DSN_COUNT}"
+            exit 1
+          fi
+          echo "Sentry DSN injected into src/redirect/wrangler.toml"
+
       - name: Deploy Redirect Service to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:
@@ -454,9 +985,14 @@ jobs:
 
       - name: Add deployment summary
         if: always()
+        # The summary reports the commit prepare-release validated, never the raw event ref.
+        env:
+          JOB_STATUS: ${{ job.status }}
+          RELEASE_SHA: ${{ needs.prepare-release.outputs.sha }}
+          RELEASE_TRIGGER: ${{ github.event_name }}
+          RELEASE_ACTOR: ${{ github.actor }}
         run: |
-          STATUS="${{ job.status }}"
-          if [ "$STATUS" = "success" ]; then
+          if [ "$JOB_STATUS" = "success" ]; then
             echo "## Redirect Service Deployment Summary :rocket:" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
             echo "| Property | Value |" >> "$GITHUB_STEP_SUMMARY"
@@ -464,9 +1000,9 @@ jobs:
             echo "| **Status** | ✅ Deployed successfully |" >> "$GITHUB_STEP_SUMMARY"
             echo "| **Service** | akamoney-redirect |" >> "$GITHUB_STEP_SUMMARY"
             echo "| **Environment** | Production |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| **Commit** | ${{ github.sha }} |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| **Ref** | ${{ github.ref_name }} |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| **Triggered by** | ${{ github.actor }} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Commit** | ${RELEASE_SHA} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Trigger** | ${RELEASE_TRIGGER} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Triggered by** | ${RELEASE_ACTOR} |" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "## Redirect Service Deployment Summary :x:" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
@@ -475,29 +1011,87 @@ jobs:
             echo "| **Status** | ❌ Deployment failed |" >> "$GITHUB_STEP_SUMMARY"
             echo "| **Service** | akamoney-redirect |" >> "$GITHUB_STEP_SUMMARY"
             echo "| **Environment** | Production |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| **Commit** | ${{ github.sha }} |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| **Ref** | ${{ github.ref_name }} |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| **Triggered by** | ${{ github.actor }} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Commit** | ${RELEASE_SHA} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Trigger** | ${RELEASE_TRIGGER} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Triggered by** | ${RELEASE_ACTOR} |" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
             echo "Please check the workflow logs for more details." >> "$GITHUB_STEP_SUMMARY"
           fi
 
   deploy-frontend:
     runs-on: ubuntu-latest
-    needs: build
+    needs: [prepare-release, build]
     environment: production
 
     steps:
+      # This job never checks out application code; it deploys the artifact built from the
+      # validated commit. The trusted policy tree is still required so the ancestry recheck runs
+      # from `main` before the Sentry and Cloudflare credentials are used.
+      - name: Checkout trusted release policy from main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: .release-policy
+          fetch-depth: 0
+
+      # The recheck runs first, on the runner's preinstalled Node, so the artifact built from the
+      # selected commit is not downloaded and no credential is exposed until mainline ancestry has
+      # been re-proved from the trusted main clone.
+      - name: Recheck the release commit against mainline
+        env:
+          RELEASE_MODE: recheck
+          RELEASE_REPO_DIR: .release-policy
+          RELEASE_SELECTED_SHA: ${{ needs.prepare-release.outputs.sha }}
+        run: node .release-policy/.github/scripts/resolve-release-ref.mjs
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.x'
+
       - name: Download frontend build artifacts
         uses: actions/download-artifact@v4
         with:
           name: frontend-dist
           path: src/frontend/dist/
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24.x'
+      - name: Upload frontend source maps to Sentry
+        # Secret boundary: this step is the sole holder of the Sentry upload credential in the
+        # whole workflow. It runs in the protected `production` environment after the mainline
+        # ancestry recheck, this job checks out no application code, and the credential is handed
+        # only to the pinned Sentry CLI operating on the already built artifact.
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: money-5c
+          SENTRY_PROJECT: akamoney-web
+        run: |
+          set -euo pipefail
+          if [ -z "${SENTRY_AUTH_TOKEN:-}" ]; then
+            echo "Error: SENTRY_AUTH_TOKEN secret is not set; refusing to deploy without uploading source maps"
+            exit 1
+          fi
+          MAP_COUNT=$(find src/frontend/dist -type f -name '*.map' | wc -l)
+          if [ "$MAP_COUNT" -eq 0 ]; then
+            echo "Error: no .map files found in the frontend artifact; refusing to deploy without source maps"
+            exit 1
+          fi
+          echo "Found ${MAP_COUNT} source map files in the frontend artifact"
+          npx --yes @sentry/cli@3.7.0 sourcemaps inject src/frontend/dist
+          npx --yes @sentry/cli@3.7.0 sourcemaps upload \
+            --org "$SENTRY_ORG" \
+            --project "$SENTRY_PROJECT" \
+            --validate \
+            --wait \
+            --strict \
+            src/frontend/dist
+          # Only after a successful upload: strip the maps so Pages never serves them.
+          find src/frontend/dist -type f -name '*.map' -delete
+          REMAINING_MAPS=$(find src/frontend/dist -type f -name '*.map' | wc -l)
+          if [ "$REMAINING_MAPS" -ne 0 ]; then
+            echo "Error: ${REMAINING_MAPS} source map files remain in the artifact after cleanup"
+            exit 1
+          fi
+          echo "Source maps uploaded to Sentry and removed from the deploy artifact"
 
       - name: Ensure Pages project exists
         env:
@@ -524,18 +1118,23 @@ jobs:
 
       - name: Add deployment summary
         if: always()
+        # The summary reports the commit prepare-release validated, never the raw event ref.
+        env:
+          JOB_STATUS: ${{ job.status }}
+          RELEASE_SHA: ${{ needs.prepare-release.outputs.sha }}
+          RELEASE_TRIGGER: ${{ github.event_name }}
+          RELEASE_ACTOR: ${{ github.actor }}
         run: |
-          STATUS="${{ job.status }}"
-          if [ "$STATUS" = "success" ]; then
+          if [ "$JOB_STATUS" = "success" ]; then
             echo "## Frontend Deployment Summary :rocket:" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
             echo "| Property | Value |" >> "$GITHUB_STEP_SUMMARY"
             echo "| --- | --- |" >> "$GITHUB_STEP_SUMMARY"
             echo "| **Status** | ✅ Deployed successfully |" >> "$GITHUB_STEP_SUMMARY"
             echo "| **Environment** | Production |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| **Commit** | ${{ github.sha }} |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| **Ref** | ${{ github.ref_name }} |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| **Triggered by** | ${{ github.actor }} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Commit** | ${RELEASE_SHA} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Trigger** | ${RELEASE_TRIGGER} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Triggered by** | ${RELEASE_ACTOR} |" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "## Frontend Deployment Summary :x:" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
@@ -543,9 +1142,9 @@ jobs:
             echo "| --- | --- |" >> "$GITHUB_STEP_SUMMARY"
             echo "| **Status** | ❌ Deployment failed |" >> "$GITHUB_STEP_SUMMARY"
             echo "| **Environment** | Production |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| **Commit** | ${{ github.sha }} |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| **Ref** | ${{ github.ref_name }} |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| **Triggered by** | ${{ github.actor }} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Commit** | ${RELEASE_SHA} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Trigger** | ${RELEASE_TRIGGER} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Triggered by** | ${RELEASE_ACTOR} |" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
             echo "Please check the workflow logs for more details." >> "$GITHUB_STEP_SUMMARY"
           fi

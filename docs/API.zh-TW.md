@@ -19,7 +19,7 @@ AkaMoney 對外提供兩個 HTTP 服務：
 - 所有持久化時間戳都使用 epoch 毫秒。
 - 總覽統計的日期篩選使用 `YYYY-MM-DD` 格式的 UTC 含首尾日期。
 - 管理 API 目前回傳的 `short_url` 是裸短碼，不是完整絕對 URL。
-- 路由處理器尚未把所有 service 層錯誤都轉成語意化 HTTP 狀態碼。部分路由目前會把驗證、衝突、找不到資源或擁有權失敗，都折疊成附帶診斷欄位的 `500 Internal Server Error`。
+- 5xx responses 會被 sanitize 且保持 generic；不得包含 stack traces、raw exception details、tokens 或供應商診斷。4xx responses 可以保留安全的驗證細節。
 
 ```http
 Authorization: Bearer TOKEN_VALUE
@@ -197,8 +197,8 @@ Authorization: Bearer TOKEN_VALUE
 | 驗證 | 可選 |
 | Request body | `CreateUrlRequest` |
 | 成功 | `201 Created`，回傳 URL 資源 |
-| 目前驗證錯誤行為 | 缺少 `original_url` 會直接回 `400`。其他建立時的驗證與唯一性錯誤，目前因為路由把 service 丟出的錯誤統一改寫，所以會回成 `500` |
-| DB 設定失敗 | 當 `DB` 綁定不存在時，回傳 `{ error: "Configuration Error", ... }` 的 `500` |
+| 目前驗證錯誤行為 | 缺少 `original_url` 會回 `400`；其他安全的驗證或衝突錯誤可回語意化 4xx 並附驗證細節。非預期失敗會回 sanitized generic 5xx response。 |
+| DB 設定失敗 | 當 `DB` 綁定不存在時回傳 sanitized `500`；不回傳 stack trace 或 raw exception details。 |
 | 說明 | 目前程式碼實際上把 `short_code` 視為必填，雖然舊文件曾寫成可選 |
 
 ### `GET /api/urls`
@@ -230,7 +230,7 @@ Authorization: Bearer TOKEN_VALUE
 | 驗證 | 必填 |
 | Request body | `UpdateUrlRequest` |
 | 成功 | `200 OK`，回傳更新後的 URL 資源 |
-| 目前錯誤行為 | Service 層的找不到、禁止存取與驗證錯誤，目前都會被路由 catch 後改寫成 `500 Internal Server Error` |
+| 目前錯誤行為 | 安全的找不到、禁止存取與驗證失敗可回 4xx；非預期失敗會回 sanitized generic 5xx response。 |
 | `null` 與 `undefined` | `null` 會清空 nullable 欄位；省略欄位則保留原值 |
 
 ### `DELETE /api/urls/:id`
@@ -239,7 +239,7 @@ Authorization: Bearer TOKEN_VALUE
 | --- | --- |
 | 驗證 | 必填 |
 | 成功 | `200 OK`，回傳 `{ message: "URL deleted successfully" }` |
-| 目前錯誤行為 | Service 層的找不到與禁止存取錯誤，目前會變成 `500`，而不是語意化的 `404` 或 `403`，因為路由把丟出的錯誤重新包裝了 |
+| 目前錯誤行為 | 安全的找不到與禁止存取失敗可回 4xx；非預期失敗會回 sanitized generic 5xx response。 |
 
 ### `GET /api/analytics/:shortCode`
 
@@ -248,7 +248,7 @@ Authorization: Bearer TOKEN_VALUE
 | 驗證 | 必填 |
 | 成功 | `200 OK`，回傳受保護的 analytics 形狀 |
 | `404` | 短碼無法解析成啟用中的 URL 時回傳 |
-| 目前擁有權錯誤行為 | 擁有權檢查在 service 層進行；若查的是別人的 short code，丟出的 forbidden 錯誤目前會被 catch 後改寫成 `500` |
+| 目前擁有權錯誤行為 | 擁有權檢查在 service 層進行；安全的 forbidden 失敗可回 4xx，非預期失敗會回 sanitized generic 5xx response。 |
 | 區間行為 | `clicks_by_date` 只涵蓋最近 30 天，且不會補零日期 |
 
 ### `GET /api/public/analytics/:shortCode`
@@ -282,7 +282,7 @@ Authorization: Bearer TOKEN_VALUE
 | 成功 | `200 OK`，回傳 `{ message, deleted, cutoffDate, retentionDays }` |
 | `400` | `days` 不是正整數，或大於 `3650` 時回傳 |
 | 權限說明 | 程式碼註解提到未來可加上 admin 角色檢查，但目前任何已驗證使用者都能觸發 cleanup |
-| 錯誤 | Service 失敗時回傳 `{ error: "Cleanup failed", details }` 的 `500` |
+| 錯誤 | Service 失敗時回傳 sanitized generic 5xx response，不包含 stack trace 或 raw exception details。 |
 
 ### `GET /api/storage/config`
 
@@ -357,8 +357,8 @@ curl -X POST "https://api.example.com/api/storage/upload" -H "Authorization: Bea
 ## 目前錯誤封包說明
 
 - `authMiddleware` 對缺少／無效 bearer header 與無效或過期的 Entra token 會回 `401`。
-- 許多路由層 catch block 目前都會回傳帶有 `error`、`message`、`details`，有時還包含 `stack` 的診斷 JSON。
-- 專案雖然有共用 `errorMiddleware` 與全域 `app.onError(...)`，但多個路由在那之前就先把錯誤 catch 掉，因此保不住更細緻的狀態碼。
+- 5xx responses 會被 sanitize 且保持 generic；不包含 stack traces、raw exception details、tokens 或供應商診斷。
+- 4xx responses 可以保留安全的驗證細節，例如不會揭露 secrets 的 invalid input messages。
 
 ## 相關文件
 

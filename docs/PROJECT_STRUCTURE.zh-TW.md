@@ -99,7 +99,11 @@ D1 schema 只放在 `src/backend/migrations/`：
 `.github/workflows/`：
 
 - `ci.yml` — Node 24、一次根目錄 `npm ci`，各 workspace 透過 `-w` 執行 coverage 與建置
-- `release.yml` — tag／受信任的 `run-release` 部署到 Cloudflare Pages + Workers
+- `release.yml` — 由 SemVer tag push 或已確認的手動觸發部署到 Cloudflare Pages + Workers
+
+`.github/scripts/`：
+
+- `resolve-release-ref.mjs` — 受信任的發布 ref 驗證器，只從 `main` 的檢出執行；將觸發事件轉換為不可變且已確認位於主線的 commit SHA（詳見 [部署指南](DEPLOYMENT.zh-TW.md)）
 
 ## 相關文件
 

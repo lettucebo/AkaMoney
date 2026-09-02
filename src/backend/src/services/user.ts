@@ -15,6 +15,21 @@ function isValidEmail(email: string): boolean {
   return emailRegex.test(email);
 }
 
+function redactIdentityValues(value: string | undefined, redactions: string[]): string | undefined {
+  if (!value) {
+    return value;
+  }
+
+  const orderedRedactions = redactions
+    .filter(Boolean)
+    .sort((left, right) => right.length - left.length);
+
+  return orderedRedactions.reduce(
+    (text, secret) => text.split(secret).join('[redacted-identity]'),
+    value
+  );
+}
+
 /**
  * Validate input parameters for user upsert
  */
@@ -29,7 +44,7 @@ function validateUserInput(
   }
   
   if (!isValidEmail(email)) {
-    throw new Error(`Invalid email format: ${email}`);
+    throw new Error('Invalid email format');
   }
   
   if (!name || typeof name !== 'string' || name.trim() === '') {
@@ -95,23 +110,29 @@ export async function upsertUser(
       .first<User>();
 
     if (!user) {
-      throw new Error(
-        `Failed to upsert user record for ${email} (SSO: ${ssoProvider})`
-      );
+      throw new Error('Failed to upsert user record');
     }
 
     return user;
   } catch (error) {
+    const redactions = [email, ssoId];
+    const diagnosticMessage = redactIdentityValues(
+      error instanceof Error ? error.message : String(error),
+      redactions
+    );
+    const diagnosticStack = redactIdentityValues(
+      error instanceof Error ? error.stack : undefined,
+      redactions
+    );
+
     // Enhanced error logging to help diagnose SQL errors
     console.error('Failed to upsert user:', {
-      email,
       ssoProvider,
-      ssoId,
-      error: error instanceof Error ? error.message : String(error)
+      error: diagnosticMessage,
+      stack: diagnosticStack
     });
-    throw new Error(
-      `Failed to upsert user record for ${email} (SSO: ${ssoProvider})`,
-      { cause: error instanceof Error ? error : new Error(String(error)) }
-    );
+    throw new Error('Failed to upsert user record', {
+      cause: new Error(diagnosticMessage || 'Unknown upsert failure')
+    });
   }
 }

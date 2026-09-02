@@ -140,6 +140,8 @@ describe('User Service', () => {
     });
 
     it('should throw error if upsert operation fails', async () => {
+      const rawEmail = 'test@example.com';
+      const rawSsoId = 'entra-123';
       mockDb = {
         prepare: vi.fn().mockReturnThis(),
         bind: vi.fn().mockReturnThis(),
@@ -147,11 +149,23 @@ describe('User Service', () => {
       };
 
       await expect(
-        upsertUser(mockDb, 'test@example.com', 'Test User', 'entra', 'entra-123')
+        upsertUser(mockDb, rawEmail, 'Test User', 'entra', rawSsoId)
       ).rejects.toThrow('Failed to upsert user record');
+
+      const thrown = await upsertUser(mockDb, rawEmail, 'Test User', 'entra', rawSsoId).catch(
+        (error) => error as Error
+      );
+      expect(thrown.message).not.toContain(rawEmail);
+      expect(thrown.message).not.toContain(rawSsoId);
+
+      const logged = JSON.stringify(vi.mocked(console.error).mock.calls);
+      expect(logged).not.toContain(rawEmail);
+      expect(logged).not.toContain(rawSsoId);
+      expect(logged).toContain('"ssoProvider":"entra"');
     });
 
     it('should validate email format', async () => {
+      const invalidEmail = 'invalid-email';
       mockDb = {
         prepare: vi.fn().mockReturnThis(),
         bind: vi.fn().mockReturnThis(),
@@ -159,8 +173,13 @@ describe('User Service', () => {
       };
 
       await expect(
-        upsertUser(mockDb, 'invalid-email', 'Test User', 'entra', 'entra-123')
+        upsertUser(mockDb, invalidEmail, 'Test User', 'entra', 'entra-123')
       ).rejects.toThrow('Invalid email format');
+
+      const thrown = await upsertUser(mockDb, invalidEmail, 'Test User', 'entra', 'entra-123').catch(
+        (error) => error as Error
+      );
+      expect(thrown.message).not.toContain(invalidEmail);
     });
 
     it('should validate required parameters', async () => {

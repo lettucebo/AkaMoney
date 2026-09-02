@@ -132,7 +132,7 @@ describe('Error Middleware', () => {
       );
     });
 
-    it('should catch generic Error and return 500 response', async () => {
+    it('should catch generic Error and return sanitized 500 response', async () => {
       const mockResponse = new Response(JSON.stringify({ error: 'Internal Server Error' }), { status: 500 });
       const mockContext = {
         json: vi.fn().mockReturnValue(mockResponse)
@@ -142,12 +142,16 @@ describe('Error Middleware', () => {
       await errorMiddleware(mockContext as any, mockNext);
       
       expect(mockContext.json).toHaveBeenCalledWith(
-        expect.objectContaining({
+        {
           error: 'Internal Server Error',
-          message: 'Something went wrong'
-        }),
+          message: 'An unexpected error occurred'
+        },
         500
       );
+      const logged = JSON.stringify(vi.mocked(console.error).mock.calls);
+      expect(logged).not.toContain('Something went wrong');
+      expect(logged).toContain('Request handling failed');
+      expect(logged).toContain('"name":"Error"');
     });
 
     it('should handle non-Error objects thrown', async () => {
@@ -160,11 +164,46 @@ describe('Error Middleware', () => {
       await errorMiddleware(mockContext as any, mockNext);
       
       expect(mockContext.json).toHaveBeenCalledWith(
-        expect.objectContaining({
+        {
           error: 'Internal Server Error',
           message: 'An unexpected error occurred'
-        }),
+        },
         500
+      );
+    });
+
+    it('should preserve 4xx HttpError details but omit details and stack from 500 HttpError responses', async () => {
+      const mockResponse = new Response(JSON.stringify({ error: 'Internal Server Error' }), { status: 500 });
+      const mockContext = {
+        json: vi.fn().mockReturnValue(mockResponse)
+      };
+      const mockNext = vi.fn().mockRejectedValue(new HttpError('Sensitive database hostname db.internal', 500, 'DB_DOWN'));
+
+      await errorMiddleware(mockContext as any, mockNext);
+
+      expect(mockContext.json).toHaveBeenCalledWith(
+        {
+          error: 'Internal Server Error',
+          message: 'An unexpected error occurred',
+          code: 'DB_DOWN'
+        },
+        500
+      );
+
+      const validationContext = {
+        json: vi.fn().mockReturnValue(new Response())
+      };
+      const validationNext = vi.fn().mockRejectedValue(new ValidationError('Invalid URL format'));
+
+      await errorMiddleware(validationContext as any, validationNext);
+
+      expect(validationContext.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: 'Validation',
+          message: 'Invalid URL format',
+          details: 'Invalid URL format'
+        }),
+        400
       );
     });
   });

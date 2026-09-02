@@ -203,7 +203,7 @@ cp src/redirect/wrangler.local.toml.example src/redirect/wrangler.local.toml
 name = "akamoney-redirect"
 main = "src/index.ts"
 compatibility_date = "2024-12-17"
-node_compat = true
+compatibility_flags = ["nodejs_compat"]
 
 [[d1_databases]]
 binding = "DB"

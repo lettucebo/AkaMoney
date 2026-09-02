@@ -19,6 +19,28 @@ function getJWKS(tenantId: string): JWTVerifyGetKey {
   return jwksCache.get(tenantId)!;
 }
 
+function redactText(value: string | undefined, redactions: Array<string | undefined>): string | undefined {
+  if (!value) {
+    return value;
+  }
+
+  const orderedRedactions = redactions
+    .filter((value): value is string => !!value)
+    .sort((left, right) => right.length - left.length);
+
+  return orderedRedactions.reduce(
+    (text, secret) => text.split(secret).join('[redacted-identity]'),
+    value
+  );
+}
+
+function safeErrorDetails(error: unknown, redactions: Array<string | undefined>) {
+  return {
+    error: redactText(error instanceof Error ? error.message : String(error), redactions),
+    stack: redactText(error instanceof Error ? error.stack : undefined, redactions)
+  };
+}
+
 /**
  * Verify Microsoft Entra ID token and extract user information
  */
@@ -47,8 +69,9 @@ async function verifyEntraIdToken(
       audience: [clientId, `api://${clientId}`],
     });
 
+    // The verified user identifier is deliberately absent: this log is captured as a
+    // Sentry log/breadcrumb, and the Entra object id is the raw account identifier.
     console.log('Token verified successfully:', {
-      userId: payload.oid || payload.sub,
       issuer: payload.iss,
       audience: payload.aud
     });
@@ -109,8 +132,7 @@ export async function authMiddleware(c: Context<{ Bindings: Env }>, next: () => 
     });
     return c.json({ 
       error: 'Server Error', 
-      message: 'Authentication is not properly configured',
-      details: 'ENTRA_ID_TENANT_ID or ENTRA_ID_CLIENT_ID is missing'
+      message: 'Authentication is not properly configured'
     }, 500);
   }
 
@@ -143,26 +165,19 @@ export async function authMiddleware(c: Context<{ Bindings: Env }>, next: () => 
         dbUserId: dbUser.id
       });
     } catch (dbError) {
-      console.error('Failed to upsert user in auth middleware:', dbError);
+      console.error('Failed to upsert user in auth middleware:', safeErrorDetails(dbError, [user.userId, user.email, user.name]));
       // Fall back to using the verified token payload without DB-derived fields
       c.set('user', user);
     }
     
     await next();
   } catch (error) {
-    console.error('Auth middleware error:', error);
-    const errorResponse: any = {
+    const user = getAuthUser(c);
+    console.error('Auth middleware error:', safeErrorDetails(error, [user?.userId, user?.email, user?.name]));
+    return c.json({
       error: 'Internal Server Error',
-      message: 'Authentication failed',
-      details: error instanceof Error ? error.message : 'Unknown error occurred'
-    };
-    
-    // Only include stack trace in non-production environments
-    if (c.env.ENVIRONMENT !== 'production' && error instanceof Error) {
-      errorResponse.stack = error.stack;
-    }
-    
-    return c.json(errorResponse, 500);
+      message: 'Authentication failed'
+    }, 500);
   }
 }
 
@@ -196,7 +211,7 @@ export async function optionalAuthMiddleware(c: Context<{ Bindings: Env }>, next
             dbUserId: dbUser.id
           });
         } catch (error) {
-          console.error('Failed to upsert user in optional auth:', error);
+          console.error('Failed to upsert user in optional auth:', safeErrorDetails(error, [user.userId, user.email, user.name]));
           // Continue without setting user context if upsert fails
         }
       }

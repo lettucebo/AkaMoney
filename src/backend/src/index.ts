@@ -1,4 +1,5 @@
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
+import * as Sentry from '@sentry/cloudflare';
 import type { Env } from './types';
 import { corsMiddleware } from './middleware/cors';
 import { errorMiddleware } from './middleware/error';
@@ -13,10 +14,70 @@ import {
 import { getAnalytics, getOverallStats } from './services/analytics';
 import { cleanupOldClickRecords } from './services/cleanup';
 import { createStorageProvider, isStorageConfigured, getStorageConfig } from './services/storage';
+import { createSentryOptions } from './services/sentry';
 import type { CreateUrlRequest, UpdateUrlRequest } from './types';
-import type { ExecutionContext, ExportedHandler, ScheduledEvent } from '@cloudflare/workers-types';
+import { HttpError } from './types/errors';
+import type { ExportedHandler } from '@cloudflare/workers-types';
 
 const app = new Hono<{ Bindings: Env }>();
+
+function serverError(message: string) {
+  return {
+    error: 'Internal Server Error',
+    message
+  };
+}
+
+function routeError(c: Context<{ Bindings: Env }>, error: unknown, message: string) {
+  if (error instanceof HttpError && error.statusCode < 500) {
+    return c.json({
+      error: error.name.replace('Error', ''),
+      message: error.message,
+      code: error.code,
+      details: error.message
+    }, error.statusCode);
+  }
+
+  return c.json(serverError(message), 500);
+}
+
+function authLogContext(user: ReturnType<typeof getAuthUser>) {
+  return { authenticated: !!user };
+}
+
+function redactText(value: string | undefined, redactions: string[]): string | undefined {
+  if (!value) {
+    return value;
+  }
+
+  const orderedRedactions = redactions
+    .filter(Boolean)
+    .sort((left, right) => right.length - left.length);
+
+  return orderedRedactions.reduce(
+    (text, secret) => text.split(secret).join('[redacted-identity]'),
+    value
+  );
+}
+
+function redactStoragePath(path: string): string {
+  return path.replace(/\/uploads\/[^/]+/g, '/uploads/[redacted-identity]');
+}
+
+function identityRedactions(c: Context<{ Bindings: Env }>): string[] {
+  const user = getAuthUser(c);
+  return [user?.userId, user?.email, user?.name].filter((value): value is string => !!value);
+}
+
+function safeErrorDetails(error: unknown, redactions: string[] = []) {
+  const name = error instanceof Error ? error.name : undefined;
+
+  return {
+    ...(name ? { name } : {}),
+    error: redactText(error instanceof Error ? error.message : String(error), redactions),
+    stack: redactText(error instanceof Error ? error.stack : undefined, redactions)
+  };
+}
 
 // Apply global middleware
 app.use('*', corsMiddleware);
@@ -36,15 +97,14 @@ app.post('/api/shorten', optionalAuthMiddleware, async (c) => {
   try {
     const user = getAuthUser(c);
     
-    console.log('Creating short URL', user ? `for user: ${user.userId}` : '(anonymous)');
+    console.log('Creating short URL', authLogContext(user));
 
     // Check if DB is available
     if (!c.env.DB) {
       console.error('Database binding (DB) is not available');
       return c.json({ 
         error: 'Configuration Error', 
-        message: 'Database is not configured',
-        details: 'DB binding is missing from worker environment'
+        message: 'Database is not configured'
       }, 500);
     }
 
@@ -60,13 +120,8 @@ app.post('/api/shorten', optionalAuthMiddleware, async (c) => {
     
     return c.json(url, 201);
   } catch (error) {
-    console.error('Error in POST /api/shorten:', error);
-    return c.json({
-      error: 'Internal Server Error',
-      message: 'Failed to create short URL',
-      details: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined
-    }, 500);
+    console.error('Error in POST /api/shorten:', safeErrorDetails(error, identityRedactions(c)));
+    return routeError(c, error, 'Failed to create short URL');
   }
 });
 
@@ -78,22 +133,19 @@ app.get('/api/urls', authMiddleware, async (c) => {
       return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
     }
 
-    console.log('Fetching URLs for user:', user.userId);
-
     // Check if DB is available
     if (!c.env.DB) {
       console.error('Database binding (DB) is not available');
       return c.json({ 
         error: 'Configuration Error', 
-        message: 'Database is not configured',
-        details: 'DB binding is missing from worker environment'
+        message: 'Database is not configured'
       }, 500);
     }
 
     const page = parseInt(c.req.query('page') || '1');
     const limit = parseInt(c.req.query('limit') || '20');
 
-    console.log('Query parameters:', { page, limit, userId: user.userId });
+    console.log('Fetching URLs', { ...authLogContext(user), page, limit });
 
     const result = await getUserUrls(c.env.DB, user.userId, page, limit);
 
@@ -112,13 +164,8 @@ app.get('/api/urls', authMiddleware, async (c) => {
       }
     });
   } catch (error) {
-    console.error('Error in GET /api/urls:', error);
-    return c.json({
-      error: 'Internal Server Error',
-      message: 'Failed to fetch URLs',
-      details: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined
-    }, 500);
+    console.error('Error in GET /api/urls:', safeErrorDetails(error, identityRedactions(c)));
+    return routeError(c, error, 'Failed to fetch URLs');
   }
 });
 
@@ -130,19 +177,18 @@ app.get('/api/urls/:id', authMiddleware, async (c) => {
       return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
     }
 
-    console.log('Fetching URL by ID:', c.req.param('id'), 'for user:', user.userId);
+    const id = c.req.param('id');
+    console.log('Fetching URL by ID:', { ...authLogContext(user), id });
 
     // Check if DB is available
     if (!c.env.DB) {
       console.error('Database binding (DB) is not available');
       return c.json({ 
         error: 'Configuration Error', 
-        message: 'Database is not configured',
-        details: 'DB binding is missing from worker environment'
+        message: 'Database is not configured'
       }, 500);
     }
 
-    const id = c.req.param('id');
     const url = await getUrlById(c.env.DB, id);
 
     if (!url) {
@@ -170,13 +216,8 @@ app.get('/api/urls/:id', authMiddleware, async (c) => {
       click_count: url.click_count
     });
   } catch (error) {
-    console.error('Error in GET /api/urls/:id:', error);
-    return c.json({
-      error: 'Internal Server Error',
-      message: 'Failed to fetch URL',
-      details: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined
-    }, 500);
+    console.error('Error in GET /api/urls/:id:', safeErrorDetails(error, identityRedactions(c)));
+    return routeError(c, error, 'Failed to fetch URL');
   }
 });
 
@@ -188,19 +229,18 @@ app.put('/api/urls/:id', authMiddleware, async (c) => {
       return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
     }
 
-    console.log('Updating URL:', c.req.param('id'), 'for user:', user.userId);
+    const id = c.req.param('id');
+    console.log('Updating URL:', { ...authLogContext(user), id });
 
     // Check if DB is available
     if (!c.env.DB) {
       console.error('Database binding (DB) is not available');
       return c.json({ 
         error: 'Configuration Error', 
-        message: 'Database is not configured',
-        details: 'DB binding is missing from worker environment'
+        message: 'Database is not configured'
       }, 500);
     }
 
-    const id = c.req.param('id');
     const body = await c.req.json<UpdateUrlRequest>();
 
     const url = await updateUrl(c.env.DB, id, body, user.userId);
@@ -209,13 +249,8 @@ app.put('/api/urls/:id', authMiddleware, async (c) => {
 
     return c.json(url);
   } catch (error) {
-    console.error('Error in PUT /api/urls/:id:', error);
-    return c.json({
-      error: 'Internal Server Error',
-      message: 'Failed to update URL',
-      details: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined
-    }, 500);
+    console.error('Error in PUT /api/urls/:id:', safeErrorDetails(error, identityRedactions(c)));
+    return routeError(c, error, 'Failed to update URL');
   }
 });
 
@@ -227,19 +262,17 @@ app.delete('/api/urls/:id', authMiddleware, async (c) => {
       return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
     }
 
-    console.log('Deleting URL:', c.req.param('id'), 'for user:', user.userId);
+    const id = c.req.param('id');
+    console.log('Deleting URL:', { ...authLogContext(user), id });
 
     // Check if DB is available
     if (!c.env.DB) {
       console.error('Database binding (DB) is not available');
       return c.json({ 
         error: 'Configuration Error', 
-        message: 'Database is not configured',
-        details: 'DB binding is missing from worker environment'
+        message: 'Database is not configured'
       }, 500);
     }
-
-    const id = c.req.param('id');
 
     await deleteUrl(c.env.DB, id, user.userId);
 
@@ -247,13 +280,8 @@ app.delete('/api/urls/:id', authMiddleware, async (c) => {
 
     return c.json({ message: 'URL deleted successfully' });
   } catch (error) {
-    console.error('Error in DELETE /api/urls/:id:', error);
-    return c.json({
-      error: 'Internal Server Error',
-      message: 'Failed to delete URL',
-      details: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined
-    }, 500);
+    console.error('Error in DELETE /api/urls/:id:', safeErrorDetails(error, identityRedactions(c)));
+    return routeError(c, error, 'Failed to delete URL');
   }
 });
 
@@ -265,19 +293,17 @@ app.get('/api/analytics/:shortCode', authMiddleware, async (c) => {
       return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
     }
 
-    console.log('Fetching analytics for short code:', c.req.param('shortCode'), 'for user:', user.userId);
+    const shortCode = c.req.param('shortCode');
+    console.log('Fetching analytics for short code:', { ...authLogContext(user), shortCode });
 
     // Check if DB is available
     if (!c.env.DB) {
       console.error('Database binding (DB) is not available');
       return c.json({ 
         error: 'Configuration Error', 
-        message: 'Database is not configured',
-        details: 'DB binding is missing from worker environment'
+        message: 'Database is not configured'
       }, 500);
     }
-
-    const shortCode = c.req.param('shortCode');
 
     const analytics = await getAnalytics(c.env.DB, shortCode, user.userId);
 
@@ -289,13 +315,8 @@ app.get('/api/analytics/:shortCode', authMiddleware, async (c) => {
 
     return c.json(analytics);
   } catch (error) {
-    console.error('Error in GET /api/analytics/:shortCode:', error);
-    return c.json({
-      error: 'Internal Server Error',
-      message: 'Failed to fetch analytics',
-      details: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined
-    }, 500);
+    console.error('Error in GET /api/analytics/:shortCode:', safeErrorDetails(error, identityRedactions(c)));
+    return routeError(c, error, 'Failed to fetch analytics');
   }
 });
 
@@ -325,15 +346,14 @@ app.get('/api/stats/overall', authMiddleware, async (c) => {
       return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
     }
 
-    console.log('Fetching overall stats for user:', user.userId);
+    console.log('Fetching overall stats', authLogContext(user));
 
     // Check if DB is available
     if (!c.env.DB) {
       console.error('Database binding (DB) is not available');
       return c.json({
         error: 'Configuration Error',
-        message: 'Database is not configured',
-        details: 'DB binding is missing from worker environment'
+        message: 'Database is not configured'
       }, 500);
     }
 
@@ -382,13 +402,8 @@ app.get('/api/stats/overall', authMiddleware, async (c) => {
 
     return c.json(stats);
   } catch (error) {
-    console.error('Error in GET /api/stats/overall:', error);
-    return c.json({
-      error: 'Internal Server Error',
-      message: 'Failed to fetch overall statistics',
-      details: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined
-    }, 500);
+    console.error('Error in GET /api/stats/overall:', safeErrorDetails(error, identityRedactions(c)));
+    return routeError(c, error, 'Failed to fetch overall statistics');
   }
 });
 
@@ -423,7 +438,7 @@ app.post('/api/admin/cleanup', authMiddleware, async (c) => {
       }, 400);
     }
     
-    console.log(`Manual cleanup triggered by user: ${user.userId}, retention days: ${retentionDays}`);
+    console.log('Manual cleanup triggered:', { ...authLogContext(user), retentionDays });
     const result = await cleanupOldClickRecords(c.env.DB, retentionDays);
 
     return c.json({
@@ -433,10 +448,10 @@ app.post('/api/admin/cleanup', authMiddleware, async (c) => {
       retentionDays
     });
   } catch (error) {
-    console.error('Manual cleanup failed:', error);
+    console.error('Manual cleanup failed:', safeErrorDetails(error, identityRedactions(c)));
     return c.json({
       error: 'Cleanup failed',
-      details: error instanceof Error ? error.message : String(error)
+      message: 'Cleanup failed'
     }, 500);
   }
 });
@@ -461,11 +476,7 @@ app.get('/api/storage/config', authMiddleware, async (c) => {
     });
   } catch (error) {
     console.error('Error getting storage config:', error);
-    return c.json({
-      error: 'Internal Server Error',
-      message: 'Failed to get storage configuration',
-      details: error instanceof Error ? error.message : String(error)
-    }, 500);
+    return routeError(c, error, 'Failed to get storage configuration');
   }
 });
 
@@ -542,7 +553,7 @@ app.post('/api/storage/upload', authMiddleware, async (c) => {
       }
     });
 
-    console.log('File uploaded successfully:', { key: result.key, size: result.size });
+    console.log('File uploaded successfully:', { size: result.size });
 
     return c.json({
       key: result.key,
@@ -552,7 +563,7 @@ app.post('/api/storage/upload', authMiddleware, async (c) => {
       originalName: file.name
     }, 201);
   } catch (error) {
-    console.error('Error uploading file:', error);
+    console.error('Error uploading file:', safeErrorDetails(error, identityRedactions(c)));
     return c.json({
       error: 'Internal Server Error',
       message: 'Failed to upload file'
@@ -600,7 +611,7 @@ app.get('/api/storage/files/:key{.+}', authMiddleware, async (c) => {
       url: storage.getPublicUrl?.(key)
     });
   } catch (error) {
-    console.error('Error getting file info:', error);
+    console.error('Error getting file info:', safeErrorDetails(error, identityRedactions(c)));
     return c.json({
       error: 'Internal Server Error',
       message: 'Failed to get file info'
@@ -649,7 +660,7 @@ app.get('/api/storage/files', authMiddleware, async (c) => {
       cursor: result.cursor
     });
   } catch (error) {
-    console.error('Error listing files:', error);
+    console.error('Error listing files:', safeErrorDetails(error, identityRedactions(c)));
     return c.json({
       error: 'Internal Server Error',
       message: 'Failed to list files'
@@ -685,11 +696,11 @@ app.delete('/api/storage/files/:key{.+}', authMiddleware, async (c) => {
 
     await storage.delete(key);
 
-    console.log('File deleted successfully:', { key });
+    console.log('File deleted successfully');
 
     return c.json({ message: 'File deleted successfully' });
   } catch (error) {
-    console.error('Error deleting file:', error);
+    console.error('Error deleting file:', safeErrorDetails(error, identityRedactions(c)));
     return c.json({
       error: 'Internal Server Error',
       message: 'Failed to delete file'
@@ -705,17 +716,15 @@ app.notFound((c) => {
 // Global error handler
 app.onError((err, c) => {
   console.error('Unhandled error:', {
-    error: err instanceof Error ? err.message : String(err),
-    stack: err instanceof Error ? err.stack : undefined,
-    path: c.req.path,
+    error: redactText(err instanceof Error ? err.message : String(err), identityRedactions(c)),
+    stack: redactText(err instanceof Error ? err.stack : undefined, identityRedactions(c)),
+    path: redactStoragePath(c.req.path),
     method: c.req.method
   });
 
   return c.json({
     error: 'Internal Server Error',
     message: 'An unexpected error occurred',
-    details: err instanceof Error ? err.message : String(err),
-    stack: err instanceof Error ? err.stack : undefined,
     path: c.req.path
   }, 500);
 });
@@ -723,12 +732,17 @@ app.onError((err, c) => {
 // Export app for testing
 export { app };
 
-export default {
+type AdminApiHandler = ExportedHandler<Env> & {
+  fetch: NonNullable<ExportedHandler<Env>['fetch']>;
+  scheduled: NonNullable<ExportedHandler<Env>['scheduled']>;
+};
+
+const handler: AdminApiHandler = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     return app.fetch(request, env, ctx);
   },
 
-  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+  async scheduled(event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
     console.log('Cron trigger fired:', new Date(event.scheduledTime).toISOString());
     
     try {
@@ -746,4 +760,8 @@ export default {
       // which could lead to duplicate cleanup attempts or cascading failures
     }
   }
-} satisfies ExportedHandler<Env>;
+};
+
+const instrumentedHandler: AdminApiHandler = Sentry.withSentry((env: Env) => createSentryOptions(env), handler);
+
+export default instrumentedHandler;

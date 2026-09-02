@@ -1,4 +1,6 @@
 import { PublicClientApplication, type Configuration, type AccountInfo } from '@azure/msal-browser';
+import { inspectOAuthCallback } from '@/utils/oauthCallback';
+import { toSafeErrorContext } from '@/utils/safeError';
 
 export class AuthConfigurationError extends Error {
   constructor(message: string) {
@@ -6,6 +8,31 @@ export class AuthConfigurationError extends Error {
     this.name = 'AuthConfigurationError';
   }
 }
+
+/**
+ * Outcome of the one-time redirect-callback handling performed by
+ * {@link AuthService.initialize}.
+ *
+ * - `none`: no authorization response was consumed.
+ * - `handled`: MSAL consumed a valid redirect response and restored an account.
+ * - `failed`: MSAL initialization or redirect handling threw.
+ */
+export interface AuthInitializationResult {
+  readonly status: 'none' | 'handled' | 'failed';
+  /**
+   * Whether the launch URL carried OAuth response parameters, recorded before
+   * any MSAL work so it survives MSAL clearing the URL. Presence only - no
+   * callback value is ever read, returned or logged.
+   */
+  readonly callbackPresent: boolean;
+}
+
+/**
+ * Initialization diagnostics are constant strings. An MSAL error object can
+ * carry the callback URL, the raw fragment or a correlation identifier, and
+ * console output is forwarded to Sentry, so no error value may be logged.
+ */
+const INITIALIZATION_FAILED_MESSAGE = '[Auth] Initialization failed.';
 
 const clientId = import.meta.env.VITE_ENTRA_ID_CLIENT_ID || '';
 
@@ -82,6 +109,8 @@ const msalConfig: Configuration = {
 class AuthService {
   private msalInstance: PublicClientApplication | null = null;
   private isConfigured: boolean;
+  private initializationResult: AuthInitializationResult | null = null;
+  private initializePromise: Promise<AuthInitializationResult> | null = null;
 
   constructor() {
     this.isConfigured = Boolean(clientId);
@@ -98,31 +127,62 @@ class AuthService {
     }
   }
 
-  async initialize() {
+  /**
+   * Consumes an OAuth redirect response exactly once and reports what
+   * happened. The result is cached so concurrent and later callers observe the
+   * same outcome instead of re-running `handleRedirectPromise`, which only
+   * returns a response for the first call.
+   */
+  async initialize(): Promise<AuthInitializationResult> {
+    if (this.initializationResult) {
+      return this.initializationResult;
+    }
+
+    if (this.initializePromise) {
+      return this.initializePromise;
+    }
+
+    const promise = this.runInitialization();
+    this.initializePromise = promise;
+
+    try {
+      const result = await promise;
+      this.initializationResult = result;
+      return result;
+    } finally {
+      this.initializePromise = null;
+    }
+  }
+
+  private async runInitialization(): Promise<AuthInitializationResult> {
+    // Recorded before any MSAL work: MSAL removes the callback parameters from
+    // the URL while handling the response.
+    const callbackPresent = inspectOAuthCallback(window.location.href).isCallback;
+
     // Skip authentication in development mode when VITE_SKIP_AUTH is set
     if (skipAuth) {
       console.info('[Auth] Skipping authentication in development mode');
-      return;
+      return { status: 'none', callbackPresent };
     }
 
     if (!this.isConfigured || !this.msalInstance) {
       // Skip initialization if not configured - login will show proper error
-      return;
+      return { status: 'none', callbackPresent };
     }
-    
+
     try {
       await this.msalInstance.initialize();
-      
+
       // Handle redirect callback and set account/token
       const response = await this.msalInstance.handleRedirectPromise();
-      
+
       if (response && response.account) {
         // Clear logout flag when successfully logging in via redirect
         localStorage.removeItem(LOGOUT_FLAG_KEY);
-        
+
         // Set active account
         this.msalInstance.setActiveAccount(response.account);
-        
+
         // Store token for API usage
         if (response.accessToken) {
           localStorage.setItem('auth_token', response.accessToken);
@@ -131,12 +191,17 @@ class AuthService {
             'Redirect response received but no access token was returned. Subsequent API calls may fail.'
           );
         }
+
+        return { status: 'handled', callbackPresent };
       }
-    } catch (error) {
-      console.error('MSAL initialization error:', error);
+
+      return { status: 'none', callbackPresent };
+    } catch {
+      console.error(INITIALIZATION_FAILED_MESSAGE);
       // Clean up potentially corrupted state
       localStorage.removeItem('auth_token');
       // Don't throw - let the application continue
+      return { status: 'failed', callbackPresent };
     }
   }
 
@@ -174,7 +239,7 @@ class AuthService {
         return loginResponse.account;
       }
     } catch (error) {
-      console.error('Login failed:', error);
+      console.error('[Auth] Login failed.', toSafeErrorContext(error));
       throw error;
     }
   }
@@ -198,7 +263,7 @@ class AuthService {
       });
       // Note: Logout flag is cleared in initialize() after successful redirect
     } catch (error) {
-      console.error('Login redirect failed:', error);
+      console.error('[Auth] Login redirect failed.', toSafeErrorContext(error));
       throw error;
     }
   }
@@ -282,7 +347,7 @@ class AuthService {
       });
       return response.accessToken;
     } catch (error) {
-      console.error('Failed to acquire token:', error);
+      console.error('[Auth] Silent token acquisition failed.', toSafeErrorContext(error));
       return null;
     }
   }

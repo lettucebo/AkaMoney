@@ -99,7 +99,11 @@ Treat mockups as design history. Runtime CSS is `src/frontend/src/assets/css/mai
 `.github/workflows/`:
 
 - `ci.yml` — Node 24, one root `npm ci`, coverage and builds per workspace via `-w`
-- `release.yml` — tag / trusted `run-release` deploy to Cloudflare Pages + Workers
+- `release.yml` — SemVer tag push or confirmed manual dispatch deploy to Cloudflare Pages + Workers
+
+`.github/scripts/`:
+
+- `resolve-release-ref.mjs` — trusted release ref validator run from a `main`-only checkout; turns the triggering event into an immutable, mainline-verified commit SHA (see [Deployment](DEPLOYMENT.md))
 
 ## Related documents
 

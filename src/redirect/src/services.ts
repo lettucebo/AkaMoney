@@ -1,4 +1,50 @@
+import {
+  BACKGROUND_ANALYTICS_ERROR_MESSAGE,
+  CLICK_RECORDING_OPERATION_NAME,
+  describeThrowable,
+  nativeConsoleError,
+} from './observability';
+import type { ClickRecordingContext, ClickRecordingErrorReporter } from './observability';
 import type { Url, ClickRecord, RequestWithCf } from './types';
+
+export type { ClickRecordingContext, ClickRecordingErrorReporter } from './observability';
+
+export async function observeClickRecording(
+  recording: Promise<void>,
+  context: ClickRecordingContext,
+  reportError?: ClickRecordingErrorReporter
+): Promise<void> {
+  try {
+    await recording;
+    return;
+  } catch (error) {
+    // Every throwable is normalized before it reaches any sink, so a plain
+    // object, symbol or hostile getter can never be serialized into logs.
+    const { name: errorName, message: errorMessage } = describeThrowable(error);
+
+    try {
+      nativeConsoleError(BACKGROUND_ANALYTICS_ERROR_MESSAGE, {
+        operation: CLICK_RECORDING_OPERATION_NAME,
+        shortCode: context.shortCode,
+        urlId: context.urlId,
+        errorName,
+        errorMessage,
+      });
+    } catch {
+      // Observability must never reject waitUntil or affect the redirect response.
+    }
+
+    if (!reportError) {
+      return;
+    }
+
+    try {
+      await reportError(error, context);
+    } catch {
+      // Observability must never reject waitUntil or affect the redirect response.
+    }
+  }
+}
 
 /**
  * Generate a unique ID for click records

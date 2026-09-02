@@ -2,6 +2,13 @@
 <html lang="zh-Hant-TW">
   <head>
     <meta charset="UTF-8" />
+    <meta name="referrer" content="no-referrer" />
+    <!--
+      The policy above stays directly after the charset and before every
+      subresource below: a launch URL can still carry the Entra authorization
+      response when the preload scanner starts fetching, and the document URL
+      would otherwise travel as the referrer of those requests.
+    -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />

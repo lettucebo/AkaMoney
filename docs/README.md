@@ -18,6 +18,7 @@ Quick links to all documentation topics. Each document is available in English a
 |----------|---------|---------|
 | Environment Variables & Bindings | [CONFIGURATION](CONFIGURATION.md) | [CONFIGURATION](CONFIGURATION.zh-TW.md) |
 | Deployment Guide | [DEPLOYMENT](DEPLOYMENT.md) | [DEPLOYMENT](DEPLOYMENT.zh-TW.md) |
+| Monitoring | [MONITORING](MONITORING.md) | [MONITORING](MONITORING.zh-TW.md) |
 | Troubleshooting | [TROUBLESHOOTING](TROUBLESHOOTING.md) | [TROUBLESHOOTING](TROUBLESHOOTING.zh-TW.md) |
 
 ## API & Backend

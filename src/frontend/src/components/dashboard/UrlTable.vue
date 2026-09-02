@@ -18,7 +18,8 @@
         </span>
       </span>
 
-      <span class="url" :title="url.original_url">{{ url.original_url }}</span>
+      <!-- Replay must not record customer destinations: they can carry signed query credentials. -->
+      <span class="url" data-sentry-block :title="url.original_url">{{ url.original_url }}</span>
       <span class="num">{{ formatNumber(url.click_count) }}</span>
 
       <span class="c-status">
