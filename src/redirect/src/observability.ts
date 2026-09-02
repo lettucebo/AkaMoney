@@ -133,6 +133,12 @@ function redactIpv6Literals(message: string): string {
  */
 const ASSIGNMENT_KEY_TOKEN_PATTERN = /[\w.-]+/g;
 
+/**
+ * One credential-key character. Used to walk back over the last key token a
+ * value consumed, without letting a search restart at a new offset.
+ */
+const KEY_CHARACTER_PATTERN = /[\w.-]/;
+
 /** Optional whitespace, consumed from a fixed offset and never re-split. */
 const WHITESPACE_RUN_PATTERN = /\s*/y;
 
@@ -169,11 +175,14 @@ export interface SensitiveAssignmentInterval {
 
 /**
  * Deterministic counters that make the linearity of the scan assertable without
- * relying on wall-clock time. `inspectedCharacters` counts every character the
- * scanner consumes, including the ones a rejected delimiter or value lookahead
- * causes the next token search to re-read; `keyCharacters` counts the characters
- * handed to the anchored key predicate. Because tokens are maximal and disjoint,
- * both are bounded by a small multiple of the message length.
+ * relying on wall-clock time. `inspectedCharacters` sums the spans the scanner
+ * advances over — each key token, each delimiter lookahead, each value, and
+ * each backward walk over a value tail — counting a span again every time the
+ * scan revisits it. It is a bound on the work rather than an exact tally of the
+ * reads the regular expression engine performs inside a span.
+ * `keyCharacters` counts the characters handed to the anchored key predicate.
+ * Because the tokens and the parsed regions are maximal and disjoint, both are
+ * bounded by a small multiple of the message length.
  */
 export interface SensitiveAssignmentScanMetrics {
   readonly inspectedCharacters: number;
@@ -186,6 +195,125 @@ export interface SensitiveAssignmentScan {
   readonly metrics: SensitiveAssignmentScanMetrics;
 }
 
+interface NestedAssignmentExtension {
+  readonly end: number;
+  readonly inspectedCharacters: number;
+  readonly keyEvaluations: number;
+  readonly keyCharacters: number;
+}
+
+/**
+ * Extends the replacement of a sensitive assignment over a credential
+ * assignment that its own value swallowed.
+ *
+ * A value ends either on a key token or on that token's `:`/`=` delimiter,
+ * because the grammar stops at whitespace and its continuation arm accepts an
+ * empty pair value. Both shapes leave a credential key inside the replacement
+ * while its real value sits *after* it, and the scan then resumes past the key,
+ * so the inner assignment was never a candidate of its own:
+ *
+ * - `token: token = <secret>` — the value is the inner key, the delimiter and
+ *   the secret follow it (issue #153);
+ * - `token: token=token= <secret>` — the value is a compact chain that ends on
+ *   a delimiter;
+ * - `token: token = a=b; token= <secret>` — the cookie continuation ends on a
+ *   pair whose value is empty.
+ *
+ * Each step therefore looks at the *tail* of the value that was just parsed: it
+ * walks back over the last key token, checks that a delimiter closes it, and
+ * parses the value that follows. The extension applies only when that value
+ * starts after the current end, so a nested value the maximal value grammar has
+ * already consumed keeps the interval exactly as it was — which is what
+ * preserves the documented semantics for every non-dangling shape.
+ *
+ * The end offset strictly increases, and both the backward walk and the forward
+ * parse of an iteration stay inside a region that begins after the previous
+ * iteration ended. No character is read more than a bounded number of times and
+ * the loop cannot outlast the message.
+ */
+function extendOverNestedAssignments(
+  message: string,
+  valueStart: number,
+  valueEnd: number
+): NestedAssignmentExtension {
+  let end = valueEnd;
+  let parsedFrom = valueStart;
+  let inspectedCharacters = 0;
+  let keyEvaluations = 0;
+  let keyCharacters = 0;
+
+  for (;;) {
+    const tail = message.charAt(end - 1);
+    const endsOnDelimiter = tail === ':' || tail === '=';
+    const nestedKeyEnd = endsOnDelimiter ? end - 1 : end;
+    let nestedKeyStart = nestedKeyEnd;
+
+    while (
+      nestedKeyStart > parsedFrom &&
+      KEY_CHARACTER_PATTERN.test(message.charAt(nestedKeyStart - 1))
+    ) {
+      nestedKeyStart -= 1;
+    }
+
+    inspectedCharacters += nestedKeyEnd - nestedKeyStart + 1;
+
+    if (nestedKeyStart === nestedKeyEnd) {
+      // The value does not end on a key token, so it cannot hide an assignment.
+      break;
+    }
+
+    let nestedDelimiterIndex = nestedKeyEnd;
+
+    if (!endsOnDelimiter) {
+      WHITESPACE_RUN_PATTERN.lastIndex = end;
+      WHITESPACE_RUN_PATTERN.exec(message);
+
+      nestedDelimiterIndex = WHITESPACE_RUN_PATTERN.lastIndex;
+
+      const nestedDelimiter = message.charAt(nestedDelimiterIndex);
+
+      inspectedCharacters += nestedDelimiterIndex - end + 1;
+
+      if (nestedDelimiter !== ':' && nestedDelimiter !== '=') {
+        break;
+      }
+    }
+
+    keyEvaluations += 1;
+    keyCharacters += nestedKeyEnd - nestedKeyStart;
+
+    if (!CREDENTIAL_KEY_PATTERN.test(message.slice(nestedKeyStart, nestedKeyEnd))) {
+      break;
+    }
+
+    WHITESPACE_RUN_PATTERN.lastIndex = nestedDelimiterIndex + 1;
+    WHITESPACE_RUN_PATTERN.exec(message);
+
+    const nestedValueStart = WHITESPACE_RUN_PATTERN.lastIndex;
+
+    if (nestedValueStart <= end) {
+      break;
+    }
+
+    ASSIGNMENT_VALUE_PATTERN.lastIndex = nestedValueStart;
+
+    const nestedValue = ASSIGNMENT_VALUE_PATTERN.exec(message);
+
+    if (nestedValue === null) {
+      // A nested key with an empty value hides nothing, so the interval stays
+      // exactly the one the value grammar alone produced.
+      inspectedCharacters += nestedValueStart - end;
+      break;
+    }
+
+    inspectedCharacters += ASSIGNMENT_VALUE_PATTERN.lastIndex - end;
+    parsedFrom = nestedValueStart;
+    end = ASSIGNMENT_VALUE_PATTERN.lastIndex;
+  }
+
+  return { end, inspectedCharacters, keyEvaluations, keyCharacters };
+}
+
 /**
  * Single left-to-right pass that collects the credential assignments to redact.
  *
@@ -196,6 +324,10 @@ export interface SensitiveAssignmentScan {
  * delimiter rather than after the value, so a nested or following assignment
  * (`rejected: authorization=…`, `foo=bar; token=…`, `params=id=1&token=…`)
  * remains an independent candidate.
+ *
+ * A value that ends on a credential key, or on that key's delimiter, extends
+ * the interval over the assignment the key opens (`token: token = …`), because
+ * the value would otherwise swallow the inner key and expose the inner value.
  *
  * The cursor advances by at least one character per step and never moves
  * backwards, so the scan is linear in the message length and always terminates.
@@ -266,8 +398,16 @@ export function scanSensitiveAssignments(message: string): SensitiveAssignmentSc
     const valueEnd = ASSIGNMENT_VALUE_PATTERN.lastIndex;
 
     inspectedCharacters += valueEnd - delimiterIndex;
-    intervals.push({ start: keyStart, end: valueEnd });
-    cursor = valueEnd;
+
+    // A value that swallowed a credential key extends the replacement over the
+    // assignment that key opens, so no secret survives behind an outer key.
+    const nested = extendOverNestedAssignments(message, valueStart, valueEnd);
+
+    inspectedCharacters += nested.inspectedCharacters;
+    keyEvaluations += nested.keyEvaluations;
+    keyCharacters += nested.keyCharacters;
+    intervals.push({ start: keyStart, end: nested.end });
+    cursor = nested.end;
   }
 
   return { intervals, metrics: { inspectedCharacters, keyEvaluations, keyCharacters } };

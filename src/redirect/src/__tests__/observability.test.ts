@@ -509,6 +509,258 @@ describe('credential assignment redaction parity', () => {
     }
   });
 
+  /**
+   * Sentinel that only ever appears as the innermost value, so any occurrence
+   * in a redacted message is a real leak rather than an artefact of the corpus.
+   */
+  const NESTED_SECRET = 'LEAKSECRET42';
+
+  /**
+   * A credential assignment whose value is itself a credential assignment. The
+   * value grammar stops at the whitespace in front of the inner delimiter, so
+   * the outer replacement ended on the inner key and left the inner value in
+   * the diagnostic.
+   *
+   * These are deliberately *not* parity assertions. The frozen pattern leaks
+   * here too, which is why the oracle above is a floor on coverage and never a
+   * ceiling.
+   */
+  it('redacts a credential assignment nested in the value of another one', () => {
+    const nested: readonly (readonly [string, string])[] = [
+      // The exact finding.
+      [`token: token = ${NESTED_SECRET}`, REDACTION_PLACEHOLDER],
+      // Both delimiters, in both positions.
+      [`token = token: ${NESTED_SECRET}`, REDACTION_PLACEHOLDER],
+      [`token: token: ${NESTED_SECRET}`, REDACTION_PLACEHOLDER],
+      [`token=token = ${NESTED_SECRET}`, REDACTION_PLACEHOLDER],
+      // Case is irrelevant to both keys.
+      [`TOKEN : Token = ${NESTED_SECRET}`, REDACTION_PLACEHOLDER],
+      [`PWD  :  Session  =  ${NESTED_SECRET}`, REDACTION_PLACEHOLDER],
+      // Every whitespace placement the key grammar tolerates, on either side of
+      // the inner delimiter, including tabs and newlines.
+      [`secret:\tpwd\t=\t${NESTED_SECRET}`, REDACTION_PLACEHOLDER],
+      [`token:\n token\n=\n ${NESTED_SECRET}`, REDACTION_PLACEHOLDER],
+      [`Cookie: authorization =${NESTED_SECRET}`, REDACTION_PLACEHOLDER],
+      [`x-api-key: session= ${NESTED_SECRET}`, REDACTION_PLACEHOLDER],
+      [`client_secret: refresh_token   =   ${NESTED_SECRET}`, REDACTION_PLACEHOLDER],
+      // Prefixed and suffixed keys nest the same way.
+      [`csrf.token: x_api_key = ${NESTED_SECRET}`, REDACTION_PLACEHOLDER],
+      // Nesting is followed to any depth.
+      [`token: token = token = ${NESTED_SECRET}`, REDACTION_PLACEHOLDER],
+      [`token: pwd : secret = session = ${NESTED_SECRET}`, REDACTION_PLACEHOLDER],
+      // A compact chain ends on a delimiter rather than on the key, and only
+      // its innermost value is separated by whitespace.
+      [`token:token=token= ${NESTED_SECRET}`, REDACTION_PLACEHOLDER],
+      [`TOKEN:Token=session= ${NESTED_SECRET}`, REDACTION_PLACEHOLDER],
+      [`pwd:pwd:pwd:\t${NESTED_SECRET}`, REDACTION_PLACEHOLDER],
+      [`token: token=token = ${NESTED_SECRET}`, REDACTION_PLACEHOLDER],
+      // The cookie continuation swallows a later key when that pair's value is
+      // empty, which moved the secret behind the replacement instead of into
+      // it. The scan resumed after the swallowed key, so it was never a
+      // candidate of its own either.
+      [`token: token = a=b; token= ${NESTED_SECRET}`, REDACTION_PLACEHOLDER],
+      [`Cookie: cookie = a=b; secret= ${NESTED_SECRET}`, REDACTION_PLACEHOLDER],
+      [`token: token = a=b; token=\t${NESTED_SECRET}`, REDACTION_PLACEHOLDER],
+      [`token: token = a=b; token=\n${NESTED_SECRET}`, REDACTION_PLACEHOLDER],
+      [`token: token = ${NESTED_SECRET}; secret= ${NESTED_SECRET}`, REDACTION_PLACEHOLDER],
+      // Surrounding diagnostics are preserved byte for byte.
+      [`rejected: token: token = ${NESTED_SECRET} tail`, `rejected: [redacted] tail`],
+      // The inner value keeps the cookie continuation grammar.
+      [`Cookie: cookie = a=b; c=d`, REDACTION_PLACEHOLDER],
+      [`token: token = ${NESTED_SECRET}; b=c`, REDACTION_PLACEHOLDER],
+      // The scan still resumes after the nested value, so a following
+      // assignment stays an independent candidate.
+      [`token: token = ${NESTED_SECRET} next=1`, `[redacted] next=1`],
+      [`token: token = ${NESTED_SECRET} secret=2`, `[redacted] [redacted]`],
+    ];
+
+    for (const [message, expected] of nested) {
+      expect(redactSensitiveAssignments(message), message).toBe(expected);
+      expect(redactSensitiveAssignments(message), message).not.toContain(NESTED_SECRET);
+      expect(toBoundedErrorMessage(new Error(message)), message).not.toContain(NESTED_SECRET);
+    }
+  });
+
+  /**
+   * The extension only follows a nested key that is itself sensitive, so every
+   * other shape keeps the semantics the frozen pattern documented — including
+   * the accepted unquoted-value-with-spaces limitation, which is unchanged.
+   */
+  it('keeps non-nested credential semantics identical to the superseded pattern', () => {
+    const unchanged: readonly (readonly [string, string])[] = [
+      // A benign inner key is not an assignment worth following.
+      ['token: user = 42', '[redacted] = 42'],
+      ['token: outer=inner=42', '[redacted]'],
+      // A sensitive inner key with no delimiter is an ordinary value.
+      ['token: token', '[redacted]'],
+      ['token: token tail', '[redacted] tail'],
+      // A sensitive inner key with a delimiter but no value adds nothing.
+      ['token: token =', '[redacted] ='],
+      ['token: token=', '[redacted]'],
+      // The inner value start is already inside the outer value, so the
+      // interval is exactly the one the frozen pattern produced.
+      ['token: token=42', '[redacted]'],
+      ['token=token=42; c=d', '[redacted]'],
+      ['token: token=42 tail', '[redacted] tail'],
+      // A value that ends on a benign pair keeps the frozen interval.
+      ['token=a; c=d tail', '[redacted] tail'],
+      ['token=a; bare tail', '[redacted]; bare tail'],
+    ];
+
+    for (const [message, expected] of unchanged) {
+      expect(redactSensitiveAssignments(message), message).toBe(expected);
+      expect(supersededRedact(message), message).toBe(expected);
+    }
+  });
+
+  /**
+   * The tail rule follows the last key token a value swallowed, wherever that
+   * token came from. Two shapes are therefore redacted further than the frozen
+   * pattern reached. Both are strict widenings — the interval start is
+   * unchanged and only its end moves — so coverage cannot narrow.
+   */
+  it('redacts further than the superseded pattern where a value swallows a key', () => {
+    const widened: readonly (readonly [string, string, string])[] = [
+      // A cookie continuation pair whose value is empty swallowed the pair key,
+      // and the real value sat behind the whitespace that ended the pair. This
+      // shape needs no nesting at all, and leaked before this rule existed.
+      [`Cookie: a=b; token= ${NESTED_SECRET}`, REDACTION_PLACEHOLDER, `[redacted] ${NESTED_SECRET}`],
+      // A value that merely ends on a credential key, rather than being one.
+      [`token: a=b=token = ${NESTED_SECRET}`, REDACTION_PLACEHOLDER, `[redacted] = ${NESTED_SECRET}`],
+      // A quoted value is still not parsed as a quoted string — the accepted
+      // limitation is unchanged — but its closing key is followed anyway.
+      ['token: "token = 42"', REDACTION_PLACEHOLDER, '[redacted] = 42"'],
+    ];
+
+    for (const [message, expected, superseded] of widened) {
+      expect(redactSensitiveAssignments(message), message).toBe(expected);
+      expect(supersededRedact(message), message).toBe(superseded);
+    }
+  });
+
+  it('redacts nested assignments the superseded pattern leaked', () => {
+    const leaked = [
+      `token: token = ${NESTED_SECRET}`,
+      `Cookie: pwd : ${NESTED_SECRET}`,
+      `secret: api_key =${NESTED_SECRET}`,
+    ];
+
+    for (const message of leaked) {
+      // The oracle is a coverage floor: it may miss what the scanner catches.
+      expect(supersededRedact(message), message).toContain(NESTED_SECRET);
+      expect(redactSensitiveAssignments(message), message).not.toContain(NESTED_SECRET);
+    }
+  });
+
+  const NESTED_KEYS = [
+    'token',
+    'Cookie',
+    'AUTHORIZATION',
+    'x_api_key',
+    'client_secret',
+    'csrf.token',
+    'access-key',
+    'pwd',
+    'session',
+  ];
+
+  /** Delimiter plus every whitespace placement, applied to both assignments. */
+  const NESTED_SEPARATORS = [':', '=', ' : ', ' =', '= ', ' = ', ':\t', '\t=\t', ':\n ', '  =  '];
+
+  /**
+   * Every way a value can swallow the key of the assignment that actually holds
+   * the sentinel: the value *is* the key, the value is a compact chain ending
+   * on a delimiter, the value is a cookie continuation whose last pair value is
+   * empty, the key is only the tail of a longer value, and two nesting levels.
+   */
+  const NESTED_VALUE_SHAPES: readonly ((key: string, separator: string) => string)[] = [
+    (key, separator) => `${key}${separator}${NESTED_SECRET}`,
+    (key, separator) => `${key}=${key}${separator}${NESTED_SECRET}`,
+    (key, separator) => `a=b; ${key}${separator}${NESTED_SECRET}`,
+    (key, separator) => `a=b=${key}${separator}${NESTED_SECRET}`,
+    (key, separator) => `${key}${separator}${key}${separator}${NESTED_SECRET}`,
+  ];
+
+  /**
+   * Deterministic cross product of outer key, outer separator, inner key, inner
+   * separator and nesting shape, with the surroundings of the parity corpus
+   * rotated over it.
+   */
+  function forEachNestedCase(visit: (message: string) => void): number {
+    let visited = 0;
+
+    for (const outerKey of NESTED_KEYS) {
+      for (const outerSeparator of NESTED_SEPARATORS) {
+        for (const innerKey of NESTED_KEYS) {
+          for (const innerSeparator of NESTED_SEPARATORS) {
+            for (const shape of NESTED_VALUE_SHAPES) {
+              const [leading, trailing] = SURROUNDINGS[visited % SURROUNDINGS.length];
+
+              visited += 1;
+              visit(
+                `${leading}${outerKey}${outerSeparator}${shape(innerKey, innerSeparator)}` +
+                  `${trailing}`
+              );
+            }
+          }
+        }
+      }
+    }
+
+    return visited;
+  }
+
+  it('leaves no nested credential value in any key, delimiter or spacing shape', () => {
+    const leakFailures: string[] = [];
+    const coverageFailures: string[] = [];
+    const orderFailures: string[] = [];
+
+    const visited = forEachNestedCase((message) => {
+      const redacted = redactSensitiveAssignments(message);
+
+      if (redacted.includes(NESTED_SECRET) && leakFailures.length < 5) {
+        leakFailures.push(`${JSON.stringify(message)} became ${JSON.stringify(redacted)}`);
+      }
+
+      const { intervals } = scanSensitiveAssignments(message);
+      let previousEnd = 0;
+
+      for (const interval of intervals) {
+        if (
+          (interval.start < previousEnd || interval.end <= interval.start) &&
+          orderFailures.length < 5
+        ) {
+          orderFailures.push(`${JSON.stringify(message)} produced ${JSON.stringify(intervals)}`);
+        }
+
+        previousEnd = interval.end;
+      }
+
+      for (const previous of supersededIntervals(message)) {
+        const covering = intervals.some(
+          (interval) => interval.start <= previous.start && interval.end >= previous.end
+        );
+
+        if (!covering && coverageFailures.length < 5) {
+          coverageFailures.push(
+            `${JSON.stringify(message)} lost ${JSON.stringify(message.slice(previous.start, previous.end))}`
+          );
+        }
+      }
+
+      const reported = toBoundedErrorMessage(new Error(message));
+
+      if (reported.includes(NESTED_SECRET) && leakFailures.length < 5) {
+        leakFailures.push(`${JSON.stringify(message)} was reported as ${JSON.stringify(reported)}`);
+      }
+    });
+
+    expect(leakFailures).toEqual([]);
+    expect(coverageFailures).toEqual([]);
+    expect(orderFailures).toEqual([]);
+    expect(visited).toBeGreaterThanOrEqual(40_000);
+  });
+
   it('redacts a credential key whose prefix reaches the scan bound', () => {
     // 992 connector-joined characters of prefix plus `pwd`: the whole key is
     // tested, with no independent key-length limit.
@@ -535,6 +787,29 @@ describe('credential assignment redaction parity', () => {
     expect(toBoundedErrorMessage(new Error(truncatedMessage))).toBe(
       `${truncatedMessage.slice(0, MAX_REPORTED_ERROR_MESSAGE_LENGTH)}...`
     );
+  });
+
+  /**
+   * The destructive rules run before the credential scan, so a URL, bearer
+   * token or IPv6 literal that ends on a credential key removes the very key
+   * the scan needs, and the value behind it survives. This is a different
+   * defect from the nesting extension and predates it: every output below is
+   * byte-identical before and after that change. It is tracked as #157 and
+   * pinned here so that closing it has to update this expectation deliberately.
+   */
+  it('documents that an earlier redaction can erase the key of a later assignment', () => {
+    const knownLimitation: readonly (readonly [string, string])[] = [
+      [`token=https://example.test/token = ${NESTED_SECRET}`, `[redacted] = ${NESTED_SECRET}`],
+      [`token=bearer token = ${NESTED_SECRET}`, `[redacted] = ${NESTED_SECRET}`],
+      [`token=2001:db8::1%token = ${NESTED_SECRET}`, `[redacted] = ${NESTED_SECRET}`],
+      // The URL match also swallows the delimiter, which is why a
+      // placeholder-aware tail rule would not be enough on its own.
+      [`token=https://example.test/token= ${NESTED_SECRET}`, `[redacted] ${NESTED_SECRET}`],
+    ];
+
+    for (const [message, expected] of knownLimitation) {
+      expect(toBoundedErrorMessage(new Error(message)), message).toBe(expected);
+    }
   });
 
   it('keeps URL, IPv4 and IPv6 redaction ordered around the credential scan', () => {
@@ -615,6 +890,29 @@ describe('redaction scan cost', () => {
     `D1_ERROR: ${'zzzz.'.repeat(195)}y=v${' tail'.repeat(20)}`,
     `D1_ERROR: ${'pwd_.-'.repeat(163)}q=v${' tail'.repeat(20)}`,
     `D1_ERROR: ${'.'.repeat(985)}=v${' tail'.repeat(20)}`,
+  ];
+
+  /**
+   * Chains of credential assignments whose values open further credential
+   * assignments. The nesting extension parses regions that begin strictly after
+   * the previous one ended, so these have to cost the same as a flat scan; an
+   * extension that re-parsed the value would pay for the whole tail again at
+   * every depth. Every message is longer than the scan bound.
+   */
+  const NESTED_ASSIGNMENT_MESSAGES: readonly string[] = [
+    `D1_ERROR: ${'token = '.repeat(200)}v`,
+    `D1_ERROR: ${'pwd : '.repeat(250)}v`,
+    `D1_ERROR: ${'a.pwd = '.repeat(200)}v`,
+    `D1_ERROR: ${'token=token = '.repeat(100)}v`,
+    `D1_ERROR: ${'cookie:'.repeat(200)}v`,
+    `D1_ERROR: token: ${'session = '.repeat(150)}v`,
+    // Values that swallow a key at their tail rather than at their start: a
+    // compact chain ending on a delimiter, a cookie continuation whose last
+    // pair value is empty, and a key long enough that walking back over it
+    // would dominate the scan if it were re-walked.
+    `D1_ERROR: ${'token=token= '.repeat(80)}v`,
+    `D1_ERROR: ${'token: a=b; token= '.repeat(60)}v`,
+    `D1_ERROR: token: ${`${'a.'.repeat(100)}pwd = `.repeat(6)}v`,
   ];
 
   /**
@@ -731,6 +1029,27 @@ describe('redaction scan cost', () => {
     300_000
   );
 
+  it(
+    'scans deeply nested credential assignments in bounded time',
+    () => {
+      for (const message of NESTED_ASSIGNMENT_MESSAGES) {
+        expect(message.length).toBeGreaterThan(MAX_SCANNED_ERROR_MESSAGE_LENGTH);
+        // Proves the shape reaches the nesting extension instead of bailing out
+        // on the first assignment, so the measurement below is meaningful.
+        expect(toBoundedErrorMessage(new Error(message))).toContain(
+          `D1_ERROR: ${REDACTION_PLACEHOLDER}`
+        );
+
+        const elapsed = fastestBatchAverageMs(() => {
+          toBoundedErrorMessage(new Error(message));
+        });
+
+        expect(elapsed).toBeLessThan(MAX_CREDENTIAL_SCAN_DURATION_MS);
+      }
+    },
+    300_000
+  );
+
   /**
    * Proves the threshold above discriminates rather than merely passing, by
    * measuring the superseded pattern on the same input, machine and run.
@@ -779,6 +1098,7 @@ describe('redaction scan cost', () => {
   it('inspects a bounded multiple of the characters it scans', () => {
     const shapes = [
       ...CREDENTIAL_NEAR_MISS_MESSAGES,
+      ...NESTED_ASSIGNMENT_MESSAGES,
       'pwd=v; secret=w; token=x',
       `${'pwd=v; '.repeat(200)}`,
       `${'benign=v; '.repeat(200)}`,
@@ -796,7 +1116,16 @@ describe('redaction scan cost', () => {
   });
 
   it('keeps the work per scanned character constant as the message grows', () => {
-    for (const unit of ['pwd.', 'pwd=v; ', 'benign=v; ', 'a b ']) {
+    for (const unit of [
+      'pwd.',
+      'pwd=v; ',
+      'benign=v; ',
+      'a b ',
+      'token = ',
+      'a.pwd : ',
+      'token=token= ',
+      'token: a=b; token= ',
+    ]) {
       const perCharacter = [250, 500, 1000, 2000].map((repeats) => {
         const message = unit.repeat(repeats);
 
