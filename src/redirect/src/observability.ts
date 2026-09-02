@@ -51,19 +51,10 @@ export const MAX_IPV6_ADDRESS_LENGTH = 45;
  * Cloudflare D1 or runtime error may echo a bound row value (visitor IP, user
  * agent, referer), a destination URL or a credential, so those shapes are
  * redacted before the message reaches Sentry or the native console.
- *
- * Order matters: URLs and bearer tokens are removed before the generic
- * `key=value` rule, so a credential cannot survive inside a longer match.
  */
-const SENSITIVE_MESSAGE_PATTERNS: readonly RegExp[] = [
-  /[a-z][a-z0-9+.-]*:\/\/\S+/gi,
-  /\bbearer\s+\S+/gi,
-  // A credential key may carry a prefix or suffix joined by `_`, `.` or `-`
-  // (`x_api_key`, `client_secret`, `Set-Cookie`), and a cookie header carries
-  // more `name=value` pairs after the first one.
-  /(^|[^\w-])(?:[\w.-]*[_.-])?(?:authorization|cookie|token|secret|password|passwd|pwd|api[_-]?key|apikey|access[_-]?key|session|csrf)(?:[_.-][\w.-]*)?\s*[:=]\s*[^\s;]+(?:\s*;\s*[^\s;=]+=[^\s;]*)*/gi,
-  /\b\d{1,3}(?:\.\d{1,3}){3}\b/g,
-];
+const URL_PATTERN = /[a-z][a-z0-9+.-]*:\/\/\S+/gi;
+const BEARER_TOKEN_PATTERN = /\bbearer\s+\S+/gi;
+const IPV4_ADDRESS_PATTERN = /\b\d{1,3}(?:\.\d{1,3}){3}\b/g;
 
 /**
  * IPv6 literals are matched in two steps because a single expression that covers
@@ -134,6 +125,190 @@ function redactIpv6Literals(message: string): string {
     containsIpv6Address(token) ? REDACTION_PLACEHOLDER : token
   );
 }
+
+/**
+ * Maximal run of credential-key characters. The character class is the one the
+ * superseded credential pattern accepted inside a key, so a token is exactly the
+ * text that pattern could have treated as a key.
+ */
+const ASSIGNMENT_KEY_TOKEN_PATTERN = /[\w.-]+/g;
+
+/** Optional whitespace, consumed from a fixed offset and never re-split. */
+const WHITESPACE_RUN_PATTERN = /\s*/y;
+
+/**
+ * The value grammar of the superseded credential pattern without its leading
+ * `\s*`, which the scanner skips separately: one nonempty value, plus the
+ * semicolon continuation that keeps every later `name=value` pair of a cookie
+ * header inside the same replacement. Dropping the leading `\s*` changes
+ * nothing, because `[^\s;]` can never match a whitespace character the greedy
+ * `\s*` gave back.
+ */
+const ASSIGNMENT_VALUE_PATTERN = /[^\s;]+(?:\s*;\s*[^\s;=]+=[^\s;]*)*/y;
+
+/**
+ * The key half of the superseded credential pattern, anchored to a whole token.
+ * The keyword may carry a prefix or a suffix joined by `_`, `.` or `-`
+ * (`x_api_key`, `client_secret`, `Set-Cookie`), and neither is length limited.
+ *
+ * Anchoring is what removes the super-linear cost. The prefix and suffix groups
+ * still overlap on the connectors, so the engine still re-splits them — but only
+ * inside one token it has already consumed, and never at a new start offset. A
+ * run of keyword near misses such as `pwd.pwd.pwd.` used to make the unanchored
+ * pattern retry the keyword alternation at every split point of every suffix of
+ * the run; here each token is tested once.
+ */
+const CREDENTIAL_KEY_PATTERN =
+  /^(?:[\w.-]*[_.-])?(?:authorization|cookie|token|secret|password|passwd|pwd|api[_-]?key|apikey|access[_-]?key|session|csrf)(?:[_.-][\w.-]*)?$/i;
+
+/** Half-open `[start, end)` range of a message that must be replaced. */
+export interface SensitiveAssignmentInterval {
+  readonly start: number;
+  readonly end: number;
+}
+
+/**
+ * Deterministic counters that make the linearity of the scan assertable without
+ * relying on wall-clock time. `inspectedCharacters` counts every character the
+ * scanner consumes, including the ones a rejected delimiter or value lookahead
+ * causes the next token search to re-read; `keyCharacters` counts the characters
+ * handed to the anchored key predicate. Because tokens are maximal and disjoint,
+ * both are bounded by a small multiple of the message length.
+ */
+export interface SensitiveAssignmentScanMetrics {
+  readonly inspectedCharacters: number;
+  readonly keyEvaluations: number;
+  readonly keyCharacters: number;
+}
+
+export interface SensitiveAssignmentScan {
+  readonly intervals: readonly SensitiveAssignmentInterval[];
+  readonly metrics: SensitiveAssignmentScanMetrics;
+}
+
+/**
+ * Single left-to-right pass that collects the credential assignments to redact.
+ *
+ * Each step consumes a maximal key token, looks past optional whitespace for a
+ * `:` or `=`, and tests the whole token against the anchored predicate. A
+ * sensitive key consumes its value and continuation and yields one interval; a
+ * benign key, or a sensitive key with no value, resumes immediately *after* the
+ * delimiter rather than after the value, so a nested or following assignment
+ * (`rejected: authorization=…`, `foo=bar; token=…`, `params=id=1&token=…`)
+ * remains an independent candidate.
+ *
+ * The cursor advances by at least one character per step and never moves
+ * backwards, so the scan is linear in the message length and always terminates.
+ * Intervals are produced in ascending order and cannot overlap.
+ */
+export function scanSensitiveAssignments(message: string): SensitiveAssignmentScan {
+  const intervals: SensitiveAssignmentInterval[] = [];
+  let inspectedCharacters = 0;
+  let keyEvaluations = 0;
+  let keyCharacters = 0;
+  let cursor = 0;
+
+  while (cursor < message.length) {
+    ASSIGNMENT_KEY_TOKEN_PATTERN.lastIndex = cursor;
+
+    const token = ASSIGNMENT_KEY_TOKEN_PATTERN.exec(message);
+
+    if (token === null) {
+      inspectedCharacters += message.length - cursor;
+      break;
+    }
+
+    const keyStart = token.index;
+    const keyEnd = ASSIGNMENT_KEY_TOKEN_PATTERN.lastIndex;
+
+    inspectedCharacters += keyEnd - cursor;
+
+    WHITESPACE_RUN_PATTERN.lastIndex = keyEnd;
+    WHITESPACE_RUN_PATTERN.exec(message);
+
+    const delimiterIndex = WHITESPACE_RUN_PATTERN.lastIndex;
+    const delimiter = message.charAt(delimiterIndex);
+
+    inspectedCharacters += delimiterIndex - keyEnd + 1;
+
+    if (delimiter !== ':' && delimiter !== '=') {
+      // Not an assignment. The token is maximal, so the next candidate key can
+      // only begin after it.
+      cursor = keyEnd;
+      continue;
+    }
+
+    keyEvaluations += 1;
+    keyCharacters += keyEnd - keyStart;
+
+    if (!CREDENTIAL_KEY_PATTERN.test(token[0])) {
+      cursor = delimiterIndex + 1;
+      continue;
+    }
+
+    WHITESPACE_RUN_PATTERN.lastIndex = delimiterIndex + 1;
+    WHITESPACE_RUN_PATTERN.exec(message);
+
+    const valueStart = WHITESPACE_RUN_PATTERN.lastIndex;
+
+    ASSIGNMENT_VALUE_PATTERN.lastIndex = valueStart;
+
+    const value = ASSIGNMENT_VALUE_PATTERN.exec(message);
+
+    if (value === null) {
+      // A sensitive key with an empty value hides nothing, so it is left in the
+      // diagnostic exactly as the superseded pattern left it.
+      inspectedCharacters += valueStart - delimiterIndex;
+      cursor = delimiterIndex + 1;
+      continue;
+    }
+
+    const valueEnd = ASSIGNMENT_VALUE_PATTERN.lastIndex;
+
+    inspectedCharacters += valueEnd - delimiterIndex;
+    intervals.push({ start: keyStart, end: valueEnd });
+    cursor = valueEnd;
+  }
+
+  return { intervals, metrics: { inspectedCharacters, keyEvaluations, keyCharacters } };
+}
+
+/**
+ * Replaces every scanned credential assignment with one marker in a single
+ * output pass. Text outside the intervals is preserved byte for byte, including
+ * the character in front of a key, which the superseded pattern had to capture
+ * and re-emit.
+ */
+export function redactSensitiveAssignments(message: string): string {
+  const { intervals } = scanSensitiveAssignments(message);
+
+  if (intervals.length === 0) {
+    return message;
+  }
+
+  let redacted = '';
+  let copied = 0;
+
+  for (const { start, end } of intervals) {
+    redacted += `${message.slice(copied, start)}${REDACTION_PLACEHOLDER}`;
+    copied = end;
+  }
+
+  return `${redacted}${message.slice(copied)}`;
+}
+
+/**
+ * Ordered redaction steps. Order matters: IPv6 literals are tokenized first, and
+ * URLs and bearer tokens are removed before the generic assignment scan, so a
+ * credential cannot survive inside a longer match.
+ */
+const MESSAGE_REDACTION_STEPS: readonly ((message: string) => string)[] = [
+  redactIpv6Literals,
+  (message) => message.replace(URL_PATTERN, () => REDACTION_PLACEHOLDER),
+  (message) => message.replace(BEARER_TOKEN_PATTERN, () => REDACTION_PLACEHOLDER),
+  redactSensitiveAssignments,
+  (message) => message.replace(IPV4_ADDRESS_PATTERN, () => REDACTION_PLACEHOLDER),
+];
 
 /**
  * Error names are only reported when they are short, plain identifiers. The
@@ -216,11 +391,9 @@ export function toBoundedErrorMessage(error: unknown): string {
     return '';
   }
 
-  const message = SENSITIVE_MESSAGE_PATTERNS.reduce(
-    (scanned, pattern) => scanned.replace(pattern, (match, prefix?: string) =>
-      typeof prefix === 'string' ? `${prefix}${REDACTION_PLACEHOLDER}` : REDACTION_PLACEHOLDER
-    ),
-    redactIpv6Literals(raw.slice(0, MAX_SCANNED_ERROR_MESSAGE_LENGTH))
+  const message = MESSAGE_REDACTION_STEPS.reduce(
+    (scanned, redact) => redact(scanned),
+    raw.slice(0, MAX_SCANNED_ERROR_MESSAGE_LENGTH)
   );
 
   return message.length > MAX_REPORTED_ERROR_MESSAGE_LENGTH

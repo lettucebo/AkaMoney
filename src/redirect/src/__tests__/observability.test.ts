@@ -8,7 +8,10 @@ import {
   MAX_REPORTED_ERROR_MESSAGE_LENGTH,
   MAX_REPORTED_ERROR_NAME_LENGTH,
   MAX_SCANNED_ERROR_MESSAGE_LENGTH,
+  REDACTION_PLACEHOLDER,
   describeThrowable,
+  redactSensitiveAssignments,
+  scanSensitiveAssignments,
   toBoundedErrorMessage,
   toErrorName,
   toSafeReportError,
@@ -24,6 +27,25 @@ async function importObservabilityWithConsoleError(consoleError: (...args: unkno
   } finally {
     console.error = originalConsoleError;
   }
+}
+
+/**
+ * The credential pattern exactly as it stood in `observability.ts` before the
+ * bounded scanner replaced it (23414d0). Frozen in test code so the differential
+ * privacy oracle and the cost discriminator below cannot drift with the
+ * implementation they are meant to check.
+ */
+const SUPERSEDED_CREDENTIAL_PATTERN_SOURCE =
+  '(^|[^\\w-])(?:[\\w.-]*[_.-])?' +
+  '(?:authorization|cookie|token|secret|password|passwd|pwd|api[_-]?key|apikey|' +
+  'access[_-]?key|session|csrf)' +
+  '(?:[_.-][\\w.-]*)?\\s*[:=]\\s*[^\\s;]+(?:\\s*;\\s*[^\\s;=]+=[^\\s;]*)*';
+
+function supersededRedact(message: string): string {
+  return message.replace(
+    new RegExp(SUPERSEDED_CREDENTIAL_PATTERN_SOURCE, 'gi'),
+    (_match: string, boundary: string) => `${boundary}${REDACTION_PLACEHOLDER}`
+  );
 }
 
 describe('background observability primitives', () => {
@@ -263,6 +285,284 @@ describe('background observability primitives', () => {
 });
 
 /**
+ * Credential redaction is the only rule whose replacement decides whether a
+ * secret reaches Sentry, so replacing its pattern with a bounded scanner has to
+ * be proved not to narrow coverage. The superseded pattern is frozen here as a
+ * privacy oracle: over a deterministic corpus, every interval it redacted must
+ * still fall inside an interval the scanner redacts.
+ *
+ * Comparing intervals rather than output is deliberate. An output comparison can
+ * be satisfied by a `[redacted]` marker that some other rule produced, or by a
+ * message that happens to contain the marker already; an interval comparison
+ * cannot.
+ */
+describe('credential assignment redaction parity', () => {
+  interface RedactedInterval {
+    start: number;
+    end: number;
+  }
+
+  /**
+   * Intervals the superseded pattern replaced, excluding the leading boundary
+   * character its replacer preserved.
+   */
+  function supersededIntervals(message: string): RedactedInterval[] {
+    const pattern = new RegExp(SUPERSEDED_CREDENTIAL_PATTERN_SOURCE, 'gi');
+    const intervals: RedactedInterval[] = [];
+    let match = pattern.exec(message);
+
+    while (match !== null) {
+      intervals.push({
+        start: match.index + match[1].length,
+        end: match.index + match[0].length,
+      });
+      match = pattern.exec(message);
+    }
+
+    return intervals;
+  }
+
+  const KEY_PREFIXES = ['', 'x_', 'x-', 'x.', 'client_', 'a.b-', 'ab', 'a', '.', '_'];
+
+  /** Every keyword, both spellings of the hyphenated ones, and near misses. */
+  const KEY_ROOTS = [
+    'authorization',
+    'cookie',
+    'token',
+    'secret',
+    'password',
+    'passwd',
+    'pwd',
+    'api_key',
+    'api-key',
+    'apikey',
+    'api.key',
+    'access_key',
+    'access-key',
+    'accesskey',
+    'session',
+    'csrf',
+    'tokenizer',
+    'inside',
+    'authorize',
+  ];
+
+  const KEY_SUFFIXES = ['', '_id', '-value', '.name', 'izer', 'x'];
+
+  const KEY_CASINGS = [
+    (key: string) => key,
+    (key: string) => key.toUpperCase(),
+    (key: string) => `${key.slice(0, 1).toUpperCase()}${key.slice(1)}`,
+  ];
+
+  /** Delimiter plus every whitespace placement the key grammar tolerates. */
+  const SEPARATORS = [':', '=', ' : ', ' =', '=  ', ':\t', ' \n= '];
+
+  const VALUES = [
+    'v',
+    'super-secret',
+    '******',
+    'a=b',
+    'a=b; c=d',
+    '',
+    ' ',
+    'id=1&token=abc',
+    ';',
+  ];
+
+  /** Rotated over the key/separator/value product so surroundings vary too. */
+  const SURROUNDINGS: readonly (readonly [string, string])[] = [
+    ['', ''],
+    ['rejected ', ''],
+    ['rejected: ', ' tail'],
+    ['foo=bar; ', '; c=d'],
+    ['D1_ERROR: ', ' token=next'],
+    ['a.', '&more=1'],
+    ['x', ';'],
+    ['-', ' 203.0.113.9'],
+    ['\n', '\n'],
+    ['params=id=1&', ''],
+    ['', '=trailing'],
+  ];
+
+  /**
+   * Deterministic cross product of key prefix, keyword, suffix, casing,
+   * separator and value, with surroundings rotated by case index. Cases are
+   * visited rather than materialized so the corpus costs no memory.
+   */
+  function forEachDifferentialCase(visit: (message: string) => void): number {
+    let visited = 0;
+
+    for (const prefix of KEY_PREFIXES) {
+      for (const root of KEY_ROOTS) {
+        for (const suffix of KEY_SUFFIXES) {
+          for (const casing of KEY_CASINGS) {
+            const key = casing(`${prefix}${root}${suffix}`);
+
+            for (const separator of SEPARATORS) {
+              for (const value of VALUES) {
+                const [leading, trailing] = SURROUNDINGS[visited % SURROUNDINGS.length];
+
+                visited += 1;
+                visit(`${leading}${key}${separator}${value}${trailing}`);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return visited;
+  }
+
+  it(
+    'redacts every assignment the superseded credential pattern redacted',
+    () => {
+      const coverageFailures: string[] = [];
+      const outputFailures: string[] = [];
+      let redactedCases = 0;
+
+      const visited = forEachDifferentialCase((message) => {
+        const superseded = supersededIntervals(message);
+        const { intervals } = scanSensitiveAssignments(message);
+
+        if (superseded.length > 0) {
+          redactedCases += 1;
+        }
+
+        for (const previous of superseded) {
+          const covering = intervals.some(
+            (interval) => interval.start <= previous.start && interval.end >= previous.end
+          );
+
+          if (!covering && coverageFailures.length < 5) {
+            coverageFailures.push(
+              `${JSON.stringify(message)} lost ${JSON.stringify(message.slice(previous.start, previous.end))}`
+            );
+          }
+        }
+
+        const redacted = redactSensitiveAssignments(message);
+
+        if (redacted !== supersededRedact(message) && outputFailures.length < 5) {
+          outputFailures.push(
+            `${JSON.stringify(message)} became ${JSON.stringify(redacted)} not ${JSON.stringify(supersededRedact(message))}`
+          );
+        }
+      });
+
+      expect(coverageFailures).toEqual([]);
+      expect(outputFailures).toEqual([]);
+      expect(visited).toBeGreaterThanOrEqual(120_000);
+      // A corpus that never triggers redaction would prove nothing.
+      expect(redactedCases).toBeGreaterThan(visited / 10);
+    },
+    300_000
+  );
+
+  it('reproduces the documented credential redaction semantics exactly', () => {
+    const documented: readonly (readonly [string, string])[] = [
+      // Bare keywords, connectors, prefixes and suffixes.
+      ['rejected: authorization=******', 'rejected: [redacted]'],
+      ['rejected: session=cookie-secret', 'rejected: [redacted]'],
+      ['rejected x_api_key=sk_live_ABC123', 'rejected [redacted]'],
+      ['rejected client_secret=super-secret', 'rejected [redacted]'],
+      ['rejected refresh_token=abc123', 'rejected [redacted]'],
+      ['rejected X-Api-Key: sk_live_ABC123', 'rejected [redacted]'],
+      ['rejected access-key: abc', 'rejected [redacted]'],
+      ['rejected csrf.token = abc', 'rejected [redacted]'],
+      ['rejected token_v2.legacy=abc', 'rejected [redacted]'],
+      // Cookie continuation keeps every later pair inside one marker.
+      ['rejected Cookie: a=b; c=d', 'rejected [redacted]'],
+      ['rejected cookie: a=b ; c=d ; e=f tail', 'rejected [redacted] tail'],
+      ['token=a; secret=b', '[redacted]'],
+      // A continuation pair without `=` ends the value.
+      ['token=a; bare tail', '[redacted]; bare tail'],
+      // Nested and following assignments stay independent candidates.
+      ['foo=bar; token=secret', 'foo=bar; [redacted]'],
+      ['params=id=1&token=abc', 'params=id=1&[redacted]'],
+      ['outer=inner=pwd=x', 'outer=inner=[redacted]'],
+      ['a=token=b', 'a=[redacted]'],
+      ['rejected: pwd=1 and token=2', 'rejected: [redacted] and [redacted]'],
+      // Near misses and benign keys are preserved verbatim.
+      ['row inside: 42', 'row inside: 42'],
+      ['tokenizer: 5 rows', 'tokenizer: 5 rows'],
+      ['xtoken=secret', 'xtoken=secret'],
+      ['api.key=abc', 'api.key=abc'],
+      ['token[0]=abc', 'token[0]=abc'],
+      ['D1_ERROR: UNIQUE constraint failed: click_records.id: SQLITE_CONSTRAINT', 'D1_ERROR: UNIQUE constraint failed: click_records.id: SQLITE_CONSTRAINT'],
+      // A key with no value is not an assignment, and the scan resumes after
+      // the delimiter so a later credential is still found.
+      ['token= ; pwd=1', 'token= ; [redacted]'],
+      ['token=; pwd=1', 'token=; [redacted]'],
+      ['token:', 'token:'],
+      ['token=', 'token='],
+      // Whitespace after the delimiter is part of the value grammar, so the
+      // next word is the value however far away it looks.
+      ['token= and pwd=1', '[redacted] [redacted]'],
+    ];
+
+    for (const [message, expected] of documented) {
+      expect(redactSensitiveAssignments(message), message).toBe(expected);
+      // The frozen pattern agrees, so these are parity assertions too.
+      expect(supersededRedact(message), message).toBe(expected);
+    }
+  });
+
+  it('redacts a credential key whose prefix reaches the scan bound', () => {
+    // 992 connector-joined characters of prefix plus `pwd`: the whole key is
+    // tested, with no independent key-length limit.
+    const nearBoundKey = `${'a.'.repeat(496)}pwd`;
+    const nearBoundMessage = `${nearBoundKey}=v`;
+
+    expect(nearBoundKey.length).toBe(995);
+    expect(nearBoundMessage.length).toBeLessThan(MAX_SCANNED_ERROR_MESSAGE_LENGTH);
+    expect(redactSensitiveAssignments(nearBoundMessage)).toBe(REDACTION_PLACEHOLDER);
+    expect(supersededRedact(nearBoundMessage)).toBe(REDACTION_PLACEHOLDER);
+    expect(toBoundedErrorMessage(new Error(nearBoundMessage))).toBe(REDACTION_PLACEHOLDER);
+
+    const longSuffixMessage = `pwd.${'b.'.repeat(490)}c=v`;
+
+    expect(longSuffixMessage.length).toBeLessThan(MAX_SCANNED_ERROR_MESSAGE_LENGTH);
+    expect(redactSensitiveAssignments(longSuffixMessage)).toBe(REDACTION_PLACEHOLDER);
+    expect(supersededRedact(longSuffixMessage)).toBe(REDACTION_PLACEHOLDER);
+
+    // Truncation to the scan bound removes the delimiter, so nothing is an
+    // assignment any more and the message is reported as ordinary text.
+    const truncatedMessage = `${'a.'.repeat(500)}pwd=v`;
+
+    expect(truncatedMessage.length).toBeGreaterThan(MAX_SCANNED_ERROR_MESSAGE_LENGTH);
+    expect(toBoundedErrorMessage(new Error(truncatedMessage))).toBe(
+      `${truncatedMessage.slice(0, MAX_REPORTED_ERROR_MESSAGE_LENGTH)}...`
+    );
+  });
+
+  it('keeps URL, IPv4 and IPv6 redaction ordered around the credential scan', () => {
+    // The URL rule still consumes a query-string credential whole.
+    expect(
+      toBoundedErrorMessage(
+        new Error('D1 write failed for https://example.com/page?token=super-secret-token')
+      )
+    ).toBe('D1 write failed for [redacted]');
+    // A credential value that is an address is redacted once, by the credential
+    // scan, because it runs before the IPv4 rule.
+    expect(toBoundedErrorMessage(new Error('rejected token=203.0.113.9'))).toBe('rejected [redacted]');
+    expect(toBoundedErrorMessage(new Error('rejected from 203.0.113.9'))).toBe(
+      'rejected from [redacted]'
+    );
+    // IPv6 runs first, so its marker is what the credential scan later sees.
+    expect(toBoundedErrorMessage(new Error('rejected token=2001:db8::1'))).toBe(
+      'rejected [redacted]'
+    );
+    // A benign key still keeps its name in the diagnostic.
+    expect(toBoundedErrorMessage(new Error('rejected host=2001:db8::1'))).toBe(
+      'rejected host=[redacted]'
+    );
+    expect(toBoundedErrorMessage(new Error('rejected bearer abc123'))).toBe('rejected [redacted]');
+  });
+});
+
+/**
  * The background reporter runs inside the Worker's CPU budget after the 302 has
  * been returned, so redaction has to stay cheap even for a hostile throwable. A
  * `recordClick` failure can echo an attacker-controlled `user-agent` or
@@ -279,12 +579,77 @@ describe('redaction scan cost', () => {
   const MAX_SCAN_DURATION_MS = 50;
 
   /**
+   * Ten milliseconds is generous for a linear scan of a 1000-character prefix —
+   * the bounded scanner needs microseconds — and still meaningful: the
+   * superseded credential pattern needed tens of milliseconds for the `pwd.`
+   * run below on Node 24, so any return to a re-splittable key grammar fails.
+   */
+  const MAX_CREDENTIAL_SCAN_DURATION_MS = 10;
+
+  /**
+   * Credential keyword near misses: runs of keyword fragments joined by the
+   * `_`, `.` and `-` connectors the key grammar accepts, none of which ever
+   * reaches a `:`/`=` with a value. A scanner that can re-split the run pays for
+   * every split point, so these are the shapes that made redaction
+   * super-linear. Every message is longer than the scan bound, so each one
+   * exercises the full scanned prefix.
+   */
+  const CREDENTIAL_NEAR_MISS_MESSAGES: readonly string[] = [
+    `D1_ERROR: ${'pwd.'.repeat(300)}`,
+    `D1_ERROR: ${'token.'.repeat(200)}`,
+    `D1_ERROR: ${'secret-'.repeat(200)}`,
+    `D1_ERROR: ${'password_'.repeat(150)}`,
+    `D1_ERROR: ${'api.key.'.repeat(150)}`,
+    `D1_ERROR: ${'csrf-'.repeat(300)}`,
+    `D1_ERROR: ${'.'.repeat(1200)}`,
+    `D1_ERROR: ${'-.'.repeat(600)}`,
+    `D1_ERROR: ${'pwd.'.repeat(300)}z`,
+    `D1_ERROR: ${'pwd.'.repeat(300)}=value`,
+    `D1_ERROR: ${'benign.'.repeat(150)}=value`,
+    `D1_ERROR: ${'pwd.'.repeat(150)}=v ${'pwd.'.repeat(150)}=v`,
+    // The delimiter of these sits *inside* the scanned prefix, so the whole
+    // near-miss run reaches the anchored key predicate as one token. Without
+    // them the predicate would never be measured on a bound-length key.
+    `D1_ERROR: ${'pwd.'.repeat(245)}x=v${' tail'.repeat(20)}`,
+    `D1_ERROR: ${'pwdx.'.repeat(195)}y=v${' tail'.repeat(20)}`,
+    `D1_ERROR: ${'zzzz.'.repeat(195)}y=v${' tail'.repeat(20)}`,
+    `D1_ERROR: ${'pwd_.-'.repeat(163)}q=v${' tail'.repeat(20)}`,
+    `D1_ERROR: ${'.'.repeat(985)}=v${' tail'.repeat(20)}`,
+  ];
+
+  /**
    * A run of ambiguous characters that ends in a character no address may
    * contain. The terminator has to sit inside the scanned prefix, because that
    * is what forces a scanner to reconsider every way of splitting the run.
    */
   function adversarialRun(unit: string, terminator: string): string {
     return `${unit.repeat(Math.floor(900 / unit.length))}${terminator}`;
+  }
+
+  /**
+   * Warms the call up outside the measurement so JIT compilation is not billed
+   * to the first batch, then reports the fastest batch average. A batch minimum
+   * is far more stable than a single sample: a scheduler preemption inflates one
+   * batch, not the minimum of five.
+   */
+  function fastestBatchAverageMs(scan: () => void, callsPerBatch = 5, batches = 5): number {
+    for (let warmUp = 0; warmUp < callsPerBatch; warmUp += 1) {
+      scan();
+    }
+
+    let fastestAverage = Number.POSITIVE_INFINITY;
+
+    for (let batch = 0; batch < batches; batch += 1) {
+      const start = performance.now();
+
+      for (let call = 0; call < callsPerBatch; call += 1) {
+        scan();
+      }
+
+      fastestAverage = Math.min(fastestAverage, (performance.now() - start) / callsPerBatch);
+    }
+
+    return fastestAverage;
   }
 
   function adversarialMessage(run: string, totalLength: number): string {
@@ -349,6 +714,99 @@ describe('redaction scan cost', () => {
     },
     60_000
   );
+
+  it(
+    'scans credential keyword near-miss runs in bounded time',
+    () => {
+      for (const message of CREDENTIAL_NEAR_MISS_MESSAGES) {
+        expect(message.length).toBeGreaterThan(MAX_SCANNED_ERROR_MESSAGE_LENGTH);
+
+        const elapsed = fastestBatchAverageMs(() => {
+          toBoundedErrorMessage(new Error(message));
+        });
+
+        expect(elapsed).toBeLessThan(MAX_CREDENTIAL_SCAN_DURATION_MS);
+      }
+    },
+    300_000
+  );
+
+  /**
+   * Proves the threshold above discriminates rather than merely passing, by
+   * measuring the superseded pattern on the same input, machine and run.
+   *
+   * The absolute floor is the binding acceptance criterion: the 1000-character
+   * `pwd.` near miss has to cost more than the threshold the scanner has to stay
+   * under, or the threshold proves nothing. It is measured as the *minimum* of
+   * five batch averages, so scheduler noise can only inflate discarded samples —
+   * the assertion can fail only if the superseded pattern genuinely runs in
+   * under 10 ms, which is the case where this oracle would have stopped
+   * discriminating and should be re-examined rather than silently trusted.
+   *
+   * The ratio is the stability check: it is independent of machine speed, and
+   * the measured margin is three orders of magnitude.
+   */
+  it(
+    'is orders of magnitude cheaper than the superseded credential pattern',
+    () => {
+      const nearMiss = `D1_ERROR: ${'pwd.'.repeat(300)}`.slice(
+        0,
+        MAX_SCANNED_ERROR_MESSAGE_LENGTH
+      );
+
+      const supersededCost = fastestBatchAverageMs(() => {
+        supersededRedact(nearMiss);
+      }, 2);
+      const scannerCost = fastestBatchAverageMs(() => {
+        redactSensitiveAssignments(nearMiss);
+      }, 200);
+
+      expect(supersededRedact(nearMiss)).toBe(nearMiss);
+      expect(redactSensitiveAssignments(nearMiss)).toBe(nearMiss);
+      expect(supersededCost).toBeGreaterThan(MAX_CREDENTIAL_SCAN_DURATION_MS);
+      expect(supersededCost).toBeGreaterThan(scannerCost * 20);
+    },
+    300_000
+  );
+
+  /**
+   * A wall-clock threshold cannot distinguish a linear scan from a fast machine.
+   * The scanner therefore reports how many characters it consumed and how many
+   * it handed to the key predicate, which are deterministic and machine
+   * independent: every character is read a bounded number of times, and the
+   * disjoint key tokens can never total more than the message.
+   */
+  it('inspects a bounded multiple of the characters it scans', () => {
+    const shapes = [
+      ...CREDENTIAL_NEAR_MISS_MESSAGES,
+      'pwd=v; secret=w; token=x',
+      `${'pwd=v; '.repeat(200)}`,
+      `${'benign=v; '.repeat(200)}`,
+      `${' '.repeat(500)}pwd:${' '.repeat(500)}`,
+      `${'a'.repeat(1000)}=`,
+    ];
+
+    for (const message of shapes) {
+      const { metrics } = scanSensitiveAssignments(message);
+
+      expect(metrics.inspectedCharacters).toBeLessThanOrEqual(3 * message.length);
+      expect(metrics.keyCharacters).toBeLessThanOrEqual(message.length);
+      expect(metrics.keyEvaluations).toBeLessThanOrEqual(message.length);
+    }
+  });
+
+  it('keeps the work per scanned character constant as the message grows', () => {
+    for (const unit of ['pwd.', 'pwd=v; ', 'benign=v; ', 'a b ']) {
+      const perCharacter = [250, 500, 1000, 2000].map((repeats) => {
+        const message = unit.repeat(repeats);
+
+        return scanSensitiveAssignments(message).metrics.inspectedCharacters / message.length;
+      });
+
+      // Super-linear work would grow this ratio with the message length.
+      expect(Math.max(...perCharacter) / Math.min(...perCharacter)).toBeLessThan(1.1);
+    }
+  });
 
   it('scans a bounded prefix that is wider than the reported message', () => {
     // A secret must not survive because truncation split it before redaction.
