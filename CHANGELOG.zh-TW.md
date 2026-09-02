@@ -259,7 +259,7 @@ AkaMoney 專案的所有重要變更都將記錄在此檔案中。
 - 在 Vue 前端、管理 API Worker 與重新導向 Worker 全面整合 Sentry Issues、Logs、分散式追蹤，以及僅於錯誤發生時啟用的前端 Replay。
 - 啟用 Cloudflare Workers Logs、Worker 版本中繼資料與 source map 上傳，以取得可讀的正式環境堆疊追蹤。
 - 為 `https://aka.money/health` 新增每分鐘執行的 uptime monitor，並設定首次停機與恢復後再次停機的電子郵件通知。
-- 新增受保護的 CI source map 流程，避免 PR head build 取得 Sentry 上傳權杖，並在 Pages 部署前移除所有 `.map` 檔案。
+- 新增受保護的 CI source map 流程，避免不具權限的 build 工作取得 Sentry 上傳權杖，並在 Pages 部署前移除所有 `.map` 檔案。
 - 新增中英雙語的監控、設定、部署與疑難排解文件。
 
 ### 變更
@@ -269,6 +269,10 @@ AkaMoney 專案的所有重要變更都將記錄在此檔案中。
 - `VITE_SENTRY_REPLAY_ENABLED` 判斷改為先去除前後空白並轉小寫，因此 `false`、`False` 與含空白的寫法都會停用 error Replay。
 
 ### 安全性
+- 移除正式環境發布流程的 pull-request-target 觸發與對應的發布標籤，未合併的 Pull Request 程式碼不再能於持有 Cloudflare、Azure、Entra 或 Sentry 憑證的工作中執行（#140）。
+- 新增不持有任何憑證的 `prepare-release` 工作，只從 `main` 的政策檢出進行驗證：精確的 SemVer tag 或已確認的手動觸發都必須解析為 `origin/main` 的祖先 commit，而後續工作只會檢出、建置並回報這個不可變的 SHA。
+- 每個部署工作在安裝依賴與任何使用 secret 的步驟之前，都會重新確認該 commit 仍位於主線，避免等待審核期間部署已離開主線的 commit。
+- 正式環境發布改以不會取消進行中部署的 `release-production` concurrency 群組序列化，並據實記錄仍存在的發布信任限制：審核者可自我核准、管理員可略過 environment 保護、對歷史 commit 打 tag 仍會執行該 commit 當時的工作流程、同存放庫寫入者仍受信任，且 `CLOUDFLARE_API_TOKEN`／`AZURE_STORAGE_SAS_TOKEN` 仍屬 repository 範圍，只有 `SENTRY_AUTH_TOKEN` 是 environment secret。
 - 前端遙測不再帶出客戶目的地網址：URL store 的 console error 只記錄 error name、code 與 HTTP status，且連結列表、成效分析與熱門連結統計中呈現或以屬性帶出 `original_url` 的元素都以 `data-sentry-block` 排除於 Session Replay 之外。
 - 管理 API 的 Sentry events 除 `Cookie` 標頭外，也一併移除已解析的 request cookies，與重新導向 Worker 一致。
 - 移除管理 API 權杖驗證成功日誌中的原始 Entra object id/subject。

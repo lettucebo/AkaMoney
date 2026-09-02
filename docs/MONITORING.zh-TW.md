@@ -25,7 +25,7 @@
 | Replay | Error-only Replay：一般 session 0%，error session 100%，除非 `VITE_SENTRY_REPLAY_ENABLED` 為 `false`（會先去除前後空白並忽略大小寫）。列表、成效分析與統計頁中呈現客戶 `original_url` 的元素都標記 `data-sentry-block`。 | N/A。 | N/A。 | `src/frontend/src/utils/sentry.ts:18-19`；`src/frontend/src/utils/sentry.ts:38`；`src/frontend/src/utils/sentry.ts:45-46`；`src/frontend/src/components/dashboard/UrlTable.vue:22`；`src/frontend/src/views/AnalyticsView.vue:32-40`；`src/frontend/src/views/OverallStatsView.vue:49`；[Sentry Replay 文件](https://docs.sentry.io/platforms/javascript/guides/vue/session-replay/) |
 | Cloudflare Workers Logs | N/A。 | Wrangler observability 已啟用。 | Wrangler observability 已啟用。 | `src/backend/wrangler.toml:13-15`；`src/redirect/wrangler.toml:13-15`；[Cloudflare Workers Logs 文件](https://developers.cloudflare.com/workers/observability/logs/workers-logs/) |
 | Worker source maps 與 version metadata | 前端建置只有在具備 `GITHUB_ACTIONS` 或 `SENTRY_AUTH_TOKEN` 時才會產生 hidden source maps；單純在本機執行 `npm run build` 不會產生任何 map。發布流程會在受保護的部署工作上傳後刪除它們。 | 已設定 `upload_source_maps = true` 與 `CF_VERSION_METADATA` binding。 | 已設定 `upload_source_maps = true` 與 `CF_VERSION_METADATA` binding。 | `src/frontend/vite.config.ts:8-43`；`src/backend/wrangler.toml:8-11`；`src/redirect/wrangler.toml:8-11`；[Sentry source maps 文件](https://docs.sentry.io/platforms/javascript/sourcemaps/)；[Cloudflare Worker source maps 文件](https://developers.cloudflare.com/workers/observability/source-maps/)；[Cloudflare version metadata 文件](https://developers.cloudflare.com/workers/runtime-apis/bindings/version-metadata/) |
-| 部署環境名稱 | 由發布建置回報為 `production`（`VITE_SENTRY_ENVIRONMENT`）。 | 發布流程會在部署前寫死 `ENVIRONMENT = "production"`。 | 發布流程會在部署前寫死 `ENVIRONMENT = "production"`。 | `.github/workflows/release.yml:62`；`.github/workflows/release.yml:231-247`；`.github/workflows/release.yml:696-709` |
+| 部署環境名稱 | 由發布建置回報為 `production`（`VITE_SENTRY_ENVIRONMENT`）。 | 發布流程會在部署前寫死 `ENVIRONMENT = "production"`。 | 發布流程會在部署前寫死 `ENVIRONMENT = "production"`。 | `.github/workflows/release.yml:155`；`.github/workflows/release.yml:350-361`；`.github/workflows/release.yml:836-847` |
 
 ## 本地行為
 
@@ -55,7 +55,7 @@
 | `VITE_SENTRY_REPLAY_ENABLED` | Repository variable | 前端建置環境 | 除非設為 `false`，否則啟用 error-session Replay。 | 判斷時會去除前後空白並忽略大小寫，因此 `false`、`False` 或含空白的寫法都會停用。一般 Replay sessions 維持 0%；啟用時 error sessions 為 100%。 |
 | `SENTRY_BACKEND_DSN` | Repository variable | 管理 API deploy workflow | 注入 Worker `SENTRY_DSN` var，供 `akamoney-api` 使用。 | 正式發布時必填；發布流程會先驗證 DSN，再執行部署變更。 |
 | `SENTRY_REDIRECT_DSN` | Repository variable | 重新導向 deploy workflow | 注入 Worker `SENTRY_DSN` var，供 `akamoney-redirect` 使用。 | 正式發布時必填；發布流程會先驗證 DSN，再執行部署變更。 |
-| `SENTRY_AUTH_TOKEN` | Production environment secret | 只給受保護的前端 deploy job | 驗證 `sentry-cli` source-map inject/upload。 | 不得提供給不受信任的 PR-head build job。 |
+| `SENTRY_AUTH_TOKEN` | Production environment secret | 只給受保護的前端 deploy job | 驗證 `sentry-cli` source-map inject/upload。 | 不得提供給 `build` 工作；該工作會在受保護環境之外執行被發布 commit 的依賴與建置腳本。 |
 
 建議 guardrails：
 
@@ -66,11 +66,13 @@
 
 ## 安全 source-map 流程
 
-1. 發布流程的不受信任 PR head build 會收到公開 DSN variables，但不會收到 Sentry 上傳憑證（`.github/workflows/release.yml:61-67`）。
+1. 發布流程的 `build` 工作會收到公開 DSN variables，但不會收到 Sentry 上傳憑證（`.github/workflows/release.yml:145-161`）。該工作在受保護環境之外執行被發布 commit 的建置腳本，因此不得持有任何憑證。
 2. 只有能把 source maps 交給 Sentry 的建置才會產生 hidden source maps：Vite 設定在具備 `GITHUB_ACTIONS` 或 `SENTRY_AUTH_TOKEN` 時才啟用，其餘情況一律關閉，因此手動 `npm run build` 後再執行 `wrangler pages deploy` 不可能發布 map（`src/frontend/vite.config.ts:8-43`）。
-3. 受保護的部署工作只會在 environment protection 通過後取得 `SENTRY_AUTH_TOKEN`（`.github/workflows/release.yml:881-907`）。
-4. 受保護的工作會針對已建置好的前端 artifact 執行 `sentry-cli sourcemaps inject` 與 `sentry-cli sourcemaps upload`（`.github/workflows/release.yml:895-924`）。
-5. Workflow 會刪除 `.map` 檔，並在 Cloudflare Pages 部署前檢查沒有任何 `.map` 檔殘留（`.github/workflows/release.yml:925-954`）。
+3. 受保護的部署工作只會在 environment protection 通過、且完成受信任的主線祖先 recheck（在下載 artifact 之前執行）之後才取得 `SENTRY_AUTH_TOKEN`（`.github/workflows/release.yml:1021-1064`）。
+4. 受保護的工作會針對已建置好的前端 artifact 執行 `sentry-cli sourcemaps inject` 與 `sentry-cli sourcemaps upload`（`.github/workflows/release.yml:1079-1086`）。
+5. Workflow 會刪除 `.map` 檔，並在 Cloudflare Pages 部署前檢查沒有任何 `.map` 檔殘留（`.github/workflows/release.yml:1087-1094`）。
+
+正式環境發布只能由 SemVer tag push 或已確認的手動觸發啟動——Pull Request 事件無法啟動此工作流程，也沒有任何標籤能觸發部署——且每個部署工作都會從受信任的 `main` 專用政策檢出，重新確認自己部署的正是 `prepare-release` 驗證後的不可變 commit。信任邊界、**預期**的 `production` environment 政策（branch `main` 加上 tag `*.*.*`，並保留必要審核者；目前尚未套用）與已知限制詳見[部署指南](DEPLOYMENT.zh-TW.md)：審核者可自我核准、管理員可略過保護，對歷史 commit 打 tag 仍會執行該 commit 當時的工作流程，同存放庫寫入者仍受信任，且 `CLOUDFLARE_API_TOKEN`／`AZURE_STORAGE_SAS_TOKEN` 仍是 repository secrets，只有 `SENTRY_AUTH_TOKEN` 屬於 environment 範圍。
 
 在第一次正式環境 release 於 Sentry 確認 symbolication 前，不要宣稱 production source maps 已驗證。
 

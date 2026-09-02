@@ -25,7 +25,7 @@ Production deployment and production source-map symbolication are not claimed he
 | Replay | Error-only Replay: normal sessions 0%, error sessions 100% unless `VITE_SENTRY_REPLAY_ENABLED` is `false` (trimmed and case-insensitive). List, analytics, and stats elements that render a customer `original_url` carry `data-sentry-block`. | N/A. | N/A. | `src/frontend/src/utils/sentry.ts:18-19`; `src/frontend/src/utils/sentry.ts:38`; `src/frontend/src/utils/sentry.ts:45-46`; `src/frontend/src/components/dashboard/UrlTable.vue:22`; `src/frontend/src/views/AnalyticsView.vue:32-40`; `src/frontend/src/views/OverallStatsView.vue:49`; [Sentry Replay docs](https://docs.sentry.io/platforms/javascript/guides/vue/session-replay/) |
 | Cloudflare Workers Logs | N/A. | Wrangler observability is enabled. | Wrangler observability is enabled. | `src/backend/wrangler.toml:13-15`; `src/redirect/wrangler.toml:13-15`; [Cloudflare Workers Logs docs](https://developers.cloudflare.com/workers/observability/logs/workers-logs/) |
 | Worker source maps and version metadata | The frontend build emits hidden source maps only when `GITHUB_ACTIONS` or `SENTRY_AUTH_TOKEN` is present; a plain local `npm run build` emits none. The release workflow uploads and then deletes them in its protected deploy job. | `upload_source_maps = true` and `CF_VERSION_METADATA` binding are configured. | `upload_source_maps = true` and `CF_VERSION_METADATA` binding are configured. | `src/frontend/vite.config.ts:8-43`; `src/backend/wrangler.toml:8-11`; `src/redirect/wrangler.toml:8-11`; [Sentry source maps docs](https://docs.sentry.io/platforms/javascript/sourcemaps/); [Cloudflare Worker source maps docs](https://developers.cloudflare.com/workers/observability/source-maps/); [Cloudflare version metadata docs](https://developers.cloudflare.com/workers/runtime-apis/bindings/version-metadata/) |
-| Deployed environment name | Reported as `production` from the release build (`VITE_SENTRY_ENVIRONMENT`). | The release workflow hardcodes `ENVIRONMENT = "production"` before deploy. | The release workflow hardcodes `ENVIRONMENT = "production"` before deploy. | `.github/workflows/release.yml:62`; `.github/workflows/release.yml:231-247`; `.github/workflows/release.yml:696-709` |
+| Deployed environment name | Reported as `production` from the release build (`VITE_SENTRY_ENVIRONMENT`). | The release workflow hardcodes `ENVIRONMENT = "production"` before deploy. | The release workflow hardcodes `ENVIRONMENT = "production"` before deploy. | `.github/workflows/release.yml:155`; `.github/workflows/release.yml:350-361`; `.github/workflows/release.yml:836-847` |
 
 ## Local behavior
 
@@ -55,7 +55,7 @@ See [Sentry Replay default masking](https://docs.sentry.io/platforms/javascript/
 | `VITE_SENTRY_REPLAY_ENABLED` | Repository variable | Frontend build env | Enables error-session Replay unless set to `false`. | The value is trimmed and compared case-insensitively, so `false`, `False`, and padded variants all disable it. Normal Replay sessions stay at 0%; error sessions are 100% when enabled. |
 | `SENTRY_BACKEND_DSN` | Repository variable | Admin API deploy workflow | Injected into the Worker `SENTRY_DSN` var for `akamoney-api`. | Required for production release; the workflow validates it before deployment changes. |
 | `SENTRY_REDIRECT_DSN` | Repository variable | Redirect deploy workflow | Injected into the Worker `SENTRY_DSN` var for `akamoney-redirect`. | Required for production release; the workflow validates it before deployment changes. |
-| `SENTRY_AUTH_TOKEN` | Production environment secret | Protected frontend deploy job only | Authenticates `sentry-cli` source-map inject/upload. | Must not be available to the untrusted PR-head build job. |
+| `SENTRY_AUTH_TOKEN` | Production environment secret | Protected frontend deploy job only | Authenticates `sentry-cli` source-map inject/upload. | Must not be available to the `build` job, which executes the released commit's dependency and build scripts outside the protected environment. |
 
 Recommended guardrails:
 
@@ -66,11 +66,13 @@ Recommended guardrails:
 
 ## Secure source-map flow
 
-1. The release workflow's untrusted PR-head build receives public DSN variables but no Sentry upload credential (`.github/workflows/release.yml:61-67`).
+1. The release workflow's `build` job receives public DSN variables but no Sentry upload credential (`.github/workflows/release.yml:145-161`). It runs outside the protected environment and executes the released commit's build scripts, so it must hold no credential.
 2. Hidden frontend source maps are generated only by builds that can hand them to Sentry: the Vite config emits them when `GITHUB_ACTIONS` or `SENTRY_AUTH_TOKEN` is present and disables them otherwise, so a manual `npm run build` plus `wrangler pages deploy` can never publish a map (`src/frontend/vite.config.ts:8-43`).
-3. The protected deploy job receives `SENTRY_AUTH_TOKEN` only after environment protection passes (`.github/workflows/release.yml:881-907`).
-4. The protected job runs `sentry-cli sourcemaps inject` and `sentry-cli sourcemaps upload` against the already-built frontend artifact (`.github/workflows/release.yml:895-924`).
-5. The workflow deletes `.map` files and checks that none remain before Cloudflare Pages deploy (`.github/workflows/release.yml:925-954`).
+3. The protected deploy job receives `SENTRY_AUTH_TOKEN` only after environment protection passes, and only after the trusted mainline ancestry recheck that runs before the artifact is downloaded (`.github/workflows/release.yml:1021-1064`).
+4. The protected job runs `sentry-cli sourcemaps inject` and `sentry-cli sourcemaps upload` against the already-built frontend artifact (`.github/workflows/release.yml:1079-1086`).
+5. The workflow deletes `.map` files and checks that none remain before Cloudflare Pages deploy (`.github/workflows/release.yml:1087-1094`).
+
+Production releases start only from a SemVer tag push or a confirmed manual dispatch — pull request events cannot start the workflow and no label deploys anything — and every deploy job re-proves, from a trusted `main`-only policy checkout, that it is deploying the immutable commit validated by `prepare-release`. See [Deployment](DEPLOYMENT.md) for the trust boundary, the *intended* `production` environment policy (branch `main` plus tag `*.*.*`, with the required reviewer preserved — not applied yet) and the documented limitations: reviewer self-review and admin bypass are possible, a tag on a historical commit still runs that commit's workflow, same-repo writers stay trusted, and `CLOUDFLARE_API_TOKEN`/`AZURE_STORAGE_SAS_TOKEN` remain repository secrets while only `SENTRY_AUTH_TOKEN` is environment-scoped.
 
 Do not state that production source maps are verified until the first production release confirms symbolication in Sentry.
 

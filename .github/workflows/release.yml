@@ -1,43 +1,136 @@
 name: Release
 
+# Production release trust boundary (issue #140).
+#
+# Supported production triggers, and nothing else:
+#   1. Push of an exact SemVer tag such as `1.3.0`. The `*.*.*` filter is only a coarse prefilter;
+#      `prepare-release` enforces the exact `MAJOR.MINOR.PATCH` shape.
+#   2. `workflow_dispatch` started from `main`, with an explicit ref and a typed confirmation.
+#
+# The pull-request-target trigger and the release label that went with it are deliberately absent.
+# They executed unmerged pull request code in jobs that hold Cloudflare, Azure, Entra and Sentry
+# credentials, so a label was the only thing standing between PR-controlled dependency lifecycle
+# scripts and production. Merging a pull request now deploys nothing. See docs/DEPLOYMENT.md for
+# the full trigger policy.
+# No job may execute code from the released ref before `prepare-release` has proven that ref is a
+# commit on `main`, and the validator itself is always checked out from `main`. Every later job
+# consumes only that immutable validated SHA, never the raw event ref.
+#
+# Documented limitations, deliberately not claimed as solved:
+#   * The `production` required reviewer is the sole maintainer, self-review is permitted and
+#     repository admins can bypass the environment, so approval is a confirmation rather than
+#     independent authorization.
+#   * A SemVer tag created on a historical commit still runs *that commit's* workflow file,
+#     including versions from before this hardening. Neither the environment tag policy nor the
+#     reviewer can inspect workflow age; the maintainer must reject such a run.
+#   * Anyone with write access can push a tag or start a dispatch, and the repository has no branch
+#     protection, so trusted same-repo writers remain trusted. Only external/unmerged PR-head
+#     execution is removed here.
+#   * `CLOUDFLARE_API_TOKEN` and `AZURE_STORAGE_SAS_TOKEN` are still repository secrets and stay
+#     readable by any workflow run in this repository; only `SENTRY_AUTH_TOKEN` is environment
+#     scoped. Every job below that reads a secret still declares `environment: production`, so the
+#     required reviewer applies to it.
+#   * The `production` environment currently has no deployment branch/tag policy configured, so the
+#     environment itself does not restrict which ref may deploy; the checks in this workflow do.
+#     Adding a custom policy (branch `main` plus tag `*.*.*`) is recommended follow-up.
 on:
   push:
     tags:
-      - '*'
-  pull_request_target:
-    types: [labeled]
+      - '*.*.*'
   workflow_dispatch:
+    inputs:
+      release_ref:
+        description: 'Commit to deploy: the literal "main", or an exact 40-character commit SHA already on main'
+        required: true
+        default: 'main'
+        type: string
+      confirm_production:
+        description: 'Type DEPLOY_PRODUCTION exactly to confirm a production deployment'
+        required: true
+        type: string
 
 permissions:
   contents: read
   deployments: write
 
+# Production releases are serialised and never cancelled mid-flight: interrupting a release can
+# leave Cloudflare resources provisioned by one commit and Workers deployed from another.
+concurrency:
+  group: release-production
+  cancel-in-progress: false
+
 env:
   CLOUDFLARE_PAGES_PROJECT: akamoney-admin
 
 jobs:
-  build:
+  prepare-release:
     runs-on: ubuntu-latest
-    # Run if: tag push, workflow_dispatch, or PR with run-release label.
-    # Security model:
-    # - pull_request_target runs with the base repository's context; applying the run-release label
-    #   requires write access to this repo, so only trusted maintainers can trigger a PR-based release.
-    # When to use:
-    # - Prefer tag-based pushes (or workflow_dispatch) for normal production releases.
-    # - Use pull_request_target + run-release label only when you intentionally want to build/deploy
-    #   the unmerged PR head commit (for example to a pre-production or test environment).
-    # Risks:
-    # - Deploying unmerged PR code means production-like environments may run code that has not
-    #   yet been merged; restrict label usage and review changes carefully before triggering.
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request_target' && contains(github.event.pull_request.labels.*.name, 'run-release'))
+    # No environment and no secret: this job decides what may be deployed, so it must never hold a
+    # deployment credential itself.
+    permissions:
+      contents: read
+    outputs:
+      sha: ${{ steps.resolve.outputs.sha }}
 
     steps:
+      # Trusted policy source. Only `main` is checked out here, never the ref being released, so a
+      # tag or dispatch can never supply the validator that judges it.
+      - name: Checkout trusted release policy from main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: .release-policy
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.x'
+
+      # Every event value reaches the resolver through `env:` and is read by shell-free Node code,
+      # so no tag name, ref or dispatch input is ever expanded by a shell. The resolver requires an
+      # exact SemVer tag (or `main`/an exact SHA for manual runs), dereferences annotated tags with
+      # `^{commit}`, cross-checks the event SHA, and requires the result to be an ancestor of a
+      # freshly fetched `origin/main`.
+      - name: Resolve and validate the release commit
+        id: resolve
+        env:
+          RELEASE_MODE: resolve
+          RELEASE_REPO_DIR: .release-policy
+          RELEASE_EVENT_NAME: ${{ github.event_name }}
+          RELEASE_REF_TYPE: ${{ github.ref_type }}
+          RELEASE_REF_NAME: ${{ github.ref_name }}
+          RELEASE_EVENT_SHA: ${{ github.sha }}
+          RELEASE_DISPATCH_REF: ${{ inputs.release_ref }}
+          RELEASE_DISPATCH_CONFIRM: ${{ inputs.confirm_production }}
+        run: node .release-policy/.github/scripts/resolve-release-ref.mjs
+
+      - name: Add release validation summary
+        env:
+          RELEASE_SHA: ${{ steps.resolve.outputs.sha }}
+          RELEASE_TRIGGER: ${{ github.event_name }}
+          RELEASE_ACTOR: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+          echo "## Release Ref Validation :closed_lock_with_key:" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Property | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| --- | --- |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **Validated commit** | ${RELEASE_SHA} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **Trigger** | ${RELEASE_TRIGGER} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **Started by** | ${RELEASE_ACTOR} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **Mainline policy** | ancestor of origin/main |" >> "$GITHUB_STEP_SUMMARY"
+
+  build:
+    runs-on: ubuntu-latest
+    needs: prepare-release
+
+    steps:
+      # Only the immutable commit validated by prepare-release is ever built.
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          # When triggered by pull_request_target, checkout the PR head SHA while still running in the base branch context
-          # (permissions, env, and workflow config come from the base branch; workflow changes in the PR do not affect this run).
-          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
+          ref: ${{ needs.prepare-release.outputs.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -61,10 +154,11 @@ jobs:
           VITE_SENTRY_DSN: ${{ vars.VITE_SENTRY_DSN }}
           VITE_SENTRY_ENVIRONMENT: production
           VITE_SENTRY_REPLAY_ENABLED: ${{ vars.VITE_SENTRY_REPLAY_ENABLED }}
-        # The Sentry upload credential is deliberately absent here. Under pull_request_target this
-        # job checks out and executes PR head code, so no Sentry credential may exist in its
-        # environment. The Vite Sentry plugin therefore stays inactive, hidden source maps stay in
-        # the artifact, and deploy-frontend uploads them from the protected production environment.
+        # The Sentry upload credential is deliberately absent here. This job runs outside the
+        # protected production environment and executes the released commit's dependency and build
+        # scripts, so it must hold no deployment credential. The Vite Sentry plugin therefore stays
+        # inactive, hidden source maps stay in the artifact, and deploy-frontend uploads them from
+        # the protected production environment.
         run: |
           set -euo pipefail
           if [ -z "${VITE_SENTRY_DSN:-}" ]; then
@@ -139,15 +233,35 @@ jobs:
 
   deploy-admin-api:
     runs-on: ubuntu-latest
-    needs: build
+    needs: [prepare-release, build]
     environment: production
 
     steps:
+      # The validated commit is checked out first: actions/checkout cleans its target directory, so
+      # the trusted policy tree is created afterwards and cannot be removed by this checkout.
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          # Checkout the PR head ref when triggered by pull_request_target
-          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
+          ref: ${{ needs.prepare-release.outputs.sha }}
+
+      - name: Checkout trusted release policy from main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: .release-policy
+          fetch-depth: 0
+
+      # Waiting for the production reviewer can take arbitrarily long. Re-prove from the trusted
+      # main clone that the selected commit is still on mainline before anything from the released
+      # commit executes (npm lifecycle scripts run during `npm ci`) and before any secret is read.
+      # This runs on the runner's preinstalled Node, ahead of setup-node, so not even the npm cache
+      # is keyed on the selected tree until ancestry has been re-proved.
+      - name: Recheck the release commit against mainline
+        env:
+          RELEASE_MODE: recheck
+          RELEASE_REPO_DIR: .release-policy
+          RELEASE_SELECTED_SHA: ${{ needs.prepare-release.outputs.sha }}
+        run: node .release-policy/.github/scripts/resolve-release-ref.mjs
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -574,9 +688,15 @@ jobs:
 
       - name: Add deployment summary
         if: always()
+        # The summary reports the commit prepare-release validated, never the raw event ref, so it
+        # can never claim a commit that was not proven to be on mainline.
+        env:
+          JOB_STATUS: ${{ job.status }}
+          RELEASE_SHA: ${{ needs.prepare-release.outputs.sha }}
+          RELEASE_TRIGGER: ${{ github.event_name }}
+          RELEASE_ACTOR: ${{ github.actor }}
         run: |
-          STATUS="${{ job.status }}"
-          if [ "$STATUS" = "success" ]; then
+          if [ "$JOB_STATUS" = "success" ]; then
             echo "## Admin API Deployment Summary :rocket:" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
             echo "| Property | Value |" >> "$GITHUB_STEP_SUMMARY"
@@ -584,9 +704,9 @@ jobs:
             echo "| **Status** | ✅ Deployed successfully |" >> "$GITHUB_STEP_SUMMARY"
             echo "| **Service** | akamoney-admin-api |" >> "$GITHUB_STEP_SUMMARY"
             echo "| **Environment** | Production |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| **Commit** | ${{ github.sha }} |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| **Ref** | ${{ github.ref_name }} |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| **Triggered by** | ${{ github.actor }} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Commit** | ${RELEASE_SHA} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Trigger** | ${RELEASE_TRIGGER} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Triggered by** | ${RELEASE_ACTOR} |" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "## Admin API Deployment Summary :x:" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
@@ -595,24 +715,42 @@ jobs:
             echo "| **Status** | ❌ Deployment failed |" >> "$GITHUB_STEP_SUMMARY"
             echo "| **Service** | akamoney-admin-api |" >> "$GITHUB_STEP_SUMMARY"
             echo "| **Environment** | Production |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| **Commit** | ${{ github.sha }} |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| **Ref** | ${{ github.ref_name }} |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| **Triggered by** | ${{ github.actor }} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Commit** | ${RELEASE_SHA} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Trigger** | ${RELEASE_TRIGGER} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Triggered by** | ${RELEASE_ACTOR} |" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
             echo "Please check the workflow logs for more details." >> "$GITHUB_STEP_SUMMARY"
           fi
 
   deploy-redirect:
     runs-on: ubuntu-latest
-    needs: build
+    needs: [prepare-release, build]
     environment: production
 
     steps:
+      # The validated commit is checked out first: actions/checkout cleans its target directory, so
+      # the trusted policy tree is created afterwards and cannot be removed by this checkout.
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          # Checkout the PR head ref when triggered by pull_request_target
-          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
+          ref: ${{ needs.prepare-release.outputs.sha }}
+
+      - name: Checkout trusted release policy from main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: .release-policy
+          fetch-depth: 0
+
+      # Same approval-drift guard as the Admin API deployment: ancestry is re-proved from the
+      # trusted main clone, on the runner's preinstalled Node, before released code executes or any
+      # secret is read.
+      - name: Recheck the release commit against mainline
+        env:
+          RELEASE_MODE: recheck
+          RELEASE_REPO_DIR: .release-policy
+          RELEASE_SELECTED_SHA: ${{ needs.prepare-release.outputs.sha }}
+        run: node .release-policy/.github/scripts/resolve-release-ref.mjs
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -847,9 +985,14 @@ jobs:
 
       - name: Add deployment summary
         if: always()
+        # The summary reports the commit prepare-release validated, never the raw event ref.
+        env:
+          JOB_STATUS: ${{ job.status }}
+          RELEASE_SHA: ${{ needs.prepare-release.outputs.sha }}
+          RELEASE_TRIGGER: ${{ github.event_name }}
+          RELEASE_ACTOR: ${{ github.actor }}
         run: |
-          STATUS="${{ job.status }}"
-          if [ "$STATUS" = "success" ]; then
+          if [ "$JOB_STATUS" = "success" ]; then
             echo "## Redirect Service Deployment Summary :rocket:" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
             echo "| Property | Value |" >> "$GITHUB_STEP_SUMMARY"
@@ -857,9 +1000,9 @@ jobs:
             echo "| **Status** | ✅ Deployed successfully |" >> "$GITHUB_STEP_SUMMARY"
             echo "| **Service** | akamoney-redirect |" >> "$GITHUB_STEP_SUMMARY"
             echo "| **Environment** | Production |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| **Commit** | ${{ github.sha }} |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| **Ref** | ${{ github.ref_name }} |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| **Triggered by** | ${{ github.actor }} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Commit** | ${RELEASE_SHA} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Trigger** | ${RELEASE_TRIGGER} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Triggered by** | ${RELEASE_ACTOR} |" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "## Redirect Service Deployment Summary :x:" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
@@ -868,35 +1011,55 @@ jobs:
             echo "| **Status** | ❌ Deployment failed |" >> "$GITHUB_STEP_SUMMARY"
             echo "| **Service** | akamoney-redirect |" >> "$GITHUB_STEP_SUMMARY"
             echo "| **Environment** | Production |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| **Commit** | ${{ github.sha }} |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| **Ref** | ${{ github.ref_name }} |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| **Triggered by** | ${{ github.actor }} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Commit** | ${RELEASE_SHA} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Trigger** | ${RELEASE_TRIGGER} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Triggered by** | ${RELEASE_ACTOR} |" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
             echo "Please check the workflow logs for more details." >> "$GITHUB_STEP_SUMMARY"
           fi
 
   deploy-frontend:
     runs-on: ubuntu-latest
-    needs: build
+    needs: [prepare-release, build]
     environment: production
 
     steps:
-      - name: Download frontend build artifacts
-        uses: actions/download-artifact@v4
+      # This job never checks out application code; it deploys the artifact built from the
+      # validated commit. The trusted policy tree is still required so the ancestry recheck runs
+      # from `main` before the Sentry and Cloudflare credentials are used.
+      - name: Checkout trusted release policy from main
+        uses: actions/checkout@v4
         with:
-          name: frontend-dist
-          path: src/frontend/dist/
+          ref: main
+          path: .release-policy
+          fetch-depth: 0
+
+      # The recheck runs first, on the runner's preinstalled Node, so the artifact built from the
+      # selected commit is not downloaded and no credential is exposed until mainline ancestry has
+      # been re-proved from the trusted main clone.
+      - name: Recheck the release commit against mainline
+        env:
+          RELEASE_MODE: recheck
+          RELEASE_REPO_DIR: .release-policy
+          RELEASE_SELECTED_SHA: ${{ needs.prepare-release.outputs.sha }}
+        run: node .release-policy/.github/scripts/resolve-release-ref.mjs
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '24.x'
 
+      - name: Download frontend build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: src/frontend/dist/
+
       - name: Upload frontend source maps to Sentry
         # Secret boundary: this step is the sole holder of the Sentry upload credential in the
-        # whole workflow. It runs in the protected `production` environment, this job checks out
-        # no repository code, and the credential is handed only to the pinned Sentry CLI operating
-        # on the already built artifact - never to the pull_request_target job that runs PR code.
+        # whole workflow. It runs in the protected `production` environment after the mainline
+        # ancestry recheck, this job checks out no application code, and the credential is handed
+        # only to the pinned Sentry CLI operating on the already built artifact.
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: money-5c
@@ -955,18 +1118,23 @@ jobs:
 
       - name: Add deployment summary
         if: always()
+        # The summary reports the commit prepare-release validated, never the raw event ref.
+        env:
+          JOB_STATUS: ${{ job.status }}
+          RELEASE_SHA: ${{ needs.prepare-release.outputs.sha }}
+          RELEASE_TRIGGER: ${{ github.event_name }}
+          RELEASE_ACTOR: ${{ github.actor }}
         run: |
-          STATUS="${{ job.status }}"
-          if [ "$STATUS" = "success" ]; then
+          if [ "$JOB_STATUS" = "success" ]; then
             echo "## Frontend Deployment Summary :rocket:" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
             echo "| Property | Value |" >> "$GITHUB_STEP_SUMMARY"
             echo "| --- | --- |" >> "$GITHUB_STEP_SUMMARY"
             echo "| **Status** | ✅ Deployed successfully |" >> "$GITHUB_STEP_SUMMARY"
             echo "| **Environment** | Production |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| **Commit** | ${{ github.sha }} |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| **Ref** | ${{ github.ref_name }} |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| **Triggered by** | ${{ github.actor }} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Commit** | ${RELEASE_SHA} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Trigger** | ${RELEASE_TRIGGER} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Triggered by** | ${RELEASE_ACTOR} |" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "## Frontend Deployment Summary :x:" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
@@ -974,9 +1142,9 @@ jobs:
             echo "| --- | --- |" >> "$GITHUB_STEP_SUMMARY"
             echo "| **Status** | ❌ Deployment failed |" >> "$GITHUB_STEP_SUMMARY"
             echo "| **Environment** | Production |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| **Commit** | ${{ github.sha }} |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| **Ref** | ${{ github.ref_name }} |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| **Triggered by** | ${{ github.actor }} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Commit** | ${RELEASE_SHA} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Trigger** | ${RELEASE_TRIGGER} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Triggered by** | ${RELEASE_ACTOR} |" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
             echo "Please check the workflow logs for more details." >> "$GITHUB_STEP_SUMMARY"
           fi

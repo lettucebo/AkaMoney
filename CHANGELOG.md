@@ -259,7 +259,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Integrated Sentry across the Vue frontend, Admin API Worker, and redirect Worker with Issues, Logs, distributed tracing, and error-only frontend Replay.
 - Enabled Cloudflare Workers Logs, Worker version metadata, and source-map uploads for readable production stack traces.
 - Added a one-minute uptime monitor for `https://aka.money/health`, including first-outage and regression email notifications.
-- Added a protected CI source-map flow that keeps the Sentry upload token out of PR-head builds and removes `.map` files before Pages deployment.
+- Added a protected CI source-map flow that keeps the Sentry upload token out of the unprivileged build job and removes `.map` files before Pages deployment.
 - Added bilingual monitoring, configuration, deployment, and troubleshooting documentation.
 
 ### Changed
@@ -269,6 +269,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed `VITE_SENTRY_REPLAY_ENABLED` handling to trim and lower-case the value, so `false`, `False`, and padded variants all disable error Replay.
 
 ### Security
+- Removed the pull-request-target trigger and its release label from the production release workflow, so unmerged pull request code can no longer execute in jobs that hold Cloudflare, Azure, Entra, or Sentry credentials (#140).
+- Added a credential-free `prepare-release` job that validates the release from a `main`-only policy checkout: an exact SemVer tag or a confirmed manual dispatch must resolve to a commit that is an ancestor of `origin/main`, and that immutable SHA is the only ref later jobs check out, build, or report.
+- Added a trusted mainline ancestry recheck to every deploy job, run before dependency installation and before any secret-bearing step, so approval delays cannot deploy a commit that has left mainline.
+- Serialised production releases with a non-cancelling `release-production` concurrency group, and documented the remaining release trust limitations: reviewer self-review and admin bypass are possible, a tag on a historical commit still runs that commit's workflow file, same-repo writers stay trusted, and `CLOUDFLARE_API_TOKEN`/`AZURE_STORAGE_SAS_TOKEN` remain repository secrets while only `SENTRY_AUTH_TOKEN` is environment-scoped.
 - Removed customer destination URLs from frontend telemetry: URL store console errors now report only an error name, code, and HTTP status, and the link list, analytics, and top-link stats elements that render or attribute an `original_url` are excluded from Session Replay with `data-sentry-block`.
 - Removed parsed request cookies from Admin API Sentry events in addition to the `Cookie` header, matching the redirect Worker.
 - Removed the raw Entra object id/subject from the successful Admin API token-verification log.
