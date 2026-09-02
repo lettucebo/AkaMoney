@@ -138,4 +138,50 @@ describe('bootstrap default wiring in a callback document', () => {
     expect(reloadDocument).toHaveBeenCalledOnce();
     expect(appHtml()).toBe('');
   });
+
+  it('sanitizes a slash-prefixed MSAL fragment response from the real history entry', async () => {
+    window.history.replaceState(
+      { position: 2 },
+      '',
+      `/dashboard#/code=${CANARY}&client_info=${CANARY}2&state=${CANARY}3`
+    );
+    const initSentry = vi.fn();
+    const reloadDocument = vi.fn();
+    const replaceLocation = vi.fn();
+
+    const result = await bootstrapApp({ initSentry, reloadDocument, replaceLocation });
+    await flushPromises();
+
+    expect(result).toEqual({ status: 'callback-terminated' });
+    expect(window.location.href).toBe(`${window.location.origin}/dashboard`);
+    expect(window.location.href).not.toContain(CANARY);
+    expect(reloadDocument).toHaveBeenCalledOnce();
+    expect(replaceLocation).not.toHaveBeenCalled();
+    expect(initSentry).not.toHaveBeenCalled();
+    expect(appHtml()).toBe('');
+  });
+
+  it('never navigates the real document when the history entry cannot be replaced', async () => {
+    const callbackUrl = `/dashboard?code=${CANARY}&state=${CANARY}2`;
+    window.history.replaceState({ position: 1 }, '', callbackUrl);
+    vi.spyOn(window.history, 'replaceState').mockImplementation(() => {
+      throw new Error(`replaceState blocked for ${callbackUrl}`);
+    });
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const initSentry = vi.fn();
+    const reloadDocument = vi.fn();
+    const replaceLocation = vi.fn();
+
+    const result = await bootstrapApp({ initSentry, reloadDocument, replaceLocation });
+    await flushPromises();
+
+    expect(result).toEqual({ status: 'callback-terminated' });
+    expect(replaceLocation).not.toHaveBeenCalled();
+    expect(reloadDocument).not.toHaveBeenCalled();
+    expect(initSentry).not.toHaveBeenCalled();
+    expect(appHtml()).toBe('');
+    expect(error).toHaveBeenCalledOnce();
+    expect(error.mock.calls[0]).toHaveLength(1);
+    expect(JSON.stringify(error.mock.calls)).not.toContain(CANARY);
+  });
 });

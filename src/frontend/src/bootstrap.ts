@@ -71,31 +71,31 @@ const createDefaultDependencies = (): BootstrapDependencies => ({
  *
  * `replaceState` drops the callback entry from history (so Back cannot restore
  * it) and `reload()` then fetches the already-clean current URL as a new
- * document. If either step is refused, a single `location.replace` of the
- * clean URL provides the same guarantee. The caller never continues bootstrap
- * in this document, whatever happens here.
+ * document. If `replaceState` is refused the address bar still holds the OAuth
+ * response, so this document is abandoned in place: navigating from it would
+ * send the response as the `Referer` of the next document's requests. Only
+ * after `replaceState` succeeded - when the current entry is already sanitized
+ * - may a `location.replace` of that same clean URL stand in for a refused
+ * reload. The caller never continues bootstrap in this document, whatever
+ * happens here.
  */
 const leaveCallbackDocument = (
   dependencies: BootstrapDependencies,
   savedHistoryState: unknown,
   cleanUrl: string
 ): void => {
-  let historyEntryReplaced = false;
-
   try {
     dependencies.replaceHistoryState(savedHistoryState, cleanUrl);
-    historyEntryReplaced = true;
   } catch {
     console.error(HISTORY_REPLACE_FAILED_MESSAGE);
+    return;
   }
 
-  if (historyEntryReplaced) {
-    try {
-      dependencies.reloadDocument();
-      return;
-    } catch {
-      console.error(NAVIGATION_FAILED_MESSAGE);
-    }
+  try {
+    dependencies.reloadDocument();
+    return;
+  } catch {
+    console.error(NAVIGATION_FAILED_MESSAGE);
   }
 
   try {

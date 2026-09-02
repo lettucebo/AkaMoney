@@ -2,10 +2,15 @@
  * Single source of truth for OAuth redirect-response parameters.
  *
  * Microsoft Entra returns the authorization response either in the query
- * string (`?code=...`) or in the fragment (`#code=...`, and `#/route?code=...`
- * for hash-routed apps). Those values must never reach telemetry, so the same
- * key set drives both callback *detection* and URL *sanitization*: anything
- * detected is also removed, and anything removed is also detected.
+ * string (`?code=...`) or in the fragment (`#code=...`, the MSAL
+ * slash-prefixed `#/code=...`, and `#/route?code=...` for hash-routed apps).
+ * The fragment is read both the way MSAL parses it - one `&`-separated
+ * parameter list behind at most one leading `/`, where a `?` belongs to a
+ * value - and as a route with its own query, so a response cannot hide behind
+ * a route-shaped segment or inside a value. Those values must never reach
+ * telemetry, so the same key set drives both callback *detection* and URL
+ * *sanitization*: anything detected is also removed, and anything removed is
+ * also detected.
  *
  * Matching is by parameter presence, not value, so empty (`?code=`), bare
  * (`?code`) and duplicated (`?code=a&code=b`) forms all count. Names are
@@ -58,12 +63,14 @@ export interface OAuthCallbackInspection {
 
 const RESPONSE_KEYS: ReadonlySet<string> = new Set<string>(OAUTH_RESPONSE_KEYS);
 
+/** A fragment is read two ways: as MSAL parses it, and as a route with a query. */
 interface UrlParts {
   readonly base: string;
   readonly query: string;
-  readonly hashPath: string;
-  readonly hashSeparator: '' | '?';
-  readonly hashQuery: string;
+  /** The single `/` MSAL strips from `#/code=...` before parsing a response. */
+  readonly hashPrefix: '' | '/';
+  /** Everything after that prefix. */
+  readonly hashRest: string;
 }
 
 const decodeParameterName = (rawName: string): string => {
@@ -81,6 +88,41 @@ const parameterName = (segment: string): string => {
 
 const splitSegments = (raw: string): string[] => (raw === '' ? [] : raw.split('&'));
 
+const containsResponseKey = (raw: string): boolean =>
+  splitSegments(raw).some((segment) => RESPONSE_KEYS.has(parameterName(segment)));
+
+const isSensitiveName = (name: string): boolean =>
+  RESPONSE_KEYS.has(name) || name === OAUTH_STATE_KEY;
+
+/**
+ * Reports whether a fragment payload is the authorization response MSAL would
+ * deserialize.
+ *
+ * MSAL strips at most one leading `#/` (or `#`) and hands the rest to
+ * `URLSearchParams`, which separates parameters on `&` only and refuses a
+ * payload without `=` (`stripLeadingHashOrQuery`/`getDeserializedResponse` in
+ * `@azure/msal-common`). `?` is therefore part of a value, never a delimiter:
+ * `#code=a?b` is one `code` parameter. `#/code` stays a route to `/code`, and
+ * `#//code=v` and `#!/route&code=v` keep the parameter names `/code` and
+ * `!/route`.
+ */
+const carriesMsalResponse = (rest: string): boolean =>
+  rest.includes('=') && containsResponseKey(rest);
+
+/**
+ * Reports whether a hash *route* carries a response in its own query, the
+ * `#/route?code=...` form a hash-routed application produces. MSAL would read
+ * `route?code` as one parameter name, so this view exists in addition to the
+ * MSAL one, never instead of it.
+ */
+const carriesRouteQueryResponse = (rest: string): boolean => {
+  const queryIndex = rest.indexOf('?');
+  return queryIndex >= 0 && containsResponseKey(rest.slice(queryIndex + 1));
+};
+
+const fragmentCarriesResponse = (rest: string): boolean =>
+  carriesMsalResponse(rest) || carriesRouteQueryResponse(rest);
+
 /**
  * Splits a URL by string position instead of parsing it, so unrelated origin,
  * path, parameter order and percent-encoding survive sanitization byte for
@@ -95,41 +137,44 @@ const parseUrlParts = (href: string): UrlParts => {
   const base = queryIndex >= 0 ? beforeHash.slice(0, queryIndex) : beforeHash;
   const query = queryIndex >= 0 ? beforeHash.slice(queryIndex + 1) : '';
 
-  const hashQueryIndex = hash.indexOf('?');
-  if (hashQueryIndex >= 0) {
-    return {
-      base,
-      query,
-      hashPath: hash.slice(0, hashQueryIndex),
-      hashSeparator: '?',
-      hashQuery: hash.slice(hashQueryIndex + 1)
-    };
-  }
-
-  // `#/dashboard` is a hash route; `#code=...` is a fragment response.
-  const isHashRoute = hash.startsWith('/') || hash.startsWith('!');
-  return {
-    base,
-    query,
-    hashPath: isHashRoute ? hash : '',
-    hashSeparator: '',
-    hashQuery: isHashRoute ? '' : hash
-  };
+  const hashPrefix = hash.startsWith('/') ? '/' : '';
+  return { base, query, hashPrefix, hashRest: hash.slice(hashPrefix.length) };
 };
-
-const containsResponseKey = (raw: string): boolean =>
-  splitSegments(raw).some((segment) => RESPONSE_KEYS.has(parameterName(segment)));
 
 const removeSensitiveSegments = (raw: string): string =>
   splitSegments(raw)
-    .filter((segment) => {
-      const name = parameterName(segment);
-      return !RESPONSE_KEYS.has(name) && name !== OAUTH_STATE_KEY;
-    })
+    .filter((segment) => !isSensitiveName(parameterName(segment)))
     .join('&');
 
-const buildUrl = (parts: UrlParts, query: string, hashQuery: string): string => {
-  const hash = hashQuery === '' ? parts.hashPath : parts.hashPath + parts.hashSeparator + hashQuery;
+/**
+ * Removes every response parameter, in whichever view it appears.
+ *
+ * The MSAL view runs first and drops each matching parameter whole, so a value
+ * containing a raw `?` cannot leave a tail behind; the payload is then
+ * re-examined, because a removed value can have hidden a route query
+ * (`#x=?code=<value>`). Only a payload that is not an MSAL response is treated
+ * as a route with its own query. Every recursive pass drops at least one
+ * parameter, so the recursion always terminates.
+ */
+const sanitizeFragment = (rest: string): string => {
+  if (carriesMsalResponse(rest)) {
+    return sanitizeFragment(removeSensitiveSegments(rest));
+  }
+
+  const queryIndex = rest.indexOf('?');
+  if (queryIndex < 0 || !containsResponseKey(rest.slice(queryIndex + 1))) {
+    return rest;
+  }
+
+  const path = rest.slice(0, queryIndex);
+  const query = removeSensitiveSegments(rest.slice(queryIndex + 1));
+  return query === '' ? path : `${path}?${query}`;
+};
+
+const buildUrl = (parts: UrlParts, query: string, hashRest: string): string => {
+  // An emptied fragment drops the `#/` marker with it: what remains of a
+  // response is not a route.
+  const hash = hashRest === '' ? '' : parts.hashPrefix + hashRest;
 
   return `${parts.base}${query === '' ? '' : `?${query}`}${hash === '' ? '' : `#${hash}`}`;
 };
@@ -141,7 +186,7 @@ const buildUrl = (parts: UrlParts, query: string, hashQuery: string): string => 
 export const inspectOAuthCallback = (href: string): OAuthCallbackInspection => {
   const parts = parseUrlParts(href);
 
-  if (!containsResponseKey(parts.query) && !containsResponseKey(parts.hashQuery)) {
+  if (!containsResponseKey(parts.query) && !fragmentCarriesResponse(parts.hashRest)) {
     return { isCallback: false, sanitizedUrl: href };
   }
 
@@ -150,7 +195,7 @@ export const inspectOAuthCallback = (href: string): OAuthCallbackInspection => {
     sanitizedUrl: buildUrl(
       parts,
       removeSensitiveSegments(parts.query),
-      removeSensitiveSegments(parts.hashQuery)
+      sanitizeFragment(parts.hashRest)
     )
   };
 };

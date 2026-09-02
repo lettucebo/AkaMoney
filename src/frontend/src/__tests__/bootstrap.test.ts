@@ -164,6 +164,11 @@ describe('bootstrap in a callback-shaped document', () => {
     ['query response', `${CLEAN_URL}?code=${CANARY}&state=${CANARY}2`],
     ['fragment response', `${CLEAN_URL}#code=${CANARY}&client_info=${CANARY}2&state=${CANARY}3`],
     ['hash route response', `${CLEAN_URL}#/section?code=${CANARY}&state=${CANARY}2`],
+    ['slash-prefixed response', `${CLEAN_URL}#/code=${CANARY}&state=${CANARY}2`],
+    [
+      'slash-prefixed empty duplicate response',
+      `${CLEAN_URL}#/code=&code=&client_info=${CANARY}`
+    ],
     ['error response', `${CLEAN_URL}?error=access_denied&error_description=${CANARY}`],
     ['empty duplicate response', `${CLEAN_URL}?code=&code=&state=${CANARY}`]
   ];
@@ -210,6 +215,55 @@ describe('bootstrap in a callback-shaped document', () => {
     expect(harness.replaceStateCalls[0].state).toBe(savedState);
     expect(harness.replaceStateCalls[0].url).toBe(`${ORIGIN}/analytics/abc?page=2#/tab`);
     expect(harness.replaceStateCalls[0].url).not.toContain(CANARY);
+  });
+
+  it('sanitizes a slash-prefixed MSAL fragment response out of the history entry', async () => {
+    const harness = createHarness({
+      launchHref: `${CLEAN_URL}#/code=${CANARY}&client_info=${CANARY}2&state=${CANARY}3&session_state=${CANARY}4`
+    });
+
+    const run = bootstrapApp(harness.deps);
+    harness.auth.resolve(authResult('handled', true));
+    await run;
+
+    expect(harness.replaceStateCalls).toHaveLength(1);
+    expect(harness.replaceStateCalls[0].url).toBe(CLEAN_URL);
+    expect(harness.replaceStateCalls[0].url).not.toContain(CANARY);
+  });
+
+  it.each([
+    ['slash-prefixed response', `${CLEAN_URL}#/code=${CANARY}&state=${CANARY}2`],
+    ['slash-prefixed empty response', `${CLEAN_URL}#/code=`],
+    ['slash-prefixed duplicate response', `${CLEAN_URL}#/id_token=${CANARY}&id_token=${CANARY}2`],
+    ['slash-prefixed error response', `${CLEAN_URL}#/error=access_denied&error_description=x`]
+  ])(
+    'terminates on a %s launch even when auth reports no callback',
+    async (_form, launchHref) => {
+      const harness = createHarness({ launchHref });
+
+      const run = bootstrapApp(harness.deps);
+      harness.auth.resolve(authResult('none', false));
+
+      await expect(run).resolves.toEqual({ status: 'callback-terminated' });
+      expect(harness.deps.replaceHistoryState).toHaveBeenCalledOnce();
+      expect(harness.replaceStateCalls[0].url).toBe(CLEAN_URL);
+      expect(harness.deps.reloadDocument).toHaveBeenCalledOnce();
+      expect(harness.deps.createRouter).not.toHaveBeenCalled();
+      expect(harness.deps.initSentry).not.toHaveBeenCalled();
+      expect(harness.app.mount).not.toHaveBeenCalled();
+    }
+  );
+
+  it('still starts the app for a true hash route that only looks like a response', async () => {
+    const harness = createHarness({ launchHref: `${CLEAN_URL}#/analytics/code` });
+
+    const run = bootstrapApp(harness.deps);
+    harness.auth.resolve(authResult('none', false));
+
+    await expect(run).resolves.toEqual({ status: 'app-started' });
+    expect(harness.deps.replaceHistoryState).not.toHaveBeenCalled();
+    expect(harness.deps.reloadDocument).not.toHaveBeenCalled();
+    expect(harness.app.mount).toHaveBeenCalledWith('#app');
   });
 
   it('waits for auth to consume the callback before replacing the entry', async () => {
@@ -270,7 +324,7 @@ describe('bootstrap in a callback-shaped document', () => {
 });
 
 describe('bootstrap navigation failure containment', () => {
-  it('falls back to a location replace when the history entry cannot be replaced', async () => {
+  it('never navigates from a dirty callback URL when the history entry cannot be replaced', async () => {
     const spies = spyOnConsole();
     const harness = createHarness({ launchHref: CALLBACK_URL });
     vi.mocked(harness.deps.replaceHistoryState).mockImplementation(() => {
@@ -282,14 +336,51 @@ describe('bootstrap navigation failure containment', () => {
 
     await expect(run).resolves.toEqual({ status: 'callback-terminated' });
     expect(harness.deps.reloadDocument).not.toHaveBeenCalled();
-    expect(harness.deps.replaceLocation).toHaveBeenCalledWith(CLEAN_URL);
+    expect(harness.deps.replaceLocation).not.toHaveBeenCalled();
+    expect(harness.deps.replaceHistoryState).toHaveBeenCalledOnce();
+    expect(harness.ledger).toEqual([
+      'readLaunchHref',
+      'readHistoryState',
+      'createApp',
+      'initializeTheme',
+      'initializeAuth'
+    ]);
     expect(harness.deps.createRouter).not.toHaveBeenCalled();
     expect(harness.deps.initSentry).not.toHaveBeenCalled();
+    expect(harness.deps.setSentryUser).not.toHaveBeenCalled();
+    expect(harness.app.use).not.toHaveBeenCalled();
     expect(harness.app.mount).not.toHaveBeenCalled();
+    expect(spies.error).toHaveBeenCalledOnce();
+    expect(spies.error.mock.calls[0]).toHaveLength(1);
+    expect(typeof spies.error.mock.calls[0][0]).toBe('string');
     expect(consoleOutput(spies)).not.toContain(CANARY);
+    expect(consoleOutput(spies)).not.toContain('code=');
   });
 
-  it('falls back to a location replace when reloading throws', async () => {
+  it.each([
+    ['query response', `${CLEAN_URL}?code=${CANARY}&state=${CANARY}2`],
+    ['fragment response', `${CLEAN_URL}#code=${CANARY}&state=${CANARY}2`],
+    ['slash-prefixed response', `${CLEAN_URL}#/code=${CANARY}&state=${CANARY}2`]
+  ])(
+    'keeps a %s in place instead of replacing the location when history is refused',
+    async (_form, launchHref) => {
+      spyOnConsole();
+      const harness = createHarness({ launchHref });
+      vi.mocked(harness.deps.replaceHistoryState).mockImplementation(() => {
+        throw new Error('replaceState blocked');
+      });
+
+      const run = bootstrapApp(harness.deps);
+      harness.auth.resolve(authResult('handled', true));
+
+      await expect(run).resolves.toEqual({ status: 'callback-terminated' });
+      expect(harness.deps.replaceLocation).not.toHaveBeenCalled();
+      expect(harness.deps.reloadDocument).not.toHaveBeenCalled();
+      expect(harness.app.mount).not.toHaveBeenCalled();
+    }
+  );
+
+  it('falls back to a location replace of the already-clean URL when reloading throws', async () => {
     const spies = spyOnConsole();
     const harness = createHarness({ launchHref: CALLBACK_URL });
     vi.mocked(harness.deps.reloadDocument).mockImplementation(() => {
@@ -300,17 +391,25 @@ describe('bootstrap navigation failure containment', () => {
     harness.auth.resolve(authResult('failed', true));
 
     await expect(run).resolves.toEqual({ status: 'callback-terminated' });
+    expect(harness.replaceStateCalls).toHaveLength(1);
+    expect(harness.replaceStateCalls[0].url).toBe(CLEAN_URL);
+    expect(harness.deps.replaceLocation).toHaveBeenCalledOnce();
     expect(harness.deps.replaceLocation).toHaveBeenCalledWith(CLEAN_URL);
+    expect(vi.mocked(harness.deps.replaceLocation).mock.calls[0][0]).not.toContain(CANARY);
+    expect(harness.ledger.indexOf('replaceHistoryState')).toBeLessThan(
+      harness.ledger.indexOf('replaceLocation')
+    );
+    expect(harness.deps.createRouter).not.toHaveBeenCalled();
     expect(harness.deps.initSentry).not.toHaveBeenCalled();
     expect(harness.app.mount).not.toHaveBeenCalled();
     expect(consoleOutput(spies)).not.toContain(CANARY);
   });
 
-  it('terminates without mounting when every navigation attempt throws', async () => {
+  it('terminates without mounting when the reload fallback also throws', async () => {
     const spies = spyOnConsole();
     const harness = createHarness({ launchHref: CALLBACK_URL });
-    vi.mocked(harness.deps.replaceHistoryState).mockImplementation(() => {
-      throw new Error(`replaceState blocked for ${CALLBACK_URL}`);
+    vi.mocked(harness.deps.reloadDocument).mockImplementation(() => {
+      throw new Error(`reload blocked for ${CALLBACK_URL}`);
     });
     vi.mocked(harness.deps.replaceLocation).mockImplementation(() => {
       throw new Error(`replace blocked for ${CALLBACK_URL}`);
@@ -325,6 +424,46 @@ describe('bootstrap navigation failure containment', () => {
     expect(harness.app.use).not.toHaveBeenCalled();
     expect(harness.app.mount).not.toHaveBeenCalled();
     expect(consoleOutput(spies)).not.toContain(CANARY);
+  });
+
+  it('logs only constant diagnostics for every callback navigation outcome', async () => {
+    const outcomes: Array<(harness: ReturnType<typeof createHarness>) => void> = [
+      () => undefined,
+      (harness) =>
+        vi.mocked(harness.deps.replaceHistoryState).mockImplementation(() => {
+          throw new Error(`replaceState blocked for ${CALLBACK_URL}`);
+        }),
+      (harness) =>
+        vi.mocked(harness.deps.reloadDocument).mockImplementation(() => {
+          throw new Error(`reload blocked for ${CALLBACK_URL}`);
+        }),
+      (harness) => {
+        vi.mocked(harness.deps.reloadDocument).mockImplementation(() => {
+          throw new Error(`reload blocked for ${CALLBACK_URL}`);
+        });
+        vi.mocked(harness.deps.replaceLocation).mockImplementation(() => {
+          throw new Error(`replace blocked for ${CALLBACK_URL}`);
+        });
+      }
+    ];
+
+    for (const applyOutcome of outcomes) {
+      const spies = spyOnConsole();
+      const harness = createHarness({ launchHref: CALLBACK_URL });
+      applyOutcome(harness);
+
+      const run = bootstrapApp(harness.deps);
+      harness.auth.resolve(authResult('handled', true));
+      await run;
+
+      for (const call of spies.error.mock.calls) {
+        expect(call).toHaveLength(1);
+        expect(typeof call[0]).toBe('string');
+      }
+      expect(consoleOutput(spies)).not.toContain(CANARY);
+      expect(consoleOutput(spies)).not.toContain(CLEAN_URL);
+      vi.restoreAllMocks();
+    }
   });
 });
 

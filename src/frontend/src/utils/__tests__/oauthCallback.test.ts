@@ -54,7 +54,19 @@ describe.each(OAUTH_RESPONSE_KEYS)('response key "%s"', (key) => {
     ['bare fragment', `${PAGE}#${key}=${CANARY}`],
     ['fragment empty value', `${PAGE}#${key}=`],
     ['fragment duplicates', `${PAGE}#${key}=${CANARY}&${key}=${CANARY}2`],
-    ['hash route fragment', `${PAGE}#/section?${key}=${CANARY}`]
+    ['hash route fragment', `${PAGE}#/section?${key}=${CANARY}`],
+    ['slash-prefixed fragment', `${PAGE}#/${key}=${CANARY}`],
+    ['slash-prefixed fragment empty value', `${PAGE}#/${key}=`],
+    ['slash-prefixed fragment duplicates', `${PAGE}#/${key}=${CANARY}&${key}=${CANARY}2`],
+    ['fragment before a raw question mark', `${PAGE}#${key}=${CANARY}?trailing`],
+    ['slash-prefixed fragment before a raw question mark', `${PAGE}#/${key}=${CANARY}?trailing`],
+    ['fragment value split by a raw question mark', `${PAGE}#${key}=x?${CANARY}`],
+    ['slash-prefixed value split by a raw question mark', `${PAGE}#/${key}=x?${CANARY}`],
+    ['hashbang route carrying a response', `${PAGE}#!/dashboard&${key}=${CANARY}`],
+    [
+      'slash-prefixed MSAL response',
+      `${PAGE}#/${key}=${CANARY}&${OAUTH_STATE_KEY}=${CANARY}2&client_info=${CANARY}3`
+    ]
   ] as const;
 
   it.each(forms)('is detected as a callback in %s form', (_form, href) => {
@@ -83,6 +95,182 @@ describe.each(OAUTH_RESPONSE_KEYS)('response key "%s"', (key) => {
     const sanitized = sanitize(`${PAGE}?${OAUTH_STATE_KEY}=${CANARY}-state#${key}=${CANARY}`);
 
     expect(sanitized).toBe(PAGE);
+  });
+});
+
+describe('slash-prefixed fragment responses', () => {
+  it('detects an MSAL response that survives a single leading slash', () => {
+    expect(detect(`${PAGE}#/code=${CANARY}&state=${CANARY}2&session_state=${CANARY}3`)).toBe(true);
+  });
+
+  it('removes every value from a slash-prefixed MSAL response', () => {
+    const sanitized = sanitize(
+      `${PAGE}#/code=${CANARY}&client_info=${CANARY}2&state=${CANARY}3&session_state=${CANARY}4`
+    );
+
+    expect(sanitized).toBe(PAGE);
+    expect(sanitized).not.toContain(CANARY);
+    expect(detect(sanitized)).toBe(false);
+  });
+
+  it('detects empty and duplicated slash-prefixed responses', () => {
+    expect(detect(`${PAGE}#/code=`)).toBe(true);
+    expect(detect(`${PAGE}#/code=&code=`)).toBe(true);
+    expect(detect(`${PAGE}#/error=&error_description=`)).toBe(true);
+    expect(sanitize(`${PAGE}#/code=&code=${CANARY}`)).toBe(PAGE);
+  });
+
+  it('detects a percent-encoded response key after the leading slash', () => {
+    expect(detect(`${PAGE}#/%63ode=${CANARY}`)).toBe(true);
+    expect(sanitize(`${PAGE}#/%63ode=${CANARY}`)).toBe(PAGE);
+  });
+
+  it('keeps unrelated slash-prefixed parameters and the leading slash', () => {
+    expect(sanitize(`${PAGE}#/code=${CANARY}&view=grid`)).toBe(`${PAGE}#/view=grid`);
+  });
+
+  it('preserves a true hash route with the same shape as a response', () => {
+    for (const route of [
+      `${PAGE}#/dashboard`,
+      `${PAGE}#/analytics/abc123`,
+      `${PAGE}#/dashboard?tab=1`,
+      `${PAGE}#/code`,
+      `${PAGE}#/scope/settings`,
+      `${PAGE}#/error`
+    ]) {
+      expect(detect(route)).toBe(false);
+      expect(sanitize(route)).toBe(route);
+    }
+  });
+
+  it('sanitizes a response carried by a true hash route query', () => {
+    expect(detect(`${PAGE}#/dashboard?code=${CANARY}&state=${CANARY}2`)).toBe(true);
+    expect(sanitize(`${PAGE}#/dashboard?code=${CANARY}&state=${CANARY}2`)).toBe(
+      `${PAGE}#/dashboard`
+    );
+  });
+
+  it('treats a route parameter that is not a response key as a route', () => {
+    const href = `${PAGE}#/dashboard=1&tab=2`;
+
+    expect(detect(href)).toBe(false);
+    expect(sanitize(href)).toBe(href);
+  });
+
+  it('matches MSAL on a slash-prefixed payload whose response key has no value', () => {
+    const href = `${PAGE}#/code&${OAUTH_STATE_KEY}=${CANARY}`;
+
+    expect(detect(href)).toBe(true);
+    expect(sanitize(href)).toBe(PAGE);
+  });
+
+  it('detects a response that carries a raw question mark after the keys', () => {
+    const href = `${PAGE}#/code=${CANARY}&${OAUTH_STATE_KEY}=${CANARY}2&extra=?route`;
+
+    expect(detect(href)).toBe(true);
+    expect(sanitize(href)).not.toContain(CANARY);
+    expect(detect(sanitize(href))).toBe(false);
+  });
+
+  it('only strips the single leading slash that MSAL strips', () => {
+    const href = `${PAGE}#//code=${CANARY}`;
+
+    expect(detect(href)).toBe(false);
+    expect(sanitize(href)).toBe(href);
+  });
+
+  it('leaves a hashbang route untouched', () => {
+    const href = `${PAGE}#!/code=${CANARY}`;
+
+    expect(detect(href)).toBe(false);
+    expect(sanitize(href)).toBe(href);
+  });
+
+  it('never leaves a sanitized slash-prefixed response callback-shaped', () => {
+    const dirty = `${PAGE}?page=1#/id_token=${CANARY}&state=${CANARY}2`;
+
+    expect(detect(sanitize(dirty))).toBe(false);
+    expect(sanitize(dirty)).toBe(`${PAGE}?page=1`);
+  });
+});
+
+describe('fragments MSAL parses as a flat parameter list', () => {
+  it('detects a response whose value contains a raw question mark', () => {
+    const href = `${PAGE}#code=${CANARY}?trailing`;
+
+    expect(detect(href)).toBe(true);
+    expect(sanitize(href)).not.toContain(CANARY);
+    expect(detect(sanitize(href))).toBe(false);
+  });
+
+  it('detects response keys that follow a route-shaped first segment', () => {
+    const href = `${PAGE}#!/dashboard&code=${CANARY}&${OAUTH_STATE_KEY}=${CANARY}2&${OAUTH_STATE_KEY}=`;
+
+    expect(detect(href)).toBe(true);
+    expect(sanitize(href)).toBe(`${PAGE}#!/dashboard`);
+    expect(sanitize(href)).not.toContain(CANARY);
+  });
+
+  it('detects response keys appended to a slash-prefixed route segment', () => {
+    const href = `${PAGE}#/dashboard&id_token=${CANARY}&${OAUTH_STATE_KEY}=${CANARY}2`;
+
+    expect(detect(href)).toBe(true);
+    expect(sanitize(href)).toBe(`${PAGE}#/dashboard`);
+  });
+
+  it('removes every response segment around raw question marks', () => {
+    const href = `${PAGE}#/code=${CANARY}&${OAUTH_STATE_KEY}=${CANARY}2&extra=?route`;
+    const sanitized = sanitize(href);
+
+    expect(sanitized).not.toContain(CANARY);
+    expect(sanitized).not.toContain('code');
+    expect(sanitized.startsWith(PAGE)).toBe(true);
+    expect(detect(sanitized)).toBe(false);
+  });
+
+  it('removes a whole response value that contains a raw question mark', () => {
+    for (const href of [
+      `${PAGE}#code=x?${CANARY}`,
+      `${PAGE}#/code=x?${CANARY}`,
+      `${PAGE}#id_token=x?evil=${CANARY}&y=2`,
+      `${PAGE}?code=x?${CANARY}`
+    ]) {
+      const sanitized = sanitize(href);
+
+      expect(detect(href)).toBe(true);
+      expect(sanitized).not.toContain(CANARY);
+      expect(detect(sanitized)).toBe(false);
+    }
+  });
+
+  it('sanitizes a response that a removed value would otherwise have hidden', () => {
+    const href = `${PAGE}#x=?id_token=${CANARY}`;
+    const sanitized = sanitize(href);
+
+    expect(detect(href)).toBe(true);
+    expect(sanitized).not.toContain(CANARY);
+    expect(detect(sanitized)).toBe(false);
+  });
+
+  it('keeps the route query separator when only some parameters are removed', () => {
+    expect(sanitize(`${PAGE}#/dashboard?code=${CANARY}&view=grid`)).toBe(
+      `${PAGE}#/dashboard?view=grid`
+    );
+    expect(sanitize(`${PAGE}#/dashboard?tab=1&code=${CANARY}`)).toBe(`${PAGE}#/dashboard?tab=1`);
+  });
+
+  it('keeps a hashbang route that carries no response key', () => {
+    for (const href of [`${PAGE}#!/dashboard`, `${PAGE}#!/code=${CANARY}`, `${PAGE}#!/tab?x=1`]) {
+      expect(detect(href)).toBe(false);
+      expect(sanitize(href)).toBe(href);
+    }
+  });
+
+  it('keeps a hash route whose query is not a response', () => {
+    for (const href of [`${PAGE}#/dashboard?tab=1`, `${PAGE}#/dashboard?a=1&b=2`]) {
+      expect(detect(href)).toBe(false);
+      expect(sanitize(href)).toBe(href);
+    }
   });
 });
 
