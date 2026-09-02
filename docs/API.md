@@ -19,7 +19,7 @@ The repository does not hard-code a single deployment hostname. The examples bel
 - Persisted timestamps are epoch milliseconds.
 - Overall-stats date filters use inclusive UTC calendar dates in `YYYY-MM-DD` format.
 - The Admin API currently returns `short_url` as the bare short code, not a full absolute URL.
-- Route handlers do not normalize every service-layer error into semantic HTTP status codes. Several routes currently collapse validation, conflict, not-found, or ownership failures into `500 Internal Server Error` responses with diagnostic fields.
+- 5xx responses are sanitized and generic; they must not include stack traces, raw exception details, tokens, or provider diagnostics. 4xx responses may retain safe validation details.
 
 ```http
 Authorization: Bearer TOKEN_VALUE
@@ -197,8 +197,8 @@ Authorization: Bearer TOKEN_VALUE
 | Auth | Optional |
 | Request body | `CreateUrlRequest` |
 | Success | `201 Created` with the URL resource |
-| Current validation behavior | Missing `original_url` is handled directly as `400`. Other create-time validation and uniqueness errors currently surface as `500` because the route catches thrown service errors and rewrites them to `Internal Server Error` |
-| DB configuration failure | Returns `500` with `{ error: "Configuration Error", ... }` when `DB` is missing |
+| Current validation behavior | Missing `original_url` returns `400`; other safe validation or conflict errors may return semantic 4xx responses with validation details. Unexpected failures return sanitized generic 5xx responses. |
+| DB configuration failure | Returns a sanitized `500` when `DB` is missing; no stack trace or raw exception details are returned. |
 | Notes | `short_code` is required by current code even though older docs described it as optional |
 
 ### `GET /api/urls`
@@ -230,7 +230,7 @@ Authorization: Bearer TOKEN_VALUE
 | Auth | Required |
 | Request body | `UpdateUrlRequest` |
 | Success | `200 OK` with the updated URL resource |
-| Current error behavior | Service-layer not-found, forbidden, and validation errors are currently caught and rewritten to `500 Internal Server Error` by the route handler |
+| Current error behavior | Safe not-found, forbidden, and validation failures may surface as 4xx responses; unexpected failures return sanitized generic 5xx responses. |
 | Null vs undefined | `null` clears nullable columns; omitted properties leave existing values untouched |
 
 ### `DELETE /api/urls/:id`
@@ -239,7 +239,7 @@ Authorization: Bearer TOKEN_VALUE
 | --- | --- |
 | Auth | Required |
 | Success | `200 OK` with `{ message: "URL deleted successfully" }` |
-| Current error behavior | Service-layer not-found and forbidden errors currently surface as `500`, not semantic `404` or `403`, because the route rewrites thrown errors |
+| Current error behavior | Safe not-found and forbidden failures may surface as 4xx responses; unexpected failures return sanitized generic 5xx responses. |
 
 ### `GET /api/analytics/:shortCode`
 
@@ -248,7 +248,7 @@ Authorization: Bearer TOKEN_VALUE
 | Auth | Required |
 | Success | `200 OK` with the protected analytics shape |
 | `404` | Returned when the short code does not resolve to an active URL |
-| Current ownership error behavior | Ownership checks happen in the service layer; if another user's short code is requested, the thrown forbidden error is currently rewritten to `500` by the route catch block |
+| Current ownership error behavior | Ownership checks happen in the service layer; safe forbidden failures may surface as 4xx responses, while unexpected failures return sanitized generic 5xx responses. |
 | Range behavior | `clicks_by_date` covers only the last 30 days and omits zero-value dates |
 
 ### `GET /api/public/analytics/:shortCode`
@@ -282,7 +282,7 @@ Authorization: Bearer TOKEN_VALUE
 | Success | `200 OK` with `{ message, deleted, cutoffDate, retentionDays }` |
 | `400` | Returned when `days` is not a positive integer or is greater than `3650` |
 | Access control note | The code comments mention a future admin-role check, but today any authenticated user can trigger cleanup |
-| Errors | Service failures return `500` with `{ error: "Cleanup failed", details }` |
+| Errors | Service failures return sanitized generic 5xx responses without stack traces or raw exception details. |
 
 ### `GET /api/storage/config`
 
@@ -357,8 +357,8 @@ curl -X POST "https://api.example.com/api/storage/upload" -H "Authorization: Bea
 ## Current Error Envelope Notes
 
 - `authMiddleware` returns `401` for missing/invalid bearer headers and invalid or expired Entra tokens.
-- Many route-level catch blocks return diagnostic JSON containing `error`, `message`, `details`, and sometimes `stack`.
-- The shared `errorMiddleware` and global `app.onError(...)` handlers exist, but several routes catch errors before those handlers can preserve specific status codes.
+- 5xx responses are sanitized and generic; they do not include stack traces, raw exception details, tokens, or provider diagnostics.
+- 4xx responses may retain safe validation details, such as invalid input messages, when they do not reveal secrets.
 
 ## Related Documents
 

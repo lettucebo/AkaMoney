@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router';
-import type { RouteRecordRaw } from 'vue-router';
+import type { RouteRecordRaw, Router } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { getValidatedRedirect } from '@/utils/redirect';
 
@@ -49,29 +49,39 @@ const routes: RouteRecordRaw[] = [
   }
 ];
 
-const router = createRouter({
-  history: createWebHistory(),
-  routes
-});
+/**
+ * Creates a router with a history that snapshots the *current* URL.
+ *
+ * The application bootstrap imports this factory dynamically and calls it only
+ * after MSAL has consumed the OAuth callback and the document is clean, so no
+ * router, history entry or Sentry routing instrumentation can ever observe a
+ * callback URL.
+ */
+export const createAppRouter = (): Router => {
+  const router = createRouter({
+    history: createWebHistory(),
+    routes
+  });
 
-// Navigation guard for authentication
-router.beforeEach(async (to, _from, next) => {
-  const authStore = useAuthStore();
+  // Navigation guard for authentication
+  router.beforeEach(async (to, _from, next) => {
+    const authStore = useAuthStore();
 
-  // Wait for auth initialization if not already done
-  if (!authStore.initialized) {
-    await authStore.initialize();
-  }
+    // Wait for auth initialization if not already done
+    if (!authStore.initialized) {
+      await authStore.initialize();
+    }
 
-  if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    next({ name: 'Login', query: { redirect: to.fullPath } });
-  } else if (to.name === 'Login' && authStore.isAuthenticated) {
-    // Single non-skip-auth decision point for post-login redirects.
-    const redirect = getValidatedRedirect(to.query.redirect);
-    next(redirect);
-  } else {
-    next();
-  }
-});
+    if (to.meta.requiresAuth && !authStore.isAuthenticated) {
+      next({ name: 'Login', query: { redirect: to.fullPath } });
+    } else if (to.name === 'Login' && authStore.isAuthenticated) {
+      // Single non-skip-auth decision point for post-login redirects.
+      const redirect = getValidatedRedirect(to.query.redirect);
+      next(redirect);
+    } else {
+      next();
+    }
+  });
 
-export default router;
+  return router;
+};

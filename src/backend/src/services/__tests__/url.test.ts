@@ -604,6 +604,41 @@ describe('URL Service - Database Functions', () => {
       expect(result.total).toBe(0);
     });
 
+    it('should not include raw user id in success logs', async () => {
+      const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
+      const rawUserId = 'oid-url-service-raw-user';
+      const mockDb = createMockDb();
+      mockDb._mockAll.mockResolvedValue({ results: [] });
+      mockDb._mockFirst.mockResolvedValue({ count: 0 });
+
+      await getUserUrls(mockDb as any, rawUserId, 3, 15);
+
+      const logged = JSON.stringify(consoleLog.mock.calls);
+      expect(logged).not.toContain(rawUserId);
+      expect(logged).toContain('"page":3');
+      expect(logged).toContain('"limit":15');
+      expect(logged).toContain('"count":0');
+    });
+
+    it('should not include raw user id in error logs while retaining diagnostics', async () => {
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const rawUserId = 'oid-url-service-error-user';
+      const mockDb = createMockDb();
+      mockDb._mockAll.mockRejectedValue(new Error(`database unavailable for ${rawUserId}`));
+
+      const thrown = await getUserUrls(mockDb as any, rawUserId, 4, 25).catch(
+        (error) => error as Error
+      );
+
+      const logged = JSON.stringify(consoleError.mock.calls);
+      expect(logged).not.toContain(rawUserId);
+      expect(thrown.message).not.toContain(rawUserId);
+      expect(logged).toContain('database unavailable');
+      expect(thrown.message).toContain('database unavailable');
+      expect(logged).toContain('"page":4');
+      expect(logged).toContain('"limit":25');
+    });
+
     it('should return user URLs with pagination', async () => {
       const mockUrls = [
         {

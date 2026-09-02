@@ -159,7 +159,7 @@ describe('Redirect Services', () => {
         (call) => call[0].includes('INSERT INTO click_records')
       );
       expect(prepareCall).toBeDefined();
-      expect(prepareCall[0]).toContain('short_code');
+      expect(prepareCall?.[0]).toContain('short_code');
 
       // Verify short_code value is bound to the statement
       const bindCall = mockDb.bind.mock.calls[0];

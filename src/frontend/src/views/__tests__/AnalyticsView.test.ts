@@ -14,6 +14,7 @@ vi.mock('@/components/common/BaseChart.vue', () => ({
 }));
 
 import AnalyticsView from '../AnalyticsView.vue';
+import { expectValueBlockedFromReplay, isReplayBlocked } from '@/__tests__/helpers/replayBlock';
 
 function buildAnalytics(overrides: Partial<AnalyticsResponse> = {}): AnalyticsResponse {
   return {
@@ -145,6 +146,32 @@ describe('AnalyticsView', () => {
     expect(wrapper.findAll('.base-chart-stub')).toHaveLength(4);
     expect(wrapper.text()).toContain('目前沒有近期點擊紀錄');
     expect(wrapper.text()).toContain('0');
+  });
+
+  it('blocks the linked original url from Replay while keeping the short code recordable', async () => {
+    const originalUrl = 'https://blob.example.com/report.pdf?sig=SECRET-SIGNATURE';
+    apiMock.getAnalytics.mockResolvedValue(
+      buildAnalytics({ url: { ...buildAnalytics().url, original_url: originalUrl } })
+    );
+
+    const wrapper = await mountAnalytics();
+
+    expectValueBlockedFromReplay(wrapper.element, originalUrl);
+    expect(wrapper.get('a[target="_blank"]').attributes('data-sentry-block')).toBeDefined();
+    expect(isReplayBlocked(wrapper.get('.analytics-subject b').element)).toBe(false);
+  });
+
+  it('blocks the unlinkable original url fallback from Replay', async () => {
+    const originalUrl = 'ftp://internal.example.com/report.pdf?sig=SECRET-SIGNATURE';
+    apiMock.getAnalytics.mockResolvedValue(
+      buildAnalytics({ url: { ...buildAnalytics().url, original_url: originalUrl } })
+    );
+
+    const wrapper = await mountAnalytics();
+
+    expect(wrapper.find('a[target="_blank"]').exists()).toBe(false);
+    expectValueBlockedFromReplay(wrapper.element, originalUrl);
+    expect(wrapper.get('.original-url').attributes('data-sentry-block')).toBeDefined();
   });
 
   it('distinguishes a not-found analytics response from a generic failure', async () => {

@@ -14,6 +14,7 @@ vi.mock('@/components/common/BaseChart.vue', () => ({
 }));
 
 import OverallStatsView from '../OverallStatsView.vue';
+import { expectValueBlockedFromReplay, isReplayBlocked } from '@/__tests__/helpers/replayBlock';
 
 function buildStats(overrides: Partial<OverallStatsResponse> = {}): OverallStatsResponse {
   return {
@@ -177,6 +178,19 @@ describe('OverallStatsView', () => {
       const wrapper = await mountStats();
 
       expect(wrapper.text()).not.toContain('目前正在轉址');
+    });
+
+    it('blocks the top-link original url fallback from Replay while keeping short codes recordable', async () => {
+      const originalUrl = 'https://blob.example.com/report.pdf?sig=SECRET-SIGNATURE';
+      apiMock.getOverallStats.mockResolvedValue(
+        buildStats({
+          top_links: [{ short_code: 'docs', original_url: originalUrl, click_count: 30 }]
+        })
+      );
+      const wrapper = await mountStats();
+
+      expectValueBlockedFromReplay(wrapper.element, originalUrl);
+      expect(isReplayBlocked(wrapper.get('.link-main a').element)).toBe(false);
     });
   });
 });

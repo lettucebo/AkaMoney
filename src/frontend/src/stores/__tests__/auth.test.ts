@@ -1,7 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { setActivePinia, createPinia } from 'pinia';
 import { useAuthStore } from '../auth';
-import authService, { AuthConfigurationError } from '@/services/auth';
+import authService, { AuthConfigurationError, type AuthInitializationResult } from '@/services/auth';
+import { clearSentryUser, setSentryUser } from '@/utils/sentry';
+
+const authResult = (
+  status: AuthInitializationResult['status'],
+  callbackPresent = false
+): AuthInitializationResult => ({ status, callbackPresent });
 
 const createDeferred = <T>() => {
   let resolve!: (value: T | PromiseLike<T>) => void;
@@ -27,6 +33,11 @@ vi.mock('@/services/auth', () => ({
       this.name = 'AuthConfigurationError';
     }
   }
+}));
+
+vi.mock('@/utils/sentry', () => ({
+  setSentryUser: vi.fn(async () => {}),
+  clearSentryUser: vi.fn()
 }));
 
 describe('Auth Store', () => {
@@ -83,8 +94,8 @@ describe('Auth Store', () => {
 
   describe('initialize', () => {
     it('should initialize and set user if account exists', async () => {
-      const mockAccount = { name: 'John', username: 'john@example.com' };
-      vi.mocked(authService.initialize).mockResolvedValue(undefined);
+      const mockAccount = { homeAccountId: 'home-account-id', name: 'John', username: 'john@example.com' };
+      vi.mocked(authService.initialize).mockResolvedValue(authResult('handled', true));
       vi.mocked(authService.getAccount).mockReturnValue(mockAccount as any);
       
       const store = useAuthStore();
@@ -93,12 +104,13 @@ describe('Auth Store', () => {
       expect(authService.initialize).toHaveBeenCalled();
       expect(store.user).toEqual(mockAccount);
       expect(store.isAuthenticated).toBe(true);
+      expect(setSentryUser).toHaveBeenCalledWith('home-account-id');
       expect(store.loading).toBe(false);
       expect(store.initialized).toBe(true);
     });
 
     it('should initialize with no user if no account', async () => {
-      vi.mocked(authService.initialize).mockResolvedValue(undefined);
+      vi.mocked(authService.initialize).mockResolvedValue(authResult('none'));
       vi.mocked(authService.getAccount).mockReturnValue(null);
       
       const store = useAuthStore();
@@ -107,6 +119,7 @@ describe('Auth Store', () => {
       expect(store.user).toBeNull();
       expect(store.isAuthenticated).toBe(false);
       expect(store.initialized).toBe(true);
+      expect(setSentryUser).not.toHaveBeenCalled();
     });
 
     it('should handle initialization error', async () => {
@@ -119,10 +132,11 @@ describe('Auth Store', () => {
       expect(store.loading).toBe(false);
       expect(store.user).toBeNull();
       expect(store.initialized).toBe(true);
+      expect(setSentryUser).not.toHaveBeenCalled();
     });
 
     it('should not initialize again if already initialized', async () => {
-      vi.mocked(authService.initialize).mockResolvedValue(undefined);
+      vi.mocked(authService.initialize).mockResolvedValue(authResult('none'));
       vi.mocked(authService.getAccount).mockReturnValue(null);
       
       const store = useAuthStore();
@@ -130,39 +144,88 @@ describe('Auth Store', () => {
       await store.initialize(); // Call again
       
       expect(authService.initialize).toHaveBeenCalledTimes(1);
+      expect(setSentryUser).not.toHaveBeenCalled();
+    });
+
+    it('returns the discriminated service result and caches the same object for later callers', async () => {
+      const serviceResult = authResult('handled', true);
+      vi.mocked(authService.initialize).mockResolvedValue(serviceResult);
+      vi.mocked(authService.getAccount).mockReturnValue(null);
+
+      const store = useAuthStore();
+      const first = await store.initialize();
+      const second = await store.initialize();
+
+      expect(first).toEqual({ status: 'handled', callbackPresent: true });
+      expect(second).toBe(first);
+      expect(store.initializationResult).toBe(first);
+      expect(authService.initialize).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns a failed result with a constant log when initialization throws', async () => {
+      const canary = 'CANARY-authorization-code';
+      vi.mocked(authService.initialize).mockRejectedValue(
+        new Error(`hash_empty_error /dashboard?code=${canary}`)
+      );
+      const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const store = useAuthStore();
+      const result = await store.initialize();
+
+      expect(result).toEqual({ status: 'failed', callbackPresent: false });
+      expect(error).toHaveBeenCalledOnce();
+      expect(error.mock.calls[0]).toHaveLength(1);
+      expect(JSON.stringify(error.mock.calls)).not.toContain(canary);
+    });
+
+    it('still returns the service result when Sentry user synchronization rejects', async () => {
+      const mockAccount = { homeAccountId: 'home-account-id', name: 'John', username: 'john@example.com' };
+      vi.mocked(authService.initialize).mockResolvedValue(authResult('handled', true));
+      vi.mocked(authService.getAccount).mockReturnValue(mockAccount as any);
+      vi.mocked(setSentryUser).mockRejectedValueOnce(new Error('telemetry offline'));
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const store = useAuthStore();
+      const result = await store.initialize();
+
+      expect(result).toEqual({ status: 'handled', callbackPresent: true });
+      expect(store.initialized).toBe(true);
+      expect(store.loading).toBe(false);
     });
 
     it('should share one in-flight initialization between concurrent callers on the same store', async () => {
-      const mockAccount = { name: 'John', username: 'john@example.com' };
-      const deferred = createDeferred<void>();
+      const mockAccount = { homeAccountId: 'home-account-id', name: 'John', username: 'john@example.com' };
+      const deferred = createDeferred<AuthInitializationResult>();
       vi.mocked(authService.initialize).mockReturnValue(deferred.promise);
       vi.mocked(authService.getAccount).mockReturnValue(mockAccount as any);
 
       const store = useAuthStore();
-      let firstCompleted = false;
-      let secondCompleted = false;
+      let firstResult: AuthInitializationResult | null = null;
+      let secondResult: AuthInitializationResult | null = null;
 
-      const firstInitialize = store.initialize().then(() => {
-        firstCompleted = true;
+      const firstInitialize = store.initialize().then((result) => {
+        firstResult = result;
       });
-      const secondInitialize = store.initialize().then(() => {
-        secondCompleted = true;
+      const secondInitialize = store.initialize().then((result) => {
+        secondResult = result;
       });
 
       await Promise.resolve();
 
       expect(authService.initialize).toHaveBeenCalledTimes(1);
-      expect(firstCompleted).toBe(false);
-      expect(secondCompleted).toBe(false);
+      expect(firstResult).toBeNull();
+      expect(secondResult).toBeNull();
       expect(store.initialized).toBe(false);
 
-      deferred.resolve();
+      deferred.resolve(authResult('handled', true));
       await Promise.all([firstInitialize, secondInitialize]);
 
-      expect(firstCompleted).toBe(true);
-      expect(secondCompleted).toBe(true);
+      expect(firstResult).toEqual({ status: 'handled', callbackPresent: true });
+      expect(secondResult).toBe(firstResult);
       expect(store.user).toEqual(mockAccount);
       expect(store.isAuthenticated).toBe(true);
+      expect(setSentryUser).toHaveBeenCalledTimes(1);
+      expect(setSentryUser).toHaveBeenCalledWith('home-account-id');
       expect(store.initialized).toBe(true);
       expect(store.loading).toBe(false);
     });
@@ -170,7 +233,7 @@ describe('Auth Store', () => {
 
   describe('login', () => {
     it('should login successfully', async () => {
-      const mockAccount = { name: 'John', username: 'john@example.com' };
+      const mockAccount = { homeAccountId: 'home-account-id', name: 'John', username: 'john@example.com' };
       vi.mocked(authService.login).mockResolvedValue(mockAccount as any);
       
       const store = useAuthStore();
@@ -179,6 +242,7 @@ describe('Auth Store', () => {
       expect(authService.login).toHaveBeenCalled();
       expect(store.user).toEqual(mockAccount);
       expect(store.isAuthenticated).toBe(true);
+      expect(setSentryUser).toHaveBeenCalledWith('home-account-id');
       expect(store.loading).toBe(false);
     });
 
@@ -190,6 +254,7 @@ describe('Auth Store', () => {
       
       expect(store.user).toBeNull();
       expect(store.isAuthenticated).toBe(false);
+      expect(setSentryUser).not.toHaveBeenCalled();
     });
 
     it('should handle login error', async () => {
@@ -201,6 +266,7 @@ describe('Auth Store', () => {
       
       await expect(store.login()).rejects.toThrow('Login failed');
       expect(store.loading).toBe(false);
+      expect(setSentryUser).not.toHaveBeenCalled();
     });
 
     it('should handle AuthConfigurationError', async () => {
@@ -276,6 +342,7 @@ describe('Auth Store', () => {
       expect(authService.logout).toHaveBeenCalled();
       expect(store.user).toBeNull();
       expect(store.isAuthenticated).toBe(false);
+      expect(clearSentryUser).toHaveBeenCalledOnce();
       expect(store.loading).toBe(false);
     });
 
@@ -289,6 +356,52 @@ describe('Auth Store', () => {
       await store.logout();
       
       expect(store.loading).toBe(false);
+      expect(clearSentryUser).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('error logging safety', () => {
+    const canary = 'CANARY-authorization-code';
+    const rawAuthError = () =>
+      Object.assign(new Error(`interaction_required: ${canary}`), {
+        name: 'BrowserAuthError',
+        claims: canary
+      });
+
+    it('logs a login failure without the raw error value', async () => {
+      vi.mocked(authService.login).mockRejectedValue(rawAuthError());
+      const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const store = useAuthStore();
+      await expect(store.login()).rejects.toThrow();
+
+      expect(error).toHaveBeenCalledOnce();
+      expect(error.mock.calls[0][0]).toBe('[Auth] Login failed.');
+      expect(JSON.stringify(error.mock.calls)).not.toContain(canary);
+    });
+
+    it('logs a login redirect failure without the raw error value', async () => {
+      vi.mocked(authService.loginRedirect).mockRejectedValue(rawAuthError());
+      const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const store = useAuthStore();
+      await expect(store.loginRedirect()).rejects.toThrow();
+
+      expect(error).toHaveBeenCalledOnce();
+      expect(error.mock.calls[0][0]).toBe('[Auth] Login redirect failed.');
+      expect(JSON.stringify(error.mock.calls)).not.toContain(canary);
+    });
+
+    it('logs a logout failure without the raw error value', async () => {
+      vi.mocked(authService.logout).mockRejectedValue(rawAuthError());
+      const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const store = useAuthStore();
+      await store.logout();
+
+      expect(error).toHaveBeenCalledOnce();
+      expect(error.mock.calls[0][0]).toBe('[Auth] Logout failed.');
+      expect(JSON.stringify(error.mock.calls)).not.toContain(canary);
     });
   });
 });

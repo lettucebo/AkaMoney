@@ -5,6 +5,14 @@ compatibility_flags = ["nodejs_compat"]
 
 # Workers configuration
 workers_dev = true
+upload_source_maps = true
+
+[version_metadata]
+binding = "CF_VERSION_METADATA"
+
+[observability]
+enabled = true
+head_sampling_rate = 1
 
 # D1 Database binding
 # IMPORTANT: For CD deployment, database_id is injected from GitHub Secrets (CLOUDFLARE_D1_DATABASE_ID).
@@ -26,6 +34,9 @@ preview_bucket_name = "akamoney-storage-preview"
 [vars]
 ENVIRONMENT = "development"
 JWT_EXPIRES_IN = "7d"
+# Public Sentry DSN placeholder. This is not a secret; release/CD will inject the project DSN later.
+# Do not put Sentry auth tokens in Wrangler config; store tokens only in CI/secrets.
+SENTRY_DSN = ""
 # Storage provider: "r2" (default) or "azure"
 STORAGE_PROVIDER = "r2"
 

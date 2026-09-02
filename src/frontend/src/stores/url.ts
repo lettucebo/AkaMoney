@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import type { CreateUrlRequest, PaginatedResponse, UpdateUrlRequest, UrlResponse } from '@/types';
 import apiService from '@/services/api';
 import { extractErrorMessage } from '@/utils/format';
+import { toSafeErrorContext } from '@/utils/safeError';
 
 interface ListRequestTarget {
   page: number;
@@ -104,7 +105,7 @@ export const useUrlStore = defineStore('url', {
         const message = extractErrorMessage(error, 'Failed to fetch URLs');
         this.listError = message;
         this.error = message;
-        console.error('Error fetching URLs:', error);
+        console.error('Error fetching URLs:', toSafeErrorContext(error));
       } finally {
         this.listPending = Math.max(0, this.listPending - 1);
         if (this.listPending === 0) {
@@ -123,7 +124,7 @@ export const useUrlStore = defineStore('url', {
         this.currentUrl = await apiService.getUrl(id);
       } catch (error: unknown) {
         this.error = extractErrorMessage(error, 'Failed to fetch URL');
-        console.error('Error fetching URL:', error);
+        console.error('Error fetching URL:', toSafeErrorContext(error));
       } finally {
         this.loading = false;
       }
@@ -153,7 +154,7 @@ export const useUrlStore = defineStore('url', {
         return newUrl;
       } catch (error: unknown) {
         this.error = extractErrorMessage(error, 'Failed to create short URL');
-        console.error('Error creating URL:', error);
+        console.error('Error creating URL:', toSafeErrorContext(error));
         throw error;
       }
     },
@@ -171,7 +172,7 @@ export const useUrlStore = defineStore('url', {
         return updatedUrl;
       } catch (error: unknown) {
         this.error = extractErrorMessage(error, 'Failed to update URL');
-        console.error('Error updating URL:', error);
+        console.error('Error updating URL:', toSafeErrorContext(error));
         throw error;
       }
     },
@@ -208,7 +209,7 @@ export const useUrlStore = defineStore('url', {
         }
       } catch (error: unknown) {
         this.error = extractErrorMessage(error, 'Failed to delete URL');
-        console.error('Error deleting URL:', error);
+        console.error('Error deleting URL:', toSafeErrorContext(error));
         throw error;
       }
     },
@@ -234,7 +235,7 @@ export const useUrlStore = defineStore('url', {
         return updatedUrl;
       } catch (error: unknown) {
         this.error = extractErrorMessage(error, `Failed to ${action} URL`);
-        console.error(`Error ${action}ing URL:`, error);
+        console.error(`Error ${action}ing URL:`, toSafeErrorContext(error));
         throw error;
       }
     },

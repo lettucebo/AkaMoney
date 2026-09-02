@@ -719,4 +719,130 @@ describe('URL Store', () => {
       expect(store.pagination).toEqual({ page: 1, limit: 20, total: 0, total_pages: 0 });
     });
   });
+
+  describe('console error context', () => {
+    const SIGNED_ORIGINAL_URL = 'https://blob.example.com/file?sig=SECRET-SIGNATURE';
+
+    /**
+     * Console errors are forwarded to Sentry, so a raw Axios error would ship
+     * `config.data`/`config.url`/`response.data` - which carry the customer's
+     * original URL and its signed query credentials - into the issue payload.
+     */
+    function buildAxiosError(status: number, message: string) {
+      const error = new Error(`Request failed with status code ${status}`) as Error & {
+        code: string;
+        config: unknown;
+        request: unknown;
+        response: unknown;
+        status: number;
+      };
+      error.name = 'AxiosError';
+      error.code = 'ERR_BAD_REQUEST';
+      error.status = status;
+      error.config = {
+        url: `https://api.example.com/api/urls?token=${encodeURIComponent('SECRET-SIGNATURE')}`,
+        data: JSON.stringify({ original_url: SIGNED_ORIGINAL_URL })
+      };
+      error.request = { responseURL: SIGNED_ORIGINAL_URL };
+      error.response = {
+        status,
+        data: { message, original_url: SIGNED_ORIGINAL_URL }
+      };
+      return error;
+    }
+
+    let consoleError: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+      consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    });
+
+    function expectSafeConsoleContext(label: string) {
+      expect(consoleError).toHaveBeenCalledTimes(1);
+      const [loggedLabel, loggedContext] = consoleError.mock.calls[0];
+      expect(loggedLabel).toBe(label);
+      expect(loggedContext).toEqual({ name: 'AxiosError', code: 'ERR_BAD_REQUEST', status: 422 });
+      expect(JSON.stringify(consoleError.mock.calls)).not.toContain('SECRET-SIGNATURE');
+      expect(JSON.stringify(consoleError.mock.calls)).not.toContain('blob.example.com');
+      expect(JSON.stringify(consoleError.mock.calls)).not.toContain('original_url');
+      expect(JSON.stringify(consoleError.mock.calls)).not.toContain('Request failed with status');
+    }
+
+    it('logs only safe context and keeps the extracted message when fetchUrls fails', async () => {
+      const error = buildAxiosError(422, 'List rejected');
+      vi.mocked(apiService.getUrls).mockRejectedValue(error);
+      const store = useUrlStore();
+
+      await store.fetchUrls();
+
+      expectSafeConsoleContext('Error fetching URLs:');
+      expect(store.error).toBe('List rejected');
+      expect(store.listError).toBe('List rejected');
+    });
+
+    it('logs only safe context and keeps the extracted message when fetchUrl fails', async () => {
+      vi.mocked(apiService.getUrl).mockRejectedValue(buildAxiosError(422, 'Detail rejected'));
+      const store = useUrlStore();
+
+      await store.fetchUrl('url-1');
+
+      expectSafeConsoleContext('Error fetching URL:');
+      expect(store.error).toBe('Detail rejected');
+    });
+
+    it('logs only safe context and rethrows the original error when createUrl fails', async () => {
+      const error = buildAxiosError(422, 'Create rejected');
+      vi.mocked(apiService.createUrl).mockRejectedValue(error);
+      const store = useUrlStore();
+
+      await expect(store.createUrl({ original_url: SIGNED_ORIGINAL_URL })).rejects.toBe(error);
+
+      expectSafeConsoleContext('Error creating URL:');
+      expect(store.error).toBe('Create rejected');
+    });
+
+    it('logs only safe context and rethrows the original error when updateUrl fails', async () => {
+      const error = buildAxiosError(422, 'Update rejected');
+      vi.mocked(apiService.updateUrl).mockRejectedValue(error);
+      const store = useUrlStore();
+
+      await expect(store.updateUrl('url-1', { original_url: SIGNED_ORIGINAL_URL })).rejects.toBe(error);
+
+      expectSafeConsoleContext('Error updating URL:');
+      expect(store.error).toBe('Update rejected');
+    });
+
+    it('logs only safe context and rethrows the original error when deleteUrl fails', async () => {
+      const error = buildAxiosError(422, 'Delete rejected');
+      vi.mocked(apiService.deleteUrl).mockRejectedValue(error);
+      const store = useUrlStore();
+
+      await expect(store.deleteUrl('url-1')).rejects.toBe(error);
+
+      expectSafeConsoleContext('Error deleting URL:');
+      expect(store.error).toBe('Delete rejected');
+    });
+
+    it('logs only safe context and rethrows the original error when archiveUrl fails', async () => {
+      const error = buildAxiosError(422, 'Archive rejected');
+      vi.mocked(apiService.updateUrl).mockRejectedValue(error);
+      const store = useUrlStore();
+
+      await expect(store.archiveUrl('url-1')).rejects.toBe(error);
+
+      expectSafeConsoleContext('Error archiveing URL:');
+      expect(store.error).toBe('Archive rejected');
+    });
+
+    it('logs only safe context and rethrows the original error when restoreUrl fails', async () => {
+      const error = buildAxiosError(422, 'Restore rejected');
+      vi.mocked(apiService.updateUrl).mockRejectedValue(error);
+      const store = useUrlStore();
+
+      await expect(store.restoreUrl('url-1')).rejects.toBe(error);
+
+      expectSafeConsoleContext('Error restoreing URL:');
+      expect(store.error).toBe('Restore rejected');
+    });
+  });
 });

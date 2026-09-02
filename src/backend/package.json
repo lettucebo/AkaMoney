@@ -36,6 +36,7 @@
     "wrangler": "4.90.0"
   },
   "dependencies": {
+    "@sentry/cloudflare": "^10.40.0",
     "hono": "^4.12.7",
     "jose": "^5.2.0",
     "nanoid": "^5.0.9"

@@ -1,8 +1,10 @@
 import { Hono } from 'hono';
+import * as Sentry from '@sentry/cloudflare/nodejs_compat';
 import type { Env } from './types';
-import { getUrlByShortCode, recordClick } from './services';
+import { getUrlByShortCode, observeClickRecording, recordClick } from './services';
+import { createBackgroundClickErrorReporter, createSentryOptions } from './sentry';
 
-const app = new Hono<{ Bindings: Env }>();
+export const app = new Hono<{ Bindings: Env }>();
 
 // CORS middleware for public access
 app.use('*', async (c, next) => {
@@ -14,7 +16,7 @@ app.use('*', async (c, next) => {
 
 // Handle OPTIONS requests
 app.options('*', (c) => {
-  return c.text('', 204);
+  return new Response(null, { status: 204 });
 });
 
 // Health check endpoint
@@ -41,9 +43,17 @@ app.get('/:shortCode', async (c) => {
     return c.json({ error: 'Gone', message: 'This short URL has expired' }, 410);
   }
 
+  // Capture the request-scoped Sentry client before registering background work,
+  // because the waitUntil continuation no longer resolves to the request client.
+  const reportBackgroundClickError = createBackgroundClickErrorReporter();
+
   // Record click asynchronously
   c.executionCtx.waitUntil(
-    recordClick(c.env.DB, c.req.raw, shortCode, url.id)
+    observeClickRecording(
+      recordClick(c.env.DB, c.req.raw, shortCode, url.id),
+      { shortCode, urlId: url.id },
+      reportBackgroundClickError
+    )
   );
 
   // Redirect to original URL
@@ -61,4 +71,13 @@ app.onError((err, c) => {
   return c.json({ error: 'Internal Server Error', message: 'An unexpected error occurred' }, 500);
 });
 
-export default app;
+const workerHandler: ExportedHandler<Env> = {
+  fetch: (request, env, ctx) => app.fetch(request, env, ctx),
+};
+
+const sentryHandler: ExportedHandler<Env> = Sentry.withSentry<Env>(
+  createSentryOptions,
+  workerHandler
+);
+
+export default sentryHandler;
