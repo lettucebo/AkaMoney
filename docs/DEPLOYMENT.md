@@ -74,9 +74,9 @@ All three deploy jobs declare `environment: production`, so GitHub's environment
 | Deployment branch/tag policy | Custom policies: branch `main` **and** tag `*.*.*` | A dispatch or tag from any other ref cannot obtain the environment, even if that ref rewrote the workflow. |
 | Protected-branches mode | Not used | The repository has no branch protection rules, so that mode would allow nothing. |
 
-**Verified current state (2026-09-02)**: the required reviewer (`lettucebo`) is configured, `prevent_self_review` is `false`, `can_admins_bypass` is `true`, and `deployment_branch_policy` is `null` — the deployment branch/tag policy in the table above is **not applied yet**. Until it is, the ref restriction is enforced only by the checks inside the workflow.
+**Verified current state (2026-09-03)**: the required reviewer (`lettucebo`) is configured, `prevent_self_review` is `false`, `can_admins_bypass` is `true`, and the deployment branch/tag policy in the table above **is applied** — `deployment_branch_policy` is `{ "protected_branches": false, "custom_branch_policies": true }` with exactly two policies, branch `main` and tag `*.*.*`. The ref restriction is therefore enforced both by the environment and by the checks inside the workflow.
 
-Applying this policy is a **maintainer/controller action performed after review**; the workflow change alone does not configure it. Inspect the live state first, then apply it — the environment `PUT` replaces the configuration, so `reviewers` must be sent again or the required reviewer is removed:
+The commands below are **reference material for re-verifying or re-applying** that configuration, not a pending action. The environment `PUT` replaces the configuration, so `reviewers` must be sent again or the required reviewer is removed:
 
 ```bash
 # 1. Read-only inspection of the current state.

@@ -189,7 +189,10 @@ afterAll(() => {
   if (fixtureDir && existsSync(fixtureDir)) {
     rmSync(fixtureDir, { recursive: true, force: true, maxRetries: 5 });
   }
-});
+  // Removing the throwaway git repositories costs as much filesystem work as creating them, and
+  // `maxRetries` deliberately waits out Windows file locks, so this shares `beforeAll`'s budget
+  // rather than Vitest's 10s hook default.
+}, SETUP_TIMEOUT_MS);
 
 describe('resolve-release-ref.mjs - trusted release ref resolver', () => {
   it('ships as an executable script in the trusted policy location', () => {
