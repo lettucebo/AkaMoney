@@ -72,7 +72,7 @@
 4. 受保護的工作會針對已建置好的前端 artifact 執行 `sentry-cli sourcemaps inject` 與 `sentry-cli sourcemaps upload`（`.github/workflows/release.yml:1079-1086`）。
 5. Workflow 會刪除 `.map` 檔，並在 Cloudflare Pages 部署前檢查沒有任何 `.map` 檔殘留（`.github/workflows/release.yml:1087-1094`）。
 
-正式環境發布只能由 SemVer tag push 或已確認的手動觸發啟動——Pull Request 事件無法啟動此工作流程，也沒有任何標籤能觸發部署——且每個部署工作都會從受信任的 `main` 專用政策檢出，重新確認自己部署的正是 `prepare-release` 驗證後的不可變 commit。信任邊界、**預期**的 `production` environment 政策（branch `main` 加上 tag `*.*.*`，並保留必要審核者；目前尚未套用）與已知限制詳見[部署指南](DEPLOYMENT.zh-TW.md)：審核者可自我核准、管理員可略過保護，對歷史 commit 打 tag 仍會執行該 commit 當時的工作流程，同存放庫寫入者仍受信任，且 `CLOUDFLARE_API_TOKEN`／`AZURE_STORAGE_SAS_TOKEN` 仍是 repository secrets，只有 `SENTRY_AUTH_TOKEN` 屬於 environment 範圍。
+正式環境發布只能由 SemVer tag push 或已確認的手動觸發啟動——Pull Request 事件無法啟動此工作流程，也沒有任何標籤能觸發部署——且每個部署工作都會從受信任的 `main` 專用政策檢出，重新確認自己部署的正是 `prepare-release` 驗證後的不可變 commit。信任邊界、**已套用**的 `production` environment 政策（branch `main` 加上 tag `*.*.*`，並保留必要審核者）與已知限制詳見[部署指南](DEPLOYMENT.zh-TW.md)：審核者可自我核准、管理員可略過保護，對歷史 commit 打 tag 仍會執行該 commit 當時的工作流程，同存放庫寫入者仍受信任，且 `CLOUDFLARE_API_TOKEN`／`AZURE_STORAGE_SAS_TOKEN` 仍是 repository secrets，只有 `SENTRY_AUTH_TOKEN` 屬於 environment 範圍。
 
 在第一次正式環境 release 於 Sentry 確認 symbolication 前，不要宣稱 production source maps 已驗證。
 

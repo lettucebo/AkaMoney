@@ -74,9 +74,9 @@ on:
 | 部署 branch／tag 政策 | 自訂政策：branch `main` **與** tag `*.*.*` | 從其他 ref 觸發的手動執行或 tag 無法取得該 environment，即使該 ref 改寫了工作流程也一樣。 |
 | Protected-branches 模式 | 不使用 | 本存放庫沒有任何 branch protection 規則，該模式會導致所有 ref 都不被允許。 |
 
-**已驗證的目前狀態（2026-09-02）**：必要審核者（`lettucebo`）已設定、`prevent_self_review` 為 `false`、`can_admins_bypass` 為 `true`，而 `deployment_branch_policy` 為 `null`——上表的部署 branch／tag 政策**尚未套用**。在套用之前，ref 限制只由工作流程內部的檢查負責。
+**已驗證的目前狀態（2026-09-03）**：必要審核者（`lettucebo`）已設定、`prevent_self_review` 為 `false`、`can_admins_bypass` 為 `true`，且上表的部署 branch／tag 政策**已套用**——`deployment_branch_policy` 為 `{ "protected_branches": false, "custom_branch_policies": true }`，並設有恰好兩筆政策：branch `main` 與 tag `*.*.*`。因此 ref 限制同時由 environment 與工作流程內部的檢查負責。
 
-套用此政策屬於**經審查後由維護者／控制者執行的動作**，僅靠本次工作流程變更並不會自動設定。請先檢視現況再套用——environment 的 `PUT` 會整份取代設定，因此必須一併送出 `reviewers`，否則必要審核者會被移除：
+以下指令是**重新驗證或重新套用**該設定時的參考資料，並非待執行的動作。environment 的 `PUT` 會整份取代設定，因此必須一併送出 `reviewers`，否則必要審核者會被移除：
 
 ```bash
 # 1. 唯讀檢視目前狀態。
