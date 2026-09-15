@@ -9,18 +9,31 @@ describe('UrlTableToolbar', () => {
         search: '',
         status: 'all',
         sort: 'default',
-        counts: { all: 5, active: 3, archived: 2, expired: 0 },
+        counts: { all: 5, active: 3, expired: 0, archived: 2 },
         ...overrides
       }
     });
 
-  it('explicitly states the search/status/sort scope is the current page only', () => {
+  it('presents search as account-wide, not current-page only', () => {
     const wrapper = mountToolbar();
 
     const input = wrapper.get('input[type="search"]');
-    expect(input.attributes('placeholder')).toContain('搜尋目前頁面');
-    expect(input.attributes('aria-label')).toContain('搜尋目前頁面');
-    expect(wrapper.get('.toolbar-scope').text()).toContain('目前頁面');
+    expect(input.attributes('placeholder')).not.toContain('目前頁面');
+    expect(input.attributes('aria-label')).not.toContain('目前頁面');
+    expect(wrapper.text()).not.toContain('目前頁面');
+    expect(wrapper.find('.toolbar-scope').exists()).toBe(false);
+  });
+
+  it('labels the search input for assistive technology', () => {
+    const input = mountToolbar().get('input[type="search"]');
+
+    expect(input.attributes('aria-label')).toContain('搜尋');
+  });
+
+  it('reflects the current search term', () => {
+    const wrapper = mountToolbar({ search: 'report' });
+
+    expect((wrapper.get('input[type="search"]').element as HTMLInputElement).value).toBe('report');
   });
 
   it('emits update:search as the user types', async () => {
@@ -31,55 +44,82 @@ describe('UrlTableToolbar', () => {
     expect(wrapper.emitted('update:search')).toEqual([['alpha']]);
   });
 
-  it('renders status tabs with current-page counts and marks the active one', () => {
-    const wrapper = mountToolbar({ status: 'active' });
-    const tabs = wrapper.get('[aria-label*="狀態篩選"]').findAll('.tab');
+  it('renders four status tabs including 已過期', () => {
+    const tabs = mountToolbar().findAll('[data-testid="status-tab"]');
 
-    expect(tabs).toHaveLength(3);
-    expect(tabs[0].text()).toContain('5');
-    expect(tabs[1].text()).toContain('3');
-    expect(tabs[2].text()).toContain('2');
-    expect(tabs[1].classes()).toContain('is-active');
+    expect(tabs).toHaveLength(4);
+    expect(tabs.map((t) => t.text())).toEqual(
+      expect.arrayContaining([expect.stringContaining('全部'), expect.stringContaining('已過期')])
+    );
+  });
+
+  it('renders the account-wide counts supplied by the server', () => {
+    const wrapper = mountToolbar({ counts: { all: 1200, active: 900, expired: 100, archived: 200 } });
+    const tabs = wrapper.findAll('[data-testid="status-tab"]');
+
+    expect(tabs[0].text()).toContain('1,200');
+    expect(tabs[1].text()).toContain('900');
+    expect(tabs[2].text()).toContain('100');
+    expect(tabs[3].text()).toContain('200');
+  });
+
+  it('marks the active status tab', () => {
+    const tabs = mountToolbar({ status: 'expired' }).findAll('[data-testid="status-tab"]');
+
+    expect(tabs[2].classes()).toContain('is-active');
+    expect(tabs[2].attributes('aria-selected')).toBe('true');
     expect(tabs[0].classes()).not.toContain('is-active');
   });
 
-  it('emits update:status when a tab is clicked', async () => {
+  it.each([
+    ['全部', 'all'],
+    ['使用中', 'active'],
+    ['已過期', 'expired'],
+    ['已封存', 'archived']
+  ])('emits update:status with %s', async (label, value) => {
     const wrapper = mountToolbar();
-    const archivedTab = wrapper.findAll('.tab').find((t) => t.text().includes('已封存'))!;
+    const tab = wrapper.findAll('[data-testid="status-tab"]').find((t) => t.text().includes(label))!;
 
-    await archivedTab.trigger('click');
+    await tab.trigger('click');
 
-    expect(wrapper.emitted('update:status')).toEqual([['archived']]);
+    expect(wrapper.emitted('update:status')).toEqual([[value]]);
   });
 
-  it('renders sort options and marks the active one', () => {
-    const wrapper = mountToolbar({ sort: 'clicks-desc' });
-    const sortTabs = wrapper.findAll('[data-testid="sort-option"]');
-
-    expect(sortTabs.length).toBeGreaterThanOrEqual(2);
-    const active = sortTabs.find((t) => t.classes().includes('is-active'));
-    expect(active?.text()).toContain('高');
-  });
-
-  it('emits update:sort when a sort option is clicked', async () => {
+  it('renders all five sort options in a labelled select', () => {
     const wrapper = mountToolbar();
-    const descOption = wrapper.findAll('[data-testid="sort-option"]').find((t) => t.text().includes('高'))!;
+    const select = wrapper.get('[data-testid="sort-select"]');
 
-    await descOption.trigger('click');
-
-    expect(wrapper.emitted('update:sort')).toEqual([['clicks-desc']]);
+    expect(select.findAll('option').map((o) => o.attributes('value'))).toEqual([
+      'default',
+      'created-asc',
+      'updated-desc',
+      'clicks-desc',
+      'clicks-asc'
+    ]);
+    // An accessible name via a real <label for>, not a bare select.
+    expect(wrapper.get('label[for="url-sort"]').text()).toBe('排序');
+    expect(select.attributes('id')).toBe('url-sort');
   });
 
-  it('says nothing about expired links when the current page has none', () => {
+  it('reflects the current sort', () => {
+    const select = mountToolbar({ sort: 'clicks-desc' }).get('[data-testid="sort-select"]');
+
+    expect((select.element as HTMLSelectElement).value).toBe('clicks-desc');
+  });
+
+  it('emits update:sort when a different order is selected', async () => {
     const wrapper = mountToolbar();
 
-    expect(wrapper.get('.toolbar-scope').text()).not.toContain('已過期');
+    await wrapper.get('[data-testid="sort-select"]').setValue('updated-desc');
+
+    expect(wrapper.emitted('update:sort')).toEqual([['updated-desc']]);
   });
 
-  it('explains that expired links only appear under the all tab', () => {
-    const wrapper = mountToolbar({ counts: { all: 5, active: 2, archived: 2, expired: 1 } });
+  it('shows a busy hint only while a request is in flight', async () => {
+    const wrapper = mountToolbar();
+    expect(wrapper.find('.search-busy').exists()).toBe(false);
 
-    expect(wrapper.get('.toolbar-scope').text()).toContain('1 筆已過期');
-    expect(wrapper.get('.toolbar-scope').text()).toContain('全部');
+    await wrapper.setProps({ busy: true });
+    expect(wrapper.get('.search-busy').attributes('aria-live')).toBe('polite');
   });
 });

@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { mount, flushPromises } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { createRouter, createMemoryHistory } from 'vue-router';
-import type { OverallStatsResponse, PaginatedResponse, UrlResponse } from '@/types';
+import { useUrlStore } from '@/stores/url';
+import type { OverallStatsResponse, UrlListResponse, UrlResponse, UrlStatusCounts } from '@/types';
 
 const apiMock = vi.hoisted(() => ({
   getUrls: vi.fn(),
@@ -50,12 +51,20 @@ function buildUrl(overrides: Partial<UrlResponse> = {}): UrlResponse {
   };
 }
 
-function buildPage(urls: UrlResponse[], overrides: Partial<PaginatedResponse<UrlResponse>['pagination']> = {}): PaginatedResponse<UrlResponse> {
+function buildPage(
+  urls: UrlResponse[],
+  overrides: Partial<UrlListResponse['pagination']> = {},
+  counts: Partial<UrlStatusCounts> = {}
+): UrlListResponse {
   return {
     data: urls,
-    pagination: { page: 1, limit: 20, total: urls.length, total_pages: 1, ...overrides }
+    pagination: { page: 1, limit: 20, total: urls.length, total_pages: 1, ...overrides },
+    counts: { all: urls.length, active: urls.length, expired: 0, archived: 0, ...counts }
   };
 }
+
+/** The list query object sent with the most recent `getUrls` call. */
+const lastQuery = () => apiMock.getUrls.mock.calls.at(-1)?.[0];
 
 function buildStats(overrides: Partial<OverallStatsResponse> = {}): OverallStatsResponse {
   return {
@@ -72,9 +81,9 @@ function buildStats(overrides: Partial<OverallStatsResponse> = {}): OverallStats
 }
 
 describe('DashboardView', () => {
-  let activeWrapper: Awaited<ReturnType<typeof mountDashboard>> | null = null;
+  let activeWrapper: ReturnType<typeof mount> | null = null;
 
-  async function mountDashboard() {
+  async function mountDashboard(initialPath = '/dashboard') {
     const pinia = createPinia();
     setActivePinia(pinia);
     const router = createRouter({
@@ -82,10 +91,11 @@ describe('DashboardView', () => {
       routes: [
         { path: '/', redirect: '/dashboard' },
         { path: '/dashboard', name: 'Dashboard', component: DashboardView },
+        { path: '/stats', name: 'OverallStats', component: { template: '<div />' } },
         { path: '/analytics/:shortCode', name: 'Analytics', component: { template: '<div />' } }
       ]
     });
-    await router.push('/dashboard');
+    await router.push(initialPath);
     await router.isReady();
 
     const wrapper = mount(DashboardView, {
@@ -94,11 +104,21 @@ describe('DashboardView', () => {
     });
     await flushPromises();
     activeWrapper = wrapper;
-    return wrapper;
+    return Object.assign(wrapper, { router });
+  }
+
+  /** Types into the search box and lets the 300ms debounce fire. */
+  async function search(wrapper: Awaited<ReturnType<typeof mountDashboard>>, term: string) {
+    await wrapper.get('input[type="search"]').setValue(term);
+    await vi.advanceTimersByTimeAsync(300);
+    await flushPromises();
   }
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // Only timers are faked - the search box is debounced, and Date must stay
+    // real so status/rolling-window logic behaves normally.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     Object.defineProperty(navigator, 'clipboard', {
       value: { writeText: vi.fn().mockResolvedValue(undefined) },
       configurable: true
@@ -109,6 +129,7 @@ describe('DashboardView', () => {
     activeWrapper?.unmount();
     activeWrapper = null;
     document.body.innerHTML = '';
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -118,7 +139,8 @@ describe('DashboardView', () => {
 
     await mountDashboard();
 
-    expect(apiMock.getUrls).toHaveBeenCalledWith(1, 20);
+    expect(lastQuery()).toEqual({ page: 1, search: '', status: 'all', sort: 'default' });
+    expect(apiMock.getUrls).toHaveBeenCalledTimes(1);
     expect(apiMock.getOverallStats).toHaveBeenCalledTimes(1);
     const [start, end] = apiMock.getOverallStats.mock.calls[0];
     expect(typeof start).toBe('string');
@@ -176,19 +198,36 @@ describe('DashboardView', () => {
     expect(wrapper.find('input[type="url"]').exists()).toBe(true);
   });
 
-  it('shows a distinct no-results state when the current page has urls but none match the filter', async () => {
+  it('shows a distinct no-results state, with a way out, when a filter matches nothing', async () => {
     apiMock.getUrls.mockResolvedValue(buildPage([buildUrl({ short_code: 'alpha' })]));
     apiMock.getOverallStats.mockResolvedValue(buildStats());
 
     const wrapper = await mountDashboard();
-    await wrapper.get('input[type="search"]').setValue('no-such-code');
-    await flushPromises();
+    apiMock.getUrls.mockResolvedValue(buildPage([], { total: 0, total_pages: 0 }, { all: 0, active: 0 }));
+    await search(wrapper, 'no-such-code');
 
     expect(wrapper.findAll('.row')).toHaveLength(0);
-    expect(wrapper.text()).toContain('目前頁面沒有符合條件');
+    expect(wrapper.text()).toContain('沒有符合條件的短網址');
+    expect(wrapper.text()).not.toContain('尚未建立任何短網址');
+    expect(wrapper.find('[data-testid="clear-filters"]').exists()).toBe(true);
   });
 
-  it('filters current-page rows by the search box without implying a global search', async () => {
+  it('clears the filters from the no-results state', async () => {
+    apiMock.getUrls.mockResolvedValue(buildPage([], { total: 0, total_pages: 0 }, { all: 0, active: 0 }));
+    apiMock.getOverallStats.mockResolvedValue(buildStats());
+
+    const wrapper = await mountDashboard('/dashboard?q=nothing&status=archived');
+    expect(wrapper.text()).toContain('沒有符合條件的短網址');
+
+    apiMock.getUrls.mockResolvedValue(buildPage([buildUrl()]));
+    await wrapper.get('[data-testid="clear-filters"]').trigger('click');
+    await flushPromises();
+
+    expect(lastQuery()).toMatchObject({ search: '', status: 'all', page: 1 });
+    expect(wrapper.vm.$route.query).toEqual({});
+  });
+
+  it('sends the search term to the server rather than filtering the current page', async () => {
     apiMock.getUrls.mockResolvedValue(
       buildPage([buildUrl({ id: 'a', short_code: 'alpha' }), buildUrl({ id: 'b', short_code: 'beta' })])
     );
@@ -197,27 +236,78 @@ describe('DashboardView', () => {
     const wrapper = await mountDashboard();
     expect(wrapper.findAll('.row')).toHaveLength(2);
 
-    await wrapper.get('input[type="search"]').setValue('alpha');
-    await flushPromises();
+    // The server is the only thing that can find matches on other pages.
+    apiMock.getUrls.mockResolvedValue(buildPage([buildUrl({ id: 'far', short_code: 'alpha-page-9' })]));
+    await search(wrapper, 'alpha');
 
-    expect(wrapper.findAll('.row')).toHaveLength(1);
-    expect(wrapper.text()).toContain('alpha');
+    expect(lastQuery()).toMatchObject({ search: 'alpha', page: 1 });
+    expect(wrapper.text()).toContain('alpha-page-9');
     expect(wrapper.text()).not.toContain('beta');
   });
 
-  it('filters current-page rows by status tab', async () => {
+  it('debounces typing into a single request', async () => {
+    apiMock.getUrls.mockResolvedValue(buildPage([buildUrl()]));
+    apiMock.getOverallStats.mockResolvedValue(buildStats());
+
+    const wrapper = await mountDashboard();
+    apiMock.getUrls.mockClear();
+
+    const input = wrapper.get('input[type="search"]');
+    await input.setValue('a');
+    await input.setValue('al');
+    await input.setValue('alp');
+    await vi.advanceTimersByTimeAsync(300);
+    await flushPromises();
+
+    expect(apiMock.getUrls).toHaveBeenCalledTimes(1);
+    expect(lastQuery()).toMatchObject({ search: 'alp' });
+  });
+
+  it('sends the status filter to the server and resets to page 1', async () => {
     apiMock.getUrls.mockResolvedValue(
-      buildPage([buildUrl({ id: 'a', is_active: true }), buildUrl({ id: 'b', is_active: false })])
+      buildPage([buildUrl({ id: 'a' })], { page: 2, total: 45, total_pages: 3 })
+    );
+    apiMock.getOverallStats.mockResolvedValue(buildStats());
+
+    const wrapper = await mountDashboard('/dashboard?page=2');
+    const archivedTab = wrapper.findAll('[data-testid="status-tab"]').find((t) => t.text().startsWith('已封存'))!;
+
+    apiMock.getUrls.mockResolvedValue(buildPage([buildUrl({ id: 'b', is_active: false })]));
+    await archivedTab.trigger('click');
+    await flushPromises();
+
+    expect(lastQuery()).toMatchObject({ status: 'archived', page: 1 });
+  });
+
+  it('offers an 已過期 status tab backed by the server counts', async () => {
+    apiMock.getUrls.mockResolvedValue(
+      buildPage([buildUrl()], {}, { all: 10, active: 6, expired: 3, archived: 1 })
     );
     apiMock.getOverallStats.mockResolvedValue(buildStats());
 
     const wrapper = await mountDashboard();
-    const archivedTab = wrapper.findAll('.tab').find((t) => t.text().startsWith('已封存'))!;
+    const expiredTab = wrapper.findAll('[data-testid="status-tab"]').find((t) => t.text().startsWith('已過期'))!;
 
-    await archivedTab.trigger('click');
+    expect(expiredTab.text()).toContain('3');
+
+    apiMock.getUrls.mockResolvedValue(buildPage([buildUrl({ id: 'e' })]));
+    await expiredTab.trigger('click');
     await flushPromises();
 
-    expect(wrapper.findAll('.row')).toHaveLength(1);
+    expect(lastQuery()).toMatchObject({ status: 'expired' });
+  });
+
+  it('sends the sort order to the server and resets to page 1', async () => {
+    apiMock.getUrls.mockResolvedValue(buildPage([buildUrl()], { page: 3, total: 45, total_pages: 3 }));
+    apiMock.getOverallStats.mockResolvedValue(buildStats());
+
+    const wrapper = await mountDashboard('/dashboard?page=3');
+
+    apiMock.getUrls.mockResolvedValue(buildPage([buildUrl({ id: 'top', click_count: 999 })]));
+    await wrapper.get('[data-testid="sort-select"]').setValue('clicks-desc');
+    await flushPromises();
+
+    expect(lastQuery()).toMatchObject({ sort: 'clicks-desc', page: 1 });
   });
 
   it('keeps creation hidden until the page-header action opens the modal', async () => {
@@ -234,8 +324,12 @@ describe('DashboardView', () => {
   it('creates from the modal, closes it, refreshes KPI, and shows the new row', async () => {
     apiMock.getUrls.mockResolvedValue(buildPage([]));
     apiMock.getOverallStats.mockResolvedValue(buildStats());
-    apiMock.createUrl.mockResolvedValue(buildUrl({ id: 'new-1', short_code: 'new-link', click_count: 0 }));
+    const created = buildUrl({ id: 'new-1', short_code: 'new-link', click_count: 0 });
+    apiMock.createUrl.mockResolvedValue(created);
     const wrapper = await mountDashboard();
+    // The store reconciles every mutation with the server, so the refresh must
+    // report the row the create just added.
+    apiMock.getUrls.mockResolvedValue(buildPage([created]));
 
     await wrapper.get('[data-testid="open-create"]').trigger('click');
     await wrapper.get('input[type="url"]').setValue('https://example.com/target');
@@ -340,7 +434,7 @@ describe('DashboardView', () => {
     expect(wrapper.find('.toast.err').exists()).toBe(true);
   });
 
-  it('paginates via the store while a page change happens', async () => {
+  it('paginates through the route query so back/forward works', async () => {
     apiMock.getUrls.mockResolvedValue(buildPage([buildUrl()], { page: 1, total: 45, total_pages: 3 }));
     apiMock.getOverallStats.mockResolvedValue(buildStats());
 
@@ -350,25 +444,196 @@ describe('DashboardView', () => {
     await wrapper.get('.pagination button:last-of-type').trigger('click');
     await flushPromises();
 
-    expect(apiMock.getUrls).toHaveBeenCalledWith(2, 20);
+    expect(lastQuery()).toMatchObject({ page: 2 });
+    expect(wrapper.vm.$route.query.page).toBe('2');
   });
 
-  it('returns to the server-truthful page 1 after creating from a later page', async () => {
+  it('restores the list query from the address bar on mount', async () => {
+    apiMock.getUrls.mockResolvedValue(buildPage([buildUrl()], { page: 2, total: 45, total_pages: 3 }));
     apiMock.getOverallStats.mockResolvedValue(buildStats());
-    apiMock.getUrls.mockResolvedValueOnce(buildPage([buildUrl({ id: 'a' })], { page: 1, total: 45, total_pages: 3 }));
+
+    const wrapper = await mountDashboard('/dashboard?q=report&status=expired&sort=clicks-asc&page=2');
+
+    expect(lastQuery()).toEqual({ page: 2, search: 'report', status: 'expired', sort: 'clicks-asc' });
+    expect((wrapper.get('input[type="search"]').element as HTMLInputElement).value).toBe('report');
+    expect((wrapper.get('[data-testid="sort-select"]').element as HTMLSelectElement).value).toBe('clicks-asc');
+  });
+
+  it('ignores unusable values in the address bar', async () => {
+    apiMock.getUrls.mockResolvedValue(buildPage([buildUrl()]));
+    apiMock.getOverallStats.mockResolvedValue(buildStats());
+
+    await mountDashboard('/dashboard?status=deleted&sort=bogus&page=abc');
+
+    expect(lastQuery()).toEqual({ page: 1, search: '', status: 'all', sort: 'default' });
+  });
+
+  it('re-fetches when the browser navigates back to an earlier query', async () => {
+    apiMock.getUrls.mockResolvedValue(buildPage([buildUrl({ id: 'all-1' })]));
+    apiMock.getOverallStats.mockResolvedValue(buildStats());
 
     const wrapper = await mountDashboard();
+    apiMock.getUrls.mockResolvedValue(buildPage([buildUrl({ id: 'archived-1', is_active: false })]));
+    await search(wrapper, 'report');
+    expect(lastQuery()).toMatchObject({ search: 'report' });
 
-    apiMock.getUrls.mockResolvedValueOnce(
+    apiMock.getUrls.mockResolvedValue(buildPage([buildUrl({ id: 'all-1' })]));
+    await wrapper.router.back();
+    await flushPromises();
+
+    // A same-route query change never re-runs onMounted, so the route watcher
+    // has to be the thing that fetches - otherwise back shows stale rows.
+    expect(lastQuery()).toMatchObject({ search: '' });
+    expect((wrapper.get('input[type="search"]').element as HTMLInputElement).value).toBe('');
+  });
+
+  it('does not fetch twice for a single user-initiated change', async () => {
+    apiMock.getUrls.mockResolvedValue(buildPage([buildUrl()]));
+    apiMock.getOverallStats.mockResolvedValue(buildStats());
+
+    const wrapper = await mountDashboard();
+    apiMock.getUrls.mockClear();
+
+    await search(wrapper, 'report');
+
+    expect(apiMock.getUrls).toHaveBeenCalledTimes(1);
+  });
+
+  it('rewrites the address bar when the server clamps a page past the end', async () => {
+    apiMock.getUrls.mockResolvedValue(buildPage([buildUrl()], { page: 1, total: 5, total_pages: 1 }));
+    apiMock.getOverallStats.mockResolvedValue(buildStats());
+
+    const wrapper = await mountDashboard('/dashboard?page=999');
+    await flushPromises();
+
+    expect(wrapper.vm.$route.query.page).toBeUndefined();
+    expect(wrapper.findAll('.row')).toHaveLength(1);
+  });
+
+  it('does not re-fetch after rewriting a clamped page into the address bar', async () => {
+    apiMock.getUrls.mockResolvedValue(buildPage([buildUrl()], { page: 1, total: 5, total_pages: 1 }));
+    apiMock.getOverallStats.mockResolvedValue(buildStats());
+
+    await mountDashboard('/dashboard?page=999');
+    await flushPromises();
+
+    // The normalization navigation must be recognised as already applied,
+    // otherwise the clamp and the watcher would fetch each other in a loop.
+    expect(apiMock.getUrls).toHaveBeenCalledTimes(1);
+  });
+
+  it('syncs the address bar when a mutation moves the list to another page', async () => {
+    apiMock.getOverallStats.mockResolvedValue(buildStats());
+    apiMock.getUrls.mockResolvedValue(
+      buildPage([buildUrl({ id: 'sole-row', is_active: true })], { page: 2, total: 21, total_pages: 2 })
+    );
+
+    const wrapper = await mountDashboard('/dashboard?page=2');
+    expect(wrapper.vm.$route.query.page).toBe('2');
+
+    // Archiving the only row on the last page drops the page count; the server
+    // clamps the silent refresh back to page 1.
+    apiMock.updateUrl.mockResolvedValue(buildUrl({ id: 'sole-row', is_active: false }));
+    apiMock.getUrls.mockResolvedValue(
+      buildPage([buildUrl({ id: 'p1' })], { page: 1, total: 20, total_pages: 1 })
+    );
+
+    await wrapper.get('[data-testid="row-archive"]').trigger('click');
+    await flushPromises();
+    await wrapper.get('[data-testid="confirm-action"]').trigger('click');
+    await flushPromises();
+
+    // The address bar must not keep advertising a page the table no longer shows.
+    expect(wrapper.vm.$route.query.page).toBeUndefined();
+    expect(wrapper.findAll('.row')).toHaveLength(1);
+  });
+
+  it('never rewrites another route when a clamped response lands after navigating away', async () => {
+    apiMock.getOverallStats.mockResolvedValue(buildStats());
+    const pending = deferred<UrlListResponse>();
+    apiMock.getUrls.mockReturnValue(pending.promise);
+
+    // A non-default filter, so a leaked navigation would produce a visibly
+    // wrong query string on the other route rather than an empty one.
+    const wrapper = await mountDashboard('/dashboard?status=archived&page=999');
+    await wrapper.router.push('/stats');
+    await flushPromises();
+
+    // The clamp arrives only after the user has left the dashboard.
+    pending.resolve(
+      buildPage([buildUrl({ is_active: false })], { page: 1, total: 5, total_pages: 1 })
+    );
+    await flushPromises();
+
+    expect(wrapper.router.currentRoute.value.path).toBe('/stats');
+    expect(wrapper.router.currentRoute.value.query).toEqual({});
+  });
+
+  it('does not fetch the list for a route that is not the dashboard', async () => {
+    apiMock.getUrls.mockResolvedValue(buildPage([buildUrl({ is_active: false })]));
+    apiMock.getOverallStats.mockResolvedValue(buildStats());
+
+    // Start from a filtered dashboard, so leaving it is a real query change
+    // rather than a no-op the duplicate guard would swallow anyway.
+    const wrapper = await mountDashboard('/dashboard?status=archived&sort=clicks-desc');
+    apiMock.getUrls.mockClear();
+
+    await wrapper.router.push('/stats');
+    await flushPromises();
+
+    expect(apiMock.getUrls).not.toHaveBeenCalled();
+  });
+
+  it('does not rewrite another route when the list query settles after leaving', async () => {
+    apiMock.getOverallStats.mockResolvedValue(buildStats());
+    apiMock.getUrls.mockResolvedValue(buildPage([buildUrl({ is_active: false })]));
+
+    const wrapper = await mountDashboard('/dashboard?status=archived');
+    await wrapper.router.push('/stats');
+    await flushPromises();
+
+    // Forcing a store-side query change while off the dashboard must not leak
+    // the dashboard's filters into the other route's address bar.
+    await wrapper.vm.$nextTick();
+    apiMock.getUrls.mockResolvedValue(
+      buildPage([buildUrl()], { page: 1, total: 1, total_pages: 1 })
+    );
+    const store = useUrlStore();
+    await store.fetchUrls({ status: 'expired', page: 1 });
+    await flushPromises();
+
+    expect(wrapper.router.currentRoute.value.path).toBe('/stats');
+    expect(wrapper.router.currentRoute.value.query).toEqual({});
+  });
+
+  it('keeps a search refinement to a single history entry', async () => {
+    apiMock.getUrls.mockResolvedValue(buildPage([buildUrl()]));
+    apiMock.getOverallStats.mockResolvedValue(buildStats());
+
+    const wrapper = await mountDashboard();
+    await search(wrapper, 'rep');
+    await search(wrapper, 'report');
+    expect(wrapper.vm.$route.query.q).toBe('report');
+
+    await wrapper.router.back();
+    await flushPromises();
+
+    // Back returns to the unfiltered list, not to every prefix typed on the way.
+    expect(wrapper.vm.$route.query.q).toBeUndefined();
+  });
+
+  it('reconciles with the server after creating from a later page', async () => {
+    apiMock.getOverallStats.mockResolvedValue(buildStats());
+    apiMock.getUrls.mockResolvedValue(
       buildPage([buildUrl({ id: 'p2', short_code: 'page2' })], { page: 2, total: 45, total_pages: 3 })
     );
-    await wrapper.get('.pagination button:last-of-type').trigger('click');
-    await flushPromises();
+
+    const wrapper = await mountDashboard('/dashboard?page=2');
     expect(wrapper.text()).toContain('page2');
 
     apiMock.createUrl.mockResolvedValue(buildUrl({ id: 'new-1', short_code: 'new-link', click_count: 0 }));
-    apiMock.getUrls.mockResolvedValueOnce(
-      buildPage([buildUrl({ id: 'new-1', short_code: 'new-link' })], { page: 1, total: 46, total_pages: 3 })
+    apiMock.getUrls.mockResolvedValue(
+      buildPage([buildUrl({ id: 'p2b', short_code: 'page2b' })], { page: 2, total: 46, total_pages: 3 })
     );
 
     await wrapper.get('[data-testid="open-create"]').trigger('click');
@@ -377,10 +642,12 @@ describe('DashboardView', () => {
     await wrapper.get('[data-testid="create-submit"]').trigger('click');
     await flushPromises();
 
-    expect(apiMock.getUrls).toHaveBeenLastCalledWith(1, 20);
-    expect(wrapper.findAll('.row')).toHaveLength(1);
-    expect(wrapper.findAll('.row')[0].text()).toContain('new-link');
-    expect(wrapper.text()).not.toContain('page2');
+    // The new link does not belong on page 2, so it must not appear in the table
+    // (the success toast still names it, which is why only rows are inspected).
+    expect(lastQuery()).toMatchObject({ page: 2 });
+    const rowText = wrapper.findAll('.row').map((row) => row.text()).join('|');
+    expect(rowText).toContain('page2b');
+    expect(rowText).not.toContain('new-link');
   });
 
   it('keeps the table rendered while an archive is in flight (no shared loading flash)', async () => {
@@ -424,21 +691,32 @@ describe('DashboardView', () => {
 
   it('does not count an expired-but-unarchived link as 使用中', async () => {
     apiMock.getUrls.mockResolvedValue(
-      buildPage([
-        buildUrl({ id: 'live', short_code: 'live' }),
-        buildUrl({ id: 'stale', short_code: 'stale', is_active: true, expires_at: Date.now() - 1000 })
-      ])
+      buildPage(
+        [
+          buildUrl({ id: 'live', short_code: 'live' }),
+          buildUrl({ id: 'stale', short_code: 'stale', is_active: true, expires_at: Date.now() - 1000 })
+        ],
+        {},
+        { all: 2, active: 1, expired: 1, archived: 0 }
+      )
     );
     apiMock.getOverallStats.mockResolvedValue(buildStats());
 
     const wrapper = await mountDashboard();
-    const activeTab = wrapper.findAll('.tab').find((t) => t.text().startsWith('使用中'))!;
+    const tabs = wrapper.findAll('[data-testid="status-tab"]');
+    const activeTab = tabs.find((t) => t.text().startsWith('使用中'))!;
+    const expiredTab = tabs.find((t) => t.text().startsWith('已過期'))!;
 
     expect(activeTab.text()).toContain('1');
+    expect(expiredTab.text()).toContain('1');
 
+    apiMock.getUrls.mockResolvedValue(
+      buildPage([buildUrl({ id: 'live', short_code: 'live' })], {}, { all: 2, active: 1, expired: 1, archived: 0 })
+    );
     await activeTab.trigger('click');
     await flushPromises();
 
+    expect(lastQuery()).toMatchObject({ status: 'active' });
     expect(wrapper.findAll('.row')).toHaveLength(1);
     expect(wrapper.text()).toContain('live');
     expect(wrapper.text()).not.toContain('aka.money/stale');

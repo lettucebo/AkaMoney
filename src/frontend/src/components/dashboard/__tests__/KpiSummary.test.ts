@@ -40,7 +40,9 @@ describe('KpiSummary', () => {
     const cards = wrapper.findAll('.kpi');
     expect(cards).toHaveLength(4);
     expect(wrapper.text()).toContain('近30天點擊');
-    expect(wrapper.text()).toContain('作用中連結');
+    // Labelled "未封存" because analytics.ts counts is_active === 1, which
+    // includes expired links - unlike the list's 使用中 status tab.
+    expect(wrapper.text()).toContain('未封存連結');
     expect(wrapper.text()).toContain('全部連結');
     expect(wrapper.text()).toContain('平均每連結');
     expect(wrapper.find('[data-state]').exists()).toBe(false);

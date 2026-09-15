@@ -92,6 +92,45 @@ export interface PaginatedResponse<T> {
   };
 }
 
+/**
+ * Status filter accepted by `GET /api/urls`.
+ *
+ * Mirrors `getLinkStatus`: 'active' means still redirecting, 'expired' means
+ * unarchived but past its expiry, 'archived' means `is_active` is not set.
+ */
+export type UrlListStatus = 'all' | 'active' | 'expired' | 'archived';
+
+/** Sort order accepted by `GET /api/urls`. */
+export type UrlListSort = 'default' | 'clicks-desc' | 'clicks-asc' | 'created-asc' | 'updated-desc';
+
+/**
+ * Account-wide status totals returned alongside the URL list.
+ *
+ * These respect the active `search` term but ignore the active `status`, so the
+ * toolbar can show every tab's total for the current search at once.
+ * `active` + `expired` + `archived` always equals `all`.
+ */
+export interface UrlStatusCounts {
+  all: number;
+  active: number;
+  expired: number;
+  archived: number;
+}
+
+/** `GET /api/urls` response: a paginated list plus the status counts. */
+export interface UrlListResponse extends PaginatedResponse<UrlResponse> {
+  counts: UrlStatusCounts;
+}
+
+/** Fully resolved list query - the shape the store, router and API all share. */
+export interface UrlListQueryState {
+  page: number;
+  search: string;
+  status: UrlListStatus;
+  sort: UrlListSort;
+}
+
+
 export interface ApiError {
   error: string;
   message: string;

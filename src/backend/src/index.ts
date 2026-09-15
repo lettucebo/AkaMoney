@@ -12,6 +12,7 @@ import {
   getUserUrls
 } from './services/url';
 import { getAnalytics, getOverallStats } from './services/analytics';
+import { normalizeUrlListQuery } from './services/urlListQuery';
 import { cleanupOldClickRecords } from './services/cleanup';
 import { createStorageProvider, isStorageConfigured, getStorageConfig } from './services/storage';
 import { createSentryOptions } from './services/sentry';
@@ -142,26 +143,38 @@ app.get('/api/urls', authMiddleware, async (c) => {
       }, 500);
     }
 
-    const page = parseInt(c.req.query('page') || '1');
-    const limit = parseInt(c.req.query('limit') || '20');
+    const query = normalizeUrlListQuery(c.req.query());
+    // One instant for every status predicate in this request, so the list, the
+    // total and the counts can never disagree about what "expired" means.
+    const now = Date.now();
 
-    console.log('Fetching URLs', { ...authLogContext(user), page, limit });
+    console.log('Fetching URLs', {
+      ...authLogContext(user),
+      page: query.page,
+      limit: query.limit,
+      status: query.status,
+      sort: query.sort,
+      hasSearch: query.search.length > 0
+    });
 
-    const result = await getUserUrls(c.env.DB, user.userId, page, limit);
+    const result = await getUserUrls(c.env.DB, user.userId, { ...query, now });
 
-    console.log('URLs fetched successfully:', { 
-      count: result.urls.length, 
-      total: result.total 
+    console.log('URLs fetched successfully:', {
+      count: result.urls.length,
+      total: result.total
     });
 
     return c.json({
       data: result.urls,
       pagination: {
-        page,
-        limit,
+        // The effective page, which may have been clamped down when the
+        // requested page is past the end of the filtered result set.
+        page: result.page,
+        limit: query.limit,
         total: result.total,
-        total_pages: Math.ceil(result.total / limit)
-      }
+        total_pages: result.totalPages
+      },
+      counts: result.counts
     });
   } catch (error) {
     console.error('Error in GET /api/urls:', safeErrorDetails(error, identityRedactions(c)));

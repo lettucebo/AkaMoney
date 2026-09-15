@@ -114,9 +114,12 @@ Some dashboard capabilities are ahead of the backend. These gaps are tracked in 
 should be treated as the authoritative list rather than any status claim in this file:
 
 - [#132 — Epic: Backend API gaps for Proposal F (mone-dense) dashboard rollout](https://github.com/lettucebo/AkaMoney/issues/132)
-- [#133 — `GET /api/urls`: add search (q), sort/order, status filter, status counts](https://github.com/lettucebo/AkaMoney/issues/133)
 - [#134 — `OverallStatsResponse`: add `links_created_in_range` tied to `date_range`](https://github.com/lettucebo/AkaMoney/issues/134)
 - [#135 — `AnalyticsResponse`: add `clicks_by_os` and `clicks_by_referer` (safe hostname)](https://github.com/lettucebo/AkaMoney/issues/135)
+
+Closed:
+
+- [#133 — `GET /api/urls`: add search (q), sort/order, status filter, status counts](https://github.com/lettucebo/AkaMoney/issues/133) — the list endpoint now accepts `search`, `status` and `sort` and returns `counts`, so dashboard search/filter/sort covers the whole account.
 
 ## Related Documentation
 

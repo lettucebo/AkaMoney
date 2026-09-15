@@ -541,17 +541,56 @@
     grid-template-columns: minmax(0, 1fr) auto auto;
     gap: 8px;
     align-items: center;
-    margin-bottom: 6px;
+    margin-bottom: 12px;
     min-width: 0;
   }
 
-  .toolbar-scope {
+  .search { position: relative; min-width: 0; }
+
+  .search-busy {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
     font-size: 11px;
-    color: var(--color-muted);
-    margin-bottom: 12px;
+    color: var(--color-faint);
+    pointer-events: none;
   }
 
-  .search { position: relative; min-width: 0; }
+  .sort-field {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .sort-label {
+    font-size: 12px;
+    color: var(--color-muted);
+    white-space: nowrap;
+  }
+
+  .sort-select {
+    height: 32px;
+    padding: 0 8px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  .sort-select:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    background: var(--color-bg);
+  }
+
+  .is-busy {
+    opacity: 0.6;
+    transition: opacity 120ms ease;
+  }
 
   .search .si {
     position: absolute;

@@ -76,7 +76,7 @@ Apply migrations through Wrangler / the Admin API Worker. The redirect Worker is
 
 ## Frontend boundaries
 
-Route table is in `src/frontend/src/router/index.ts`. Authenticated views render inside `AppShell`; `/login` is standalone (`App.vue`). List search/filter/sort is **current page only** because `GET /api/urls` accepts `page` / `limit` only.
+Route table is in `src/frontend/src/router/index.ts`. Authenticated views render inside `AppShell`; `/login` is standalone (`App.vue`). List search/filter/sort is **account-wide**: the dashboard sends `search` / `status` / `sort` to `GET /api/urls` and mirrors them in the browser query string (`q` / `status` / `sort` / `page`), so reloads, back/forward and shared links all restore the same view.
 
 Theme, tokens, and Chart.js rules: [THEME](THEME.md). Shipped screens vs design captures: [SCREENSHOTS](SCREENSHOTS.md).
 

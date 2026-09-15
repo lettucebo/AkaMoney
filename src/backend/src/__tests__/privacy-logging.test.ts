@@ -98,7 +98,13 @@ describe('backend privacy logging', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
 
     urlServiceMocks.createUrl.mockResolvedValue(mockUrl);
-    urlServiceMocks.getUserUrls.mockResolvedValue({ urls: [mockUrl], total: 1 });
+    urlServiceMocks.getUserUrls.mockResolvedValue({
+      urls: [mockUrl],
+      total: 1,
+      totalPages: 1,
+      page: 1,
+      counts: { all: 1, active: 1, expired: 0, archived: 0 }
+    });
     urlServiceMocks.getUrlById.mockResolvedValue(mockUrl);
     urlServiceMocks.updateUrl.mockResolvedValue(mockUrl);
     urlServiceMocks.deleteUrl.mockResolvedValue(undefined);

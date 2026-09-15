@@ -1,11 +1,18 @@
 import { defineStore } from 'pinia';
-import type { CreateUrlRequest, PaginatedResponse, UpdateUrlRequest, UrlResponse } from '@/types';
+import type {
+  CreateUrlRequest,
+  UpdateUrlRequest,
+  UrlListQueryState,
+  UrlListResponse,
+  UrlResponse,
+  UrlStatusCounts
+} from '@/types';
 import apiService from '@/services/api';
 import { extractErrorMessage } from '@/utils/format';
 import { toSafeErrorContext } from '@/utils/safeError';
+import { DEFAULT_URL_LIST_QUERY, isDefaultUrlListView } from '@/utils/urlListQuery';
 
-interface ListRequestTarget {
-  page: number;
+interface ListRequestTarget extends UrlListQueryState {
   limit: number;
 }
 
@@ -20,6 +27,10 @@ interface UrlState {
   listLoading: boolean;
   /** Error for the paginated list only - mutation failures never overwrite it. */
   listError: string | null;
+  /** The search/status/sort/page the currently displayed list was fetched with. */
+  query: UrlListQueryState;
+  /** Account-wide status totals for the current search, from the server. */
+  counts: UrlStatusCounts;
   pagination: {
     page: number;
     limit: number;
@@ -32,11 +43,13 @@ interface UrlState {
   listStaleBefore: number;
   /** How many list fetches are currently in flight. */
   listPending: number;
-  /** Page/limit the newest in-flight list fetch is targeting. */
+  /** Query the newest in-flight list fetch is targeting. */
   listPendingRequest: ListRequestTarget | null;
 }
 
 type CreateUrlPayload = Omit<CreateUrlRequest, 'short_code'> & { short_code?: string };
+
+const emptyCounts = (): UrlStatusCounts => ({ all: 0, active: 0, expired: 0, archived: 0 });
 
 /**
  * URL list + mutation store.
@@ -48,6 +61,13 @@ type CreateUrlPayload = Omit<CreateUrlRequest, 'short_code'> & { short_code?: st
  *   its id is still the newest AND has not been invalidated by a mutation that
  *   landed while it was in flight, which is what stops an out-of-order page
  *   response from resurrecting stale rows.
+ *
+ * Search, status filtering and sorting are server-side: `query` is sent with
+ * every fetch and the response is authoritative for which rows belong on the
+ * page, in what order, and what the status counts are. That is why every
+ * successful mutation ends in a *silent* refetch (`refreshList`) - an edit can
+ * move a row out of the current search, or reorder it under the "recently
+ * updated" sort, and only the server knows what fills the gap.
  */
 export const useUrlStore = defineStore('url', {
   state: (): UrlState => ({
@@ -57,6 +77,8 @@ export const useUrlStore = defineStore('url', {
     error: null,
     listLoading: false,
     listError: null,
+    query: { ...DEFAULT_URL_LIST_QUERY },
+    counts: emptyCounts(),
     pagination: {
       page: 1,
       limit: 20,
@@ -69,10 +91,20 @@ export const useUrlStore = defineStore('url', {
     listPendingRequest: null
   }),
 
+  getters: {
+    /**
+     * True when nothing narrows or reorders the result set.
+     *
+     * Only in this view is a locally prepended row guaranteed to actually
+     * belong at the top of the server's page 1.
+     */
+    isDefaultView: (state): boolean => isDefaultUrlListView(state.query)
+  },
+
   actions: {
     /**
      * Marks every in-flight list fetch as stale and returns the newest one's target,
-     * so the caller can re-request the exact page whose response was dropped.
+     * so the caller can re-request the exact query whose response was dropped.
      */
     invalidateListFetches(): ListRequestTarget | null {
       const pending = this.listPending > 0 ? this.listPendingRequest : null;
@@ -80,30 +112,57 @@ export const useUrlStore = defineStore('url', {
       return pending ? { ...pending } : null;
     },
 
-    async fetchUrls(page: number = 1, limit: number = 20) {
+    /** The query + limit a refetch should replay. */
+    currentTarget(): ListRequestTarget {
+      return { ...this.query, limit: this.pagination.limit };
+    },
+
+    /**
+     * Fetches a page of URLs for the given query.
+     *
+     * `silent` keeps the current rows and skips the loading flags. It is used for
+     * post-mutation reconciliation so the table never blanks out, while the
+     * response still passes through the same staleness guard.
+     */
+    async fetchUrls(target: Partial<ListRequestTarget> = {}, options: { silent?: boolean } = {}) {
+      const request: ListRequestTarget = { ...this.currentTarget(), ...target };
+      const silent = options.silent === true;
       const requestId = ++this.listRequestId;
       const isStale = (): boolean => requestId !== this.listRequestId || requestId <= this.listStaleBefore;
 
       this.listPending += 1;
-      this.listPendingRequest = { page, limit };
-      this.listLoading = true;
-      this.loading = true;
-      this.listError = null;
-      this.error = null;
+      this.listPendingRequest = request;
+      if (!silent) {
+        this.listLoading = true;
+        this.loading = true;
+        this.listError = null;
+        this.error = null;
+      }
+
+      const { limit, ...query } = request;
+      this.query = query;
 
       try {
-        const response: PaginatedResponse<UrlResponse> = await apiService.getUrls(page, limit);
+        const response: UrlListResponse = await apiService.getUrls(query, limit);
         if (isStale()) {
           return;
         }
         this.urls = response.data;
         this.pagination = response.pagination;
+        this.counts = response.counts ?? emptyCounts();
+        // The server clamps a page past the end of the result set, so the
+        // effective page is whatever came back - never what was requested.
+        this.query = { ...query, page: response.pagination.page };
       } catch (error: unknown) {
         if (isStale()) {
           return;
         }
         const message = extractErrorMessage(error, 'Failed to fetch URLs');
-        this.listError = message;
+        // A silent refresh must not replace a rendered table with an error
+        // banner; the visible rows stay and the failure is reported generically.
+        if (!silent) {
+          this.listError = message;
+        }
         this.error = message;
         console.error('Error fetching URLs:', toSafeErrorContext(error));
       } finally {
@@ -114,6 +173,21 @@ export const useUrlStore = defineStore('url', {
           this.listPendingRequest = null;
         }
       }
+    },
+
+    /**
+     * Re-fetches the current page without any loading state.
+     *
+     * Called after every successful mutation, because membership, ordering and
+     * the status counts are all server-owned once search/status/sort apply.
+     */
+    async refreshList(target?: ListRequestTarget) {
+      await this.fetchUrls(target ?? this.currentTarget(), { silent: true });
+    },
+
+    /** Applies new filter values and returns to page 1 (results shift underneath). */
+    async applyQuery(next: Partial<UrlListQueryState>) {
+      await this.fetchUrls({ ...next, page: next.page ?? 1 });
     },
 
     async fetchUrl(id: string) {
@@ -137,20 +211,18 @@ export const useUrlStore = defineStore('url', {
         const newUrl = await apiService.createUrl(data as CreateUrlRequest);
         const droppedFetch = this.invalidateListFetches();
 
-        // A created URL always belongs at the top of page 1. When the displayed
-        // page is not page 1 - or when a list fetch was racing this create - the
-        // server is the only honest source for what page 1 now contains.
-        if (droppedFetch || this.pagination.page > 1) {
-          await this.fetchUrls(1, this.pagination.limit);
-          return newUrl;
+        // A created URL only belongs at the top in the unfiltered, default-sorted
+        // first page. Under any search, status filter or sort it may not belong
+        // on this page at all, so prepending would be a lie - the silent refresh
+        // below settles it either way.
+        if (!droppedFetch && this.isDefaultView) {
+          this.urls = [newUrl, ...this.urls];
+          if (this.urls.length > this.pagination.limit) {
+            this.urls.pop();
+          }
         }
 
-        this.urls = [newUrl, ...this.urls];
-        this.pagination.total += 1;
-        this.pagination.total_pages = Math.ceil(this.pagination.total / this.pagination.limit);
-        if (this.urls.length > this.pagination.limit) {
-          this.urls.pop();
-        }
+        await this.refreshList(droppedFetch ?? undefined);
         return newUrl;
       } catch (error: unknown) {
         this.error = extractErrorMessage(error, 'Failed to create short URL');
@@ -166,9 +238,7 @@ export const useUrlStore = defineStore('url', {
         const updatedUrl = await apiService.updateUrl(id, data);
         const droppedFetch = this.invalidateListFetches();
         this.applyUpdatedUrl(id, updatedUrl);
-        if (droppedFetch) {
-          await this.fetchUrls(droppedFetch.page, droppedFetch.limit);
-        }
+        await this.refreshList(droppedFetch ?? undefined);
         return updatedUrl;
       } catch (error: unknown) {
         this.error = extractErrorMessage(error, 'Failed to update URL');
@@ -184,29 +254,15 @@ export const useUrlStore = defineStore('url', {
         await apiService.deleteUrl(id);
         const droppedFetch = this.invalidateListFetches();
         this.urls = this.urls.filter(u => u.id !== id);
-        this.pagination.total = Math.max(0, this.pagination.total - 1);
-        this.pagination.total_pages =
-          this.pagination.total === 0 ? 0 : Math.ceil(this.pagination.total / this.pagination.limit);
-
-        // Deleting the last row on the final page can drop total_pages below the
-        // page currently on screen (e.g. the sole row on page N). The server is
-        // the only honest source for what the new final page actually contains,
-        // so it must be re-fetched immediately - never leave a locally clamped
-        // page number whose rows/metadata no longer match. A page 0 (empty
-        // account) needs no fetch at all.
-        const needsFinalPageRefetch =
-          !droppedFetch && this.pagination.total_pages > 0 && this.pagination.page > this.pagination.total_pages;
-        if (this.pagination.page > this.pagination.total_pages && this.pagination.total_pages > 0) {
-          this.pagination.page = this.pagination.total_pages;
-        }
         if (this.currentUrl?.id === id) {
           this.currentUrl = null;
         }
-        if (droppedFetch) {
-          await this.fetchUrls(droppedFetch.page, droppedFetch.limit);
-        } else if (needsFinalPageRefetch) {
-          await this.fetchUrls(this.pagination.page, this.pagination.limit);
-        }
+
+        // Deleting the last row on the final page can drop the page count below
+        // the page on screen. The server clamps the requested page against the
+        // new total and reports the effective one, so replaying the same request
+        // is enough - no local page arithmetic is needed.
+        await this.refreshList(droppedFetch ?? undefined);
       } catch (error: unknown) {
         this.error = extractErrorMessage(error, 'Failed to delete URL');
         console.error('Error deleting URL:', toSafeErrorContext(error));
@@ -229,9 +285,7 @@ export const useUrlStore = defineStore('url', {
         const updatedUrl = await apiService.updateUrl(id, { is_active: isActive });
         const droppedFetch = this.invalidateListFetches();
         this.applyUpdatedUrl(id, updatedUrl);
-        if (droppedFetch) {
-          await this.fetchUrls(droppedFetch.page, droppedFetch.limit);
-        }
+        await this.refreshList(droppedFetch ?? undefined);
         return updatedUrl;
       } catch (error: unknown) {
         this.error = extractErrorMessage(error, `Failed to ${action} URL`);

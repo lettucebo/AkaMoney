@@ -42,7 +42,7 @@ describe('useKpiSummary', () => {
     ]);
     expect(cards.value.map((card) => card.label)).toEqual([
       '近30天點擊',
-      '作用中連結',
+      '未封存連結',
       '全部連結',
       '平均每連結'
     ]);

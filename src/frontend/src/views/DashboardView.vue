@@ -13,19 +13,20 @@
     </div>
 
     <UrlTableToolbar
-      :search="search"
-      :status="statusFilter"
-      :sort="sortOption"
-      :counts="visibleUrls.counts"
-      @update:search="search = $event"
-      @update:status="statusFilter = $event"
-      @update:sort="sortOption = $event"
+      :search="searchInput"
+      :status="urlStore.query.status"
+      :sort="urlStore.query.sort"
+      :counts="urlStore.counts"
+      :busy="isBusy"
+      @update:search="onSearchInput"
+      @update:status="onStatusChange"
+      @update:sort="onSortChange"
     />
 
-    <StateBlock v-if="urlStore.listLoading" state="loading" title="載入中" message="正在載入短網址清單…" />
+    <StateBlock v-if="showInitialLoading" state="loading" title="載入中" message="正在載入短網址清單…" />
     <StateBlock v-else-if="urlStore.listError" state="error" title="無法載入清單" :message="urlStore.listError" />
     <EmptyState
-      v-else-if="isEmpty"
+      v-else-if="isEmptyAccount"
       title="尚未建立任何短網址"
       description="建立第一個短網址後，就能在這裡管理連結與查看成效。"
     >
@@ -37,24 +38,31 @@
     </EmptyState>
     <EmptyState
       v-else-if="isNoResults"
-      title="目前頁面沒有符合條件的短網址"
-      description="試著調整搜尋關鍵字、狀態篩選或排序（僅套用於目前頁面已載入的項目）。"
-    />
-    <UrlTable
-      v-else
-      :urls="visibleUrls.visible"
-      :copied-id="copiedId"
-      @copy="handleCopy"
-      @edit="openEdit"
-      @archive="confirmArchive"
-      @restore="confirmRestore"
-    />
+      title="沒有符合條件的短網址"
+      description="試著調整搜尋關鍵字或狀態篩選。"
+    >
+      <template #action>
+        <BaseButton variant="default" data-testid="clear-filters" @click="clearFilters">
+          清除篩選
+        </BaseButton>
+      </template>
+    </EmptyState>
+    <div v-else :class="{ 'is-busy': isBusy }" :aria-busy="isBusy">
+      <UrlTable
+        :urls="urlStore.urls"
+        :copied-id="copiedId"
+        @copy="handleCopy"
+        @edit="openEdit"
+        @archive="confirmArchive"
+        @restore="confirmRestore"
+      />
+    </div>
 
     <DashboardPagination
       :page="urlStore.pagination.page"
       :total-pages="urlStore.pagination.total_pages"
       :total="urlStore.pagination.total"
-      @change="goToPage"
+      @change="onPageChange"
     />
 
     <UrlCreateModal
@@ -97,30 +105,41 @@
  * Dashboard vertical slice (Proposal F): KPI summary -> on-demand create modal
  * -> dense URL table, composed entirely from src/components/dashboard/**.
  *
- * Search/status/sort in the toolbar operate ONLY on the currently loaded
- * server page (`urlStore.urls`) - never across the full account dataset -
- * because the list API only supports `page`/`limit` pagination today. The
- * KPI summary fetch (explicit rolling 30-day window) is independent of the
+ * Search/status/sort are account-wide, not current-page: they are sent to
+ * `GET /api/urls`, and the server decides which rows belong on the page, in
+ * what order, and what the status counts are.
+ *
+ * The route's query string is the single source of truth for that list query.
+ * An `immediate` watcher on it is the ONLY thing that fetches the list, which
+ * is what makes browser back/forward work - a same-route query change never
+ * re-runs `onMounted`, and `router.replace` would not create the history entry
+ * back/forward needs. User-initiated changes therefore `push`; only
+ * normalization (e.g. a page the server clamped) uses `replace`.
+ *
+ * The KPI summary fetch (explicit rolling 30-day window) is independent of the
  * URL list fetch, so a KPI failure never blocks the list from rendering and
  * vice versa.
  *
  * Create/edit/archive/restore keep the table stable: the store applies the
- * mutation to `urlStore.urls` directly (prepend on create, in-place replace on
- * edit/archive/restore) and uses its own `listLoading`/`listError`, so a
- * mutation never blanks the table or replaces a list error. The store only
- * falls back to a server refetch when it must - a create from page > 1, or a
- * mutation that raced an in-flight list fetch. Only the independent KPI summary
- * is re-fetched here after a mutation, since it may have changed (link counts,
- * click totals).
+ * mutation to `urlStore.urls` directly and then reconciles with a *silent*
+ * refetch that never blanks the table. Only the independent KPI summary is
+ * re-fetched here after a mutation, since it may have changed.
  */
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { useUrlStore } from '@/stores/url';
 import apiService from '@/services/api';
-import type { OverallStatsResponse, UrlResponse } from '@/types';
+import type { OverallStatsResponse, UrlListQueryState, UrlListSort, UrlListStatus, UrlResponse } from '@/types';
 import { extractErrorMessage } from '@/utils/format';
 import { shortLinkTarget } from '@/utils/shortLink';
 import { rollingWindow } from '@/utils/trend';
-import { deriveVisibleUrls, type SortOption, type StatusFilter } from '@/components/dashboard/dashboardUrlList';
+import {
+  hasActiveUrlListFilters,
+  isSameUrlListQuery,
+  parseUrlListRouteQuery,
+  toUrlListRouteQuery
+} from '@/utils/urlListQuery';
+import { useDebouncedCallback } from '@/composables/useDebouncedCallback';
 import KpiSummary from '@/components/dashboard/KpiSummary.vue';
 import UrlCreateModal from '@/components/dashboard/UrlCreateModal.vue';
 import BaseButton from '@/components/common/BaseButton.vue';
@@ -136,8 +155,11 @@ import EmptyState from '@/components/common/EmptyState.vue';
 const ROLLING_WINDOW_DAYS = 30;
 const COPY_FEEDBACK_DURATION = 2000;
 const TOAST_DISPLAY_DURATION = 5000;
+const SEARCH_DEBOUNCE_MS = 300;
 
 const urlStore = useUrlStore();
+const route = useRoute();
+const router = useRouter();
 
 // --- KPI summary: independent loading/error from the URL list below. ---
 const kpiStats = ref<OverallStatsResponse | null>(null);
@@ -175,23 +197,146 @@ const loadKpiSummary = async (): Promise<void> => {
   }
 };
 
-// --- Current-page-only search/status/sort toolbar. ---
-const search = ref('');
-const statusFilter = ref<StatusFilter>('all');
-const sortOption = ref<SortOption>('default');
+// --- Account-wide search/status/sort, driven by the route query. ---
 
-const visibleUrls = computed(() =>
-  deriveVisibleUrls(urlStore.urls, { status: statusFilter.value, search: search.value, sort: sortOption.value })
+/**
+ * The search box's live value.
+ *
+ * Kept separate from `urlStore.query.search` so typing stays responsive while
+ * the debounced navigation catches up.
+ */
+const searchInput = ref('');
+
+const DASHBOARD_ROUTE = 'Dashboard';
+
+/**
+ * Whether the dashboard is still the active route.
+ *
+ * `navigate` intentionally passes only `query`, which vue-router resolves
+ * against the *current* route. Without this guard a response that lands just
+ * after the user navigated away would rewrite the query string of whatever page
+ * they moved on to, and the route watcher would fetch the list for it.
+ */
+const isDashboardRoute = (): boolean => route.name === DASHBOARD_ROUTE;
+
+const navigate = (next: UrlListQueryState, mode: 'push' | 'replace' = 'push'): void => {
+  if (!isDashboardRoute()) {
+    return;
+  }
+  const query = toUrlListRouteQuery(next);
+  router[mode]({ query }).catch(() => {
+    // Duplicated navigations are expected (e.g. clearing an already-empty
+    // filter) and are not an error worth surfacing.
+  });
+};
+
+const pushSearch = useDebouncedCallback((value: string) => {
+  // Refining an existing search replaces its history entry instead of adding
+  // one per pause, so Back returns to the pre-search list rather than walking
+  // backwards through every prefix the user typed.
+  const mode = parseUrlListRouteQuery(route.query).search ? 'replace' : 'push';
+  navigate({ ...urlStore.query, search: value.trim(), page: 1 }, mode);
+}, SEARCH_DEBOUNCE_MS);
+
+const onSearchInput = (value: string): void => {
+  searchInput.value = value;
+  pushSearch(value);
+};
+
+const onStatusChange = (status: UrlListStatus): void => {
+  pushSearch.cancel();
+  navigate({ ...urlStore.query, search: searchInput.value.trim(), status, page: 1 });
+};
+
+const onSortChange = (sort: UrlListSort): void => {
+  pushSearch.cancel();
+  // Sorting reorders the whole result set, so the current page number is
+  // meaningless afterwards.
+  navigate({ ...urlStore.query, search: searchInput.value.trim(), sort, page: 1 });
+};
+
+const onPageChange = (page: number): void => {
+  pushSearch.cancel();
+  navigate({ ...urlStore.query, search: searchInput.value.trim(), page });
+};
+
+const clearFilters = (): void => {
+  pushSearch.cancel();
+  searchInput.value = '';
+  navigate({ ...urlStore.query, search: '', status: 'all', page: 1 });
+};
+
+/**
+ * The single fetch trigger.
+ *
+ * Runs on mount and on every route query change, including the ones produced by
+ * browser back/forward, so the rendered list always matches the address bar.
+ */
+let lastFetchedQuery: UrlListQueryState | null = null;
+
+watch(
+  () => route.query,
+  (rawQuery) => {
+    if (!isDashboardRoute()) {
+      return;
+    }
+    const next = parseUrlListRouteQuery(rawQuery);
+
+    // An external navigation (back/forward, pasted URL) must win over a search
+    // keystroke that has not been committed yet.
+    if (next.search !== searchInput.value.trim()) {
+      pushSearch.cancel();
+      searchInput.value = next.search;
+    }
+
+    // Our own navigations land here too; refetching an identical query would
+    // double every user interaction.
+    if (lastFetchedQuery && isSameUrlListQuery(next, lastFetchedQuery)) {
+      return;
+    }
+    lastFetchedQuery = next;
+
+    void urlStore.fetchUrls({ ...next, limit: urlStore.pagination.limit });
+  },
+  { immediate: true }
 );
 
-const isEmpty = computed(() => !urlStore.listLoading && !urlStore.listError && urlStore.urls.length === 0);
-const isNoResults = computed(
-  () =>
-    !urlStore.listLoading &&
-    !urlStore.listError &&
-    urlStore.urls.length > 0 &&
-    visibleUrls.value.matchingCount === 0
+/**
+ * Keeps the address bar honest when the store's query changes on its own.
+ *
+ * Two cases reach here, both from the server rather than the user: a requested
+ * page the server clamped to the end of the result set, and a mutation whose
+ * silent refresh landed on a different page (e.g. archiving the only row on the
+ * last page). Neither goes through `navigate`, so without this the URL would
+ * keep advertising a page the table is no longer showing.
+ *
+ * `lastFetchedQuery` is updated first so the resulting route change is
+ * recognised as already-applied and does not trigger another fetch. Being a
+ * component watcher, it also stops at unmount - a late response can never
+ * rewrite the query string of whatever page the user moved on to.
+ */
+watch(
+  () => urlStore.query,
+  (storeQuery) => {
+    if (isSameUrlListQuery(storeQuery, parseUrlListRouteQuery(route.query))) {
+      return;
+    }
+    lastFetchedQuery = { ...storeQuery };
+    navigate(storeQuery, 'replace');
+  },
+  { deep: true }
 );
+
+const showInitialLoading = computed(() => urlStore.listLoading && urlStore.urls.length === 0);
+/** A request is in flight but rows are still on screen - dim, do not blank. */
+const isBusy = computed(() => urlStore.listLoading && urlStore.urls.length > 0);
+
+const hasFilters = computed(() => hasActiveUrlListFilters(urlStore.query));
+const isListSettled = computed(
+  () => !showInitialLoading.value && !urlStore.listError && urlStore.urls.length === 0
+);
+const isEmptyAccount = computed(() => isListSettled.value && !hasFilters.value);
+const isNoResults = computed(() => isListSettled.value && hasFilters.value);
 
 // --- Toasts. ---
 const timeoutIds: number[] = [];
@@ -212,19 +357,14 @@ const pushToast = (message: string, tone: DashboardToast['tone']): void => {
 };
 
 onMounted(() => {
-  // Independent fetches: neither promise rejects outward (both capture
-  // their own errors), so a failure on one side never blocks the other.
-  urlStore.fetchUrls();
+  // The URL list is fetched by the route-query watcher above; only the
+  // independent KPI summary is kicked off here.
   loadKpiSummary();
 });
 
 onBeforeUnmount(() => {
   timeoutIds.forEach((id) => window.clearTimeout(id));
 });
-
-const goToPage = (page: number): void => {
-  urlStore.fetchUrls(page);
-};
 
 // --- Copy short URL. ---
 const copiedId = ref<string | null>(null);

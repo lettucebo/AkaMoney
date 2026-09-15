@@ -51,7 +51,8 @@ describe('UrlTable', () => {
     expect(rows).toHaveLength(2);
     expect(rows[0].text()).toContain('aka.money/alpha');
     expect(rows[0].text()).toContain('7');
-    expect(rows[0].get('.badge').text()).toContain('作用中');
+    // Must match the toolbar's 使用中 status tab - both are on screen together.
+    expect(rows[0].get('.badge').text()).toContain('使用中');
     expect(rows[1].get('.badge').text()).toContain('已封存');
   });
 
