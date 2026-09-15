@@ -25,6 +25,8 @@ const resolverPath = path.join(repoRoot, '.github', 'scripts', 'resolve-release-
 const workflowPath = path.join(repoRoot, '.github', 'workflows', 'release.yml');
 
 const TRUSTED_RESOLVER_PATH = '.release-policy/.github/scripts/resolve-release-ref.mjs';
+const TRUSTED_MIGRATION_GUARD_PATH =
+  '.release-policy/.github/scripts/check-d1-migrations.mjs';
 const POLICY_CHECKOUT_PATH = '.release-policy';
 const VALIDATED_SHA_EXPRESSION = '${{ needs.prepare-release.outputs.sha }}';
 
@@ -590,14 +592,16 @@ function withoutComments(text: string): string {
 
 const SECRET_REFERENCE = /secrets\.[A-Z0-9_]+/;
 const DEPLOY_JOBS = ['deploy-admin-api', 'deploy-redirect', 'deploy-frontend'];
-const CODE_DEPLOY_JOBS = ['deploy-admin-api', 'deploy-redirect'];
+const MIGRATION_JOB = 'migrate-d1';
+const RELEASE_JOBS = [MIGRATION_JOB, ...DEPLOY_JOBS];
+const CODE_CHECKOUT_JOBS = [MIGRATION_JOB, 'deploy-admin-api', 'deploy-redirect'];
 
 describe('release.yml - production trust boundary invariants', () => {
   const workflow = readWorkflow();
   const jobs = splitJobs(workflow);
 
   it('exposes exactly the expected jobs', () => {
-    expect([...jobs.keys()]).toEqual(['prepare-release', 'build', ...DEPLOY_JOBS]);
+    expect([...jobs.keys()]).toEqual(['prepare-release', 'build', ...DEPLOY_JOBS, MIGRATION_JOB]);
   });
 
   it('has no pull request trigger, label logic or PR head checkout', () => {
@@ -655,7 +659,7 @@ describe('release.yml - production trust boundary invariants', () => {
   });
 
   it('checks out the trusted policy tree from literal main with full history', () => {
-    const policyJobs = ['prepare-release', ...DEPLOY_JOBS];
+    const policyJobs = ['prepare-release', ...RELEASE_JOBS];
     for (const jobId of policyJobs) {
       const body = jobs.get(jobId) ?? '';
       const policyStep = splitSteps(body).find((step) => step.body.includes(`path: ${POLICY_CHECKOUT_PATH}`));
@@ -708,9 +712,12 @@ describe('release.yml - production trust boundary invariants', () => {
     expect(build).toMatch(/ref: \$\{\{ needs\.prepare-release\.outputs\.sha \}\}/);
   });
 
-  it('gates every deploy job on both the validation and the build', () => {
+  it('gates migrations on validation and build, then gates every deploy on migrations', () => {
+    expect(jobs.get(MIGRATION_JOB)).toMatch(/^ {4}needs: \[prepare-release, build\]$/m);
     for (const jobId of DEPLOY_JOBS) {
-      expect(jobs.get(jobId), jobId).toMatch(/^ {4}needs: \[prepare-release, build\]$/m);
+      expect(jobs.get(jobId), jobId).toMatch(
+        /^ {4}needs: \[prepare-release, build, migrate-d1\]$/m
+      );
     }
   });
 
@@ -718,12 +725,13 @@ describe('release.yml - production trust boundary invariants', () => {
     // Pinning the exact index also forbids inserting *any* new step ahead of the recheck, which a
     // keyword-based scan of later steps would not catch.
     const expectedRecheckIndex: Record<string, number> = {
+      'migrate-d1': 2,
       'deploy-admin-api': 2,
       'deploy-redirect': 2,
       'deploy-frontend': 1
     };
 
-    for (const jobId of DEPLOY_JOBS) {
+    for (const jobId of RELEASE_JOBS) {
       const steps = splitSteps(jobs.get(jobId) ?? '');
       const recheckIndex = steps.findIndex((step) => step.body.includes(TRUSTED_RESOLVER_PATH));
       expect(recheckIndex, `${jobId} must recheck ancestry`).toBeGreaterThanOrEqual(0);
@@ -747,7 +755,7 @@ describe('release.yml - production trust boundary invariants', () => {
   });
 
   it('rechecks ancestry on the preinstalled runner Node, before setup-node touches the selected tree', () => {
-    for (const jobId of DEPLOY_JOBS) {
+    for (const jobId of RELEASE_JOBS) {
       const steps = splitSteps(jobs.get(jobId) ?? '');
       const recheckIndex = steps.findIndex((step) => step.body.includes(TRUSTED_RESOLVER_PATH));
       const setupNodeIndex = steps.findIndex((step) => step.body.includes('uses: actions/setup-node@v4'));
@@ -757,7 +765,7 @@ describe('release.yml - production trust boundary invariants', () => {
   });
 
   it('checks out the selected code before the trusted policy tree in code deploy jobs', () => {
-    for (const jobId of CODE_DEPLOY_JOBS) {
+    for (const jobId of CODE_CHECKOUT_JOBS) {
       const steps = splitSteps(jobs.get(jobId) ?? '');
       const selectedIndex = steps.findIndex(
         (step) => step.body.includes('uses: actions/checkout@v4') && !step.body.includes(`path: ${POLICY_CHECKOUT_PATH}`)
@@ -766,6 +774,39 @@ describe('release.yml - production trust boundary invariants', () => {
       expect(selectedIndex, `${jobId} must check out the validated commit`).toBe(0);
       expect(policyIndex, `${jobId} policy checkout must follow the code checkout`).toBe(1);
     }
+  });
+
+  it('guards and applies remote D1 migrations before reporting success', () => {
+    const body = jobs.get(MIGRATION_JOB) ?? '';
+    const steps = splitSteps(body);
+    const stateIndex = steps.findIndex((step) => step.name === 'Query production D1 migration state');
+    const guardIndex = steps.findIndex((step) => step.body.includes(TRUSTED_MIGRATION_GUARD_PATH));
+    const applyIndex = steps.findIndex((step) =>
+      step.body.includes('wrangler d1 migrations apply DB --remote')
+    );
+    const verifyIndex = steps.findIndex((step) => step.name === 'Verify no D1 migrations remain');
+
+    expect(body).toMatch(/^ {4}environment: production$/m);
+    expect(body).toMatch(/expected Wrangler 4\.90\.0/);
+    expect(body).toMatch(/CLOUDFLARE_D1_DATABASE_ID/);
+    expect(body).toMatch(/database_id = /);
+    expect(steps[stateIndex]?.body).toMatch(/wrangler d1 execute DB --remote --json/);
+    expect(steps[stateIndex]?.body).toMatch(/d1_migrations/);
+    expect(steps[stateIndex]?.body).toMatch(/has_baseline_table/);
+    expect(steps[guardIndex]?.body).toMatch(
+      /D1_DESTRUCTIVE_ALLOWLIST: \$\{\{ vars\.ALLOW_DESTRUCTIVE_D1_MIGRATIONS \}\}/
+    );
+    expect(steps[guardIndex]?.body).toMatch(/id: guard/);
+    expect(steps[applyIndex]?.body).toMatch(
+      /if: steps\.guard\.outputs\.pending_count != '0'/
+    );
+    expect(stateIndex).toBeGreaterThanOrEqual(0);
+    expect(guardIndex).toBeGreaterThan(stateIndex);
+    expect(applyIndex).toBeGreaterThan(guardIndex);
+    expect(verifyIndex).toBeGreaterThan(applyIndex);
+    expect(steps[verifyIndex]?.body).toMatch(TRUSTED_MIGRATION_GUARD_PATH);
+    expect(steps[verifyIndex]?.body).toMatch(/pending_count/);
+    expect(steps[verifyIndex]?.body).toMatch(/exit 1/);
   });
 
   it('keeps deploy-frontend free of any application code checkout', () => {
@@ -868,14 +909,15 @@ describe('release documentation matches the hardened workflow', () => {
     }
   });
 
-  it('documents the production environment policy without dropping the required reviewer', () => {
+  it('documents the production environment policy without a required reviewer', () => {
     for (const { name, text } of deploymentDocs) {
       expect(text, name).toMatch(/environments\/production\/deployment-branch-policies/);
       expect(text, name).toMatch(/-f name='main' -f type='branch'/);
       expect(text, name).toMatch(/-f name='\*\.\*\.\*' -f type='tag'/);
-      expect(text, `${name} must keep reviewers in the environment PUT`).toMatch(
-        /"reviewers": \[\{ "type": "User", "id": \d+ \}\]/
+      expect(text, `${name} must remove reviewers in the environment PUT`).toMatch(
+        /"reviewers": \[\]/
       );
+      expect(text, name).toMatch(/no human approval|without human approval|無需人工核准|不需人工核准/i);
       expect(text, name).toMatch(/custom_branch_policies/);
     }
   });

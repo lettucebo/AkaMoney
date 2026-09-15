@@ -17,22 +17,22 @@ name: Release
 # consumes only that immutable validated SHA, never the raw event ref.
 #
 # Documented limitations, deliberately not claimed as solved:
-#   * The `production` required reviewer is the sole maintainer, self-review is permitted and
-#     repository admins can bypass the environment, so approval is a confirmation rather than
-#     independent authorization.
+#   * The `production` environment has no required reviewer, so a valid release runs without human
+#     approval. It remains attached to secret-bearing jobs for deployment history and ref policy.
 #   * A SemVer tag created on a historical commit still runs *that commit's* workflow file,
 #     including versions from before this hardening. Neither the environment tag policy nor the
-#     reviewer can inspect workflow age; the maintainer must reject such a run.
+#     migration guard can replace the reviewer that previously could reject such a run.
 #   * Anyone with write access can push a tag or start a dispatch, and the repository has no branch
 #     protection, so trusted same-repo writers remain trusted. Only external/unmerged PR-head
 #     execution is removed here.
 #   * `CLOUDFLARE_API_TOKEN` and `AZURE_STORAGE_SAS_TOKEN` are still repository secrets and stay
 #     readable by any workflow run in this repository; only `SENTRY_AUTH_TOKEN` is environment
 #     scoped. Every job below that reads a secret still declares `environment: production`, so the
-#     required reviewer applies to it.
-#   * The `production` environment currently has no deployment branch/tag policy configured, so the
-#     environment itself does not restrict which ref may deploy; the checks in this workflow do.
-#     Adding a custom policy (branch `main` plus tag `*.*.*`) is recommended follow-up.
+#     environment ref policy and deployment history apply to it.
+#   * The `production` environment custom policy permits branch `main` and tags matching `*.*.*`.
+#     The workflow's resolver remains the stronger check because it enforces exact SemVer and proves
+#     the selected commit is on mainline.
+#
 on:
   push:
     tags:
@@ -233,7 +233,7 @@ jobs:
 
   deploy-admin-api:
     runs-on: ubuntu-latest
-    needs: [prepare-release, build]
+    needs: [prepare-release, build, migrate-d1]
     environment: production
 
     steps:
@@ -251,11 +251,11 @@ jobs:
           path: .release-policy
           fetch-depth: 0
 
-      # Waiting for the production reviewer can take arbitrarily long. Re-prove from the trusted
-      # main clone that the selected commit is still on mainline before anything from the released
-      # commit executes (npm lifecycle scripts run during `npm ci`) and before any secret is read.
-      # This runs on the runner's preinstalled Node, ahead of setup-node, so not even the npm cache
-      # is keyed on the selected tree until ancestry has been re-proved.
+      # Time can pass between initial validation, migration and deployment. Re-prove from the
+      # trusted main clone that the selected commit is still on mainline before anything from the
+      # released commit executes (npm lifecycle scripts run during `npm ci`) and before any secret
+      # is read. This runs on the runner's preinstalled Node, ahead of setup-node, so not even the
+      # npm cache is keyed on the selected tree until ancestry has been re-proved.
       - name: Recheck the release commit against mainline
         env:
           RELEASE_MODE: recheck
@@ -724,7 +724,7 @@ jobs:
 
   deploy-redirect:
     runs-on: ubuntu-latest
-    needs: [prepare-release, build]
+    needs: [prepare-release, build, migrate-d1]
     environment: production
 
     steps:
@@ -1020,7 +1020,7 @@ jobs:
 
   deploy-frontend:
     runs-on: ubuntu-latest
-    needs: [prepare-release, build]
+    needs: [prepare-release, build, migrate-d1]
     environment: production
 
     steps:
@@ -1148,3 +1148,181 @@ jobs:
             echo "" >> "$GITHUB_STEP_SUMMARY"
             echo "Please check the workflow logs for more details." >> "$GITHUB_STEP_SUMMARY"
           fi
+
+  migrate-d1:
+    runs-on: ubuntu-latest
+    needs: [prepare-release, build]
+    environment: production
+
+    steps:
+      # The migration files come from the validated release commit. The trusted policy checkout is
+      # separate so released code cannot alter the resolver or migration guard that judges it.
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare-release.outputs.sha }}
+
+      - name: Checkout trusted release policy from main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: .release-policy
+          fetch-depth: 0
+
+      # Recheck before setup-node, npm lifecycle scripts or any Cloudflare credential is used.
+      - name: Recheck the release commit against mainline
+        env:
+          RELEASE_MODE: recheck
+          RELEASE_REPO_DIR: .release-policy
+          RELEASE_SELECTED_SHA: ${{ needs.prepare-release.outputs.sha }}
+        run: node .release-policy/.github/scripts/resolve-release-ref.mjs
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.x'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install workspace dependencies
+        run: npm ci
+
+      - name: Verify pinned Wrangler version
+        run: |
+          set -euo pipefail
+          VERSION=$(cd src/backend && npx --no-install wrangler --version)
+          echo "Resolved Wrangler version: $VERSION"
+          if [ "$VERSION" != "4.90.0" ]; then
+            echo "Error: expected Wrangler 4.90.0 for D1 migrations, got '$VERSION'"
+            exit 1
+          fi
+
+      - name: Ensure D1 database exists
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          cd src/backend
+          DB_NAME="akamoney-clicks"
+          if npx --no-install wrangler d1 list 2>/dev/null | grep -qw "$DB_NAME"; then
+            echo "Database '$DB_NAME' already exists"
+          else
+            echo "Creating D1 database '$DB_NAME'..."
+            npx --no-install wrangler d1 create "$DB_NAME"
+            echo "Database '$DB_NAME' created successfully"
+          fi
+
+      - name: Get D1 database ID
+        id: d1-database
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          cd src/backend
+          DB_NAME="akamoney-clicks"
+          DB_ID=$(npx --no-install wrangler d1 list --json 2>/dev/null | jq -r --arg name "$DB_NAME" '.[] | select(.name == $name) | .uuid')
+          if ! echo "$DB_ID" | grep -qE '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'; then
+            echo "Error: could not retrieve a valid database ID for '$DB_NAME'"
+            exit 1
+          fi
+          echo "database_id=$DB_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Inject D1 database ID into wrangler.toml
+        env:
+          CLOUDFLARE_D1_DATABASE_ID: ${{ steps.d1-database.outputs.database_id }}
+        run: |
+          set -euo pipefail
+          if [ -z "$CLOUDFLARE_D1_DATABASE_ID" ]; then
+            echo "Error: CLOUDFLARE_D1_DATABASE_ID is not set"
+            exit 1
+          fi
+          sed -i 's/^[[:space:]]*database_id[[:space:]]*=[[:space:]]*""/database_id = "'"${CLOUDFLARE_D1_DATABASE_ID}"'"/' src/backend/wrangler.toml
+          if ! grep -q '^database_id = "[^"]\+"$' src/backend/wrangler.toml; then
+            echo "Error: failed to inject the D1 database ID"
+            exit 1
+          fi
+
+      - name: Query production D1 migration state
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          cd src/backend
+          npx --no-install wrangler d1 execute DB --remote --json \
+            --command "SELECT EXISTS(SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = 'urls') AS has_baseline_table, EXISTS(SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = 'd1_migrations') AS has_migration_journal" \
+            > "$RUNNER_TEMP/d1-schema.json"
+          if jq -e '.[0].success == true and .[0].results[0].has_migration_journal == 1' "$RUNNER_TEMP/d1-schema.json" > /dev/null; then
+            npx --no-install wrangler d1 execute DB --remote --json \
+              --command "SELECT name FROM d1_migrations ORDER BY id" \
+              > "$RUNNER_TEMP/d1-applied.json"
+          else
+            printf '%s\n' '[{"results":[],"success":true}]' > "$RUNNER_TEMP/d1-applied.json"
+          fi
+
+      - name: Check production D1 migration policy
+        id: guard
+        env:
+          D1_MIGRATIONS_DIR: src/backend/migrations
+          D1_APPLIED_MIGRATIONS_FILE: ${{ runner.temp }}/d1-applied.json
+          D1_SCHEMA_STATE_FILE: ${{ runner.temp }}/d1-schema.json
+          D1_DESTRUCTIVE_ALLOWLIST: ${{ vars.ALLOW_DESTRUCTIVE_D1_MIGRATIONS }}
+        run: node .release-policy/.github/scripts/check-d1-migrations.mjs
+
+      - name: Apply pending production D1 migrations
+        if: steps.guard.outputs.pending_count != '0'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          cd src/backend
+          npx --no-install wrangler d1 migrations apply DB --remote
+
+      - name: Refresh production D1 migration journal
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          cd src/backend
+          npx --no-install wrangler d1 execute DB --remote --json \
+            --command "SELECT name FROM d1_migrations ORDER BY id" \
+            > "$RUNNER_TEMP/d1-applied.json"
+
+      - name: Verify no D1 migrations remain
+        env:
+          D1_MIGRATIONS_DIR: src/backend/migrations
+          D1_APPLIED_MIGRATIONS_FILE: ${{ runner.temp }}/d1-applied.json
+          D1_SCHEMA_STATE_FILE: ${{ runner.temp }}/d1-schema.json
+          D1_DESTRUCTIVE_ALLOWLIST: ${{ vars.ALLOW_DESTRUCTIVE_D1_MIGRATIONS }}
+        run: |
+          set -euo pipefail
+          VERIFY_OUTPUT="$RUNNER_TEMP/d1-verify-output"
+          : > "$VERIFY_OUTPUT"
+          GITHUB_OUTPUT="$VERIFY_OUTPUT" node .release-policy/.github/scripts/check-d1-migrations.mjs
+          PENDING_COUNT=$(sed -n 's/^pending_count=//p' "$VERIFY_OUTPUT")
+          if [ "$PENDING_COUNT" != "0" ]; then
+            echo "Error: ${PENDING_COUNT:-unknown} D1 migration(s) remain after apply"
+            exit 1
+          fi
+          echo "All production D1 migrations are applied"
+
+      - name: Add migration summary
+        if: always()
+        env:
+          JOB_STATUS: ${{ job.status }}
+          RELEASE_SHA: ${{ needs.prepare-release.outputs.sha }}
+          PENDING_COUNT: ${{ steps.guard.outputs.pending_count }}
+          PENDING_NAMES: ${{ steps.guard.outputs.pending_names }}
+        run: |
+          echo "## Production D1 Migration Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Property | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| --- | --- |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **Status** | ${JOB_STATUS} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **Commit** | ${RELEASE_SHA} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **Pending before apply** | ${PENDING_COUNT:-unknown} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **Migration files** | ${PENDING_NAMES:-none} |" >> "$GITHUB_STEP_SUMMARY"

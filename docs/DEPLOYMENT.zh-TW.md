@@ -47,7 +47,7 @@ on:
 
 合併 Pull Request 不會部署任何東西：`main` 沒有 push 觸發條件，Pull Request 事件也完全無法啟動此工作流程。原本以標籤驅動的路徑（`pull_request_target` 觸發加上 `run-release` 標籤，會在持有 Cloudflare、Azure、Entra 與 Sentry 憑證的工作中建置並部署**未合併的 PR head commit**）已完全移除（issue #140）。
 
-只有具備本存放庫寫入權限的帳號才能推送 tag 或手動觸發，且 `production` 部署仍需等待該 environment 的必要審核者核准。
+只有具備本存放庫寫入權限的帳號才能推送 tag 或手動觸發。`production` environment 沒有必要審核者，因此有效的 release 會無需人工核准地端到端執行。
 
 ### 發布信任邊界
 
@@ -56,38 +56,38 @@ on:
 - 它**只**會將 `main` 檢出到 `.release-policy`（`fetch-depth: 0`）。此工作永遠不會把被發布的 ref 當成可執行程式碼檢出，因此 tag 或手動觸發無法自備審查自己的驗證器。
 - 它執行受信任的 `.release-policy/.github/scripts/resolve-release-ref.mjs`。所有事件值（`github.event_name`、`github.ref_type`、`github.ref_name`、`github.sha` 與兩個 dispatch 輸入）都只透過 `env:` 傳入不經 shell 的 Node 程式碼；git 一律以固定 argv 陣列呼叫，任何 ref 名稱或輸入都不會被 shell 展開。
 - 驗證器會以完整歷史 fetch `origin/main`（必要時將 shallow clone 展開），以 `^{commit}` 解析 annotated tag，將解析結果與 GitHub 回報的事件 SHA 交叉比對，使用 `git cat-file -e` 確認物件存在，並要求 `git merge-base --is-ancestor` 判定該 commit 位於 `origin/main` 上。「不是祖先」（exit 1）與 git 執行失敗（exit >1）會分開回報，避免基礎設施錯誤被誤判為政策結論。
-- 此工作唯一的輸出就是不可變的 commit SHA。`build`、`deploy-admin-api` 與 `deploy-redirect` 都只檢出該 SHA；`deploy-frontend` 不檢出任何應用程式原始碼，只部署 `build` 由該 SHA 產生的 artifact。所有部署摘要也都回報該 SHA，而非原始事件 ref。
-- 每個部署工作會先檢出已驗證的 commit，再加上來自 `main` 的受信任 `.release-policy` clone，並以 runner 預先安裝的 Node，在 `actions/setup-node`、`npm ci`（會執行被發布 commit 的 lifecycle scripts）與任何讀取 secret 的步驟**之前**，以 recheck 模式重新執行驗證器——因此在祖先關係重新確認前，連 npm cache 都不會以被選定的原始碼樹為索引鍵。這關閉了等待審核期間的偏移窗口。`deploy-frontend` 雖然只部署預先建置的 artifact、且完全不檢出應用程式原始碼，仍會在下載 artifact 或接觸憑證前執行相同的受信任檢出與 recheck。
+- 此工作唯一的輸出就是不可變的 commit SHA。`build`、`migrate-d1`、`deploy-admin-api` 與 `deploy-redirect` 都只檢出該 SHA；`deploy-frontend` 不檢出任何應用程式原始碼，只部署 `build` 由該 SHA 產生的 artifact。所有 release 摘要也都回報該 SHA，而非原始事件 ref。
+- `migrate-d1` 與每個部署工作都會加上來自 `main` 的受信任 `.release-policy` clone，並以 runner 預先安裝的 Node，在 `actions/setup-node`、`npm ci`（會執行被發布 commit 的 lifecycle scripts）與任何讀取 secret 的步驟**之前**，以 recheck 模式重新執行驗證器——因此在祖先關係重新確認前，連 npm cache 都不會以被選定的原始碼樹為索引鍵。`deploy-frontend` 雖然只部署預先建置的 artifact、且完全不檢出應用程式原始碼，仍會在下載 artifact 或接觸憑證前執行相同的受信任檢出與 recheck。
 - `concurrency: { group: release-production, cancel-in-progress: false }` 讓發布序列化，且不會中途取消進行中的部署。
 
-`prepare-release` 沒有 environment、沒有任何 secret，權限僅 `contents: read`。`build` 同樣不持有任何部署憑證；正式環境 secrets 只出現在三個受審核者保護的 `environment: production` 工作中。
+`prepare-release` 沒有 environment、沒有任何 secret，權限僅 `contents: read`。`build` 同樣不持有任何部署憑證；正式環境 secrets 只出現在 `migrate-d1` 與三個部署工作中，這些工作都宣告 `environment: production` 以保留 ref policy 與部署紀錄。
 
 上述不變條件由 `src/backend/src/__tests__/release-ref-security.test.ts` 的測試強制驗證：測試會對臨時 git 儲存庫實際執行驗證器（惡意 tag、惡意 dispatch 輸入、annotated tag、非主線 commit、git 失敗），並檢查工作流程結構。
 
 ### 正式環境 Environment 保護政策
 
-三個部署工作都宣告 `environment: production`，因此 GitHub environment 保護是信任邊界在平台端的另一半。預期設定如下：
+Migration 工作與三個部署工作都宣告 `environment: production`，因此 GitHub environment 的 ref policy 是信任邊界在平台端的另一半。預期設定如下：
 
 | 設定 | 預期值 | 原因 |
 |------|--------|------|
-| 必要審核者 | 維護者（`lettucebo`） | 每次正式環境部署都必須有人確認。 |
+| 必要審核者 | 無 | 有效 release 必須無需人工核准地執行；由存放庫與 workflow policy 負責把關。 |
 | 部署 branch／tag 政策 | 自訂政策：branch `main` **與** tag `*.*.*` | 從其他 ref 觸發的手動執行或 tag 無法取得該 environment，即使該 ref 改寫了工作流程也一樣。 |
 | Protected-branches 模式 | 不使用 | 本存放庫沒有任何 branch protection 規則，該模式會導致所有 ref 都不被允許。 |
 
-**已驗證的目前狀態（2026-09-03）**：必要審核者（`lettucebo`）已設定、`prevent_self_review` 為 `false`、`can_admins_bypass` 為 `true`，且上表的部署 branch／tag 政策**已套用**——`deployment_branch_policy` 為 `{ "protected_branches": false, "custom_branch_policies": true }`，並設有恰好兩筆政策：branch `main` 與 tag `*.*.*`。因此 ref 限制同時由 environment 與工作流程內部的檢查負責。
+**已驗證的目前狀態（2026-09-16）**：`reviewers` 為空、`prevent_self_review` 為 `false`、`can_admins_bypass` 為 `true`，且上表的部署 branch／tag 政策**已套用**——`deployment_branch_policy` 為 `{ "protected_branches": false, "custom_branch_policies": true }`，並設有恰好兩筆政策：branch `main` 與 tag `*.*.*`。因此 ref 限制同時由 environment 與工作流程內部的檢查負責。
 
-以下指令是**重新驗證或重新套用**該設定時的參考資料，並非待執行的動作。environment 的 `PUT` 會整份取代設定，因此必須一併送出 `reviewers`，否則必要審核者會被移除：
+以下指令是**重新驗證或重新套用**該設定時的參考資料，並非待執行的動作。environment 的 `PUT` 會整份取代設定，因此空的 `reviewers` 陣列與部署政策都必須明確送出：
 
 ```bash
 # 1. 唯讀檢視目前狀態。
 gh api repos/lettucebo/AkaMoney/environments/production
 
-# 2. 啟用自訂部署政策，同時保留必要審核者。
+# 2. 啟用自訂部署政策，不設定必要審核者。
 #    environment-policy.json：
 #    {
 #      "wait_timer": 0,
 #      "prevent_self_review": false,
-#      "reviewers": [{ "type": "User", "id": 891383 }],
+#      "reviewers": [],
 #      "deployment_branch_policy": { "protected_branches": false, "custom_branch_policies": true }
 #    }
 gh api --method PUT repos/lettucebo/AkaMoney/environments/production --input environment-policy.json
@@ -103,20 +103,18 @@ gh api repos/lettucebo/AkaMoney/environments/production
 gh api repos/lettucebo/AkaMoney/environments/production/deployment-branch-policies
 ```
 
-`prevent_self_review` 刻意維持 `false`：維護者是唯一審核者，若開啟將導致所有發布都無法核准。這個取捨記錄在下方限制中，而不是隱瞞。
-
 ### 發布控制的已知限制
 
 以下是確實存在且已記錄的落差，並非已解決的問題：
 
-- **必要審核者是確認機制，而非獨立授權。** `production` environment 的審核者就是唯一的維護者，允許自我核准（`prevent_self_review: false`），且存放庫管理員可略過 environment 保護（`can_admins_bypass: true`）。
-- **歷史工作流程。** 若對歷史 commit 新建一個 SemVer tag，執行的是**該 commit 當時**的工作流程檔案，包含本次強化之前的版本。tag pattern 與審核者都無法辨識工作流程的新舊，維護者必須自行拒絕這類執行。
+- **沒有人工核准 gate。** `production` environment 沒有必要審核者，因此有效 tag 或已確認的 dispatch 會自動繼續。存放庫管理員也可略過 environment 保護（`can_admins_bypass: true`）；發布 gate 是自訂 ref policy 與受信任的 workflow 檢查，而不是人工審核。
+- **歷史工作流程。** 若對歷史 commit 新建一個 SemVer tag，執行的是**該 commit 當時**的工作流程檔案，包含本次強化之前的版本。tag pattern 無法辨識工作流程的新舊；移除 reviewer 也代表失去過去可在 waiting 狀態拒絕該執行的機會。
 - **信任同存放庫的寫入者。** 任何具寫入權限者都能推送 tag 或手動觸發；本存放庫目前沒有 branch protection 或 rulesets，因此這類帳號本來就能修改 `main`。本次修復移除的是**外部／未合併 PR head** 程式碼的執行路徑，並未嘗試限制受信任的寫入者。
 - **Repository 範圍的 secrets。** `CLOUDFLARE_API_TOKEN` 與 `AZURE_STORAGE_SAS_TOKEN` 目前仍是 repository secrets，因此本存放庫中任何工作流程執行都可讀取，不僅限於 `environment: production` 的工作；目前只有 `SENTRY_AUTH_TOKEN` 是 environment 範圍。要遷移其餘 secrets 必須由維護者提供或重新產生替代值（GitHub secret 值為只寫，無法讀回複製），因此刻意**不**自動執行——僅憑名稱存在就刪除 repository 版本，可能直接讓正式環境部署失效。
 
 ### 管線執行順序與資源佈建
 
-工作流程包含五個互相協調的 Job：
+工作流程包含六個互相協調的 Job：
 
 1. **`prepare-release` Job**（無 environment、無 secrets）：
    - 將 `main` 檢出至 `.release-policy`，並依上述規則驗證事件。
@@ -129,7 +127,13 @@ gh api repos/lettucebo/AkaMoney/environments/production/deployment-branch-polici
    - 建置前端靜態資源（`src/frontend/dist/`）並上傳 `frontend-dist` artifact。
    - 針對後端與重定向服務執行部署乾跑檢查（`wrangler deploy --dry-run`）。
 
-3. **`deploy-admin-api` Job**（目標環境：`production`）：
+3. **`migrate-d1` Job**（目標環境：`production`）：
+   - 檢出已驗證的 commit 與受信任的 `.release-policy`，並在 setup、依賴安裝或 Cloudflare 憑證之前重新確認主線祖先關係。
+   - 確保 `akamoney-clicks` 存在、將 UUID 注入後端 Wrangler 設定，並以 JSON 查詢遠端 schema 與 `d1_migrations` journal。
+   - 在套用任何 migration 前執行 `.release-policy/.github/scripts/check-d1-migrations.mjs`。若已存在 `urls` schema 但 journal 為空、pending 檔名順序倒插，或含有未核准的破壞性 SQL，便會 fail closed。
+   - 透過 `wrangler d1 migrations apply DB --remote` 套用 pending 檔案，重新查詢 journal，並要求 pending 數為零後才允許任何部署工作開始。
+
+4. **`deploy-admin-api` Job**（目標環境：`production`）：
    - 檢出已驗證的 commit，加上受信任的 `.release-policy` clone，並在安裝依賴或讀取任何 secret 之前重新確認主線祖先關係。
    - 在任何 Cloudflare 呼叫前驗證 `SENTRY_BACKEND_DSN`，並將 `src/backend/wrangler.toml` 的 `ENVIRONMENT` 寫死為 `"production"`，同時確認結果剛好只有一筆 production 指派。
    - 自動檢查 D1 資料庫 `akamoney-clicks` 是否存在；若不存在則透過 `wrangler d1 create` 自動建立。
@@ -141,13 +145,13 @@ gh api repos/lettucebo/AkaMoney/environments/production/deployment-branch-polici
    - 注入 Worker 環境變數（`[vars]`）與 Worker Secrets（`wrangler secret put`）。
    - 透過 `cloudflare/wrangler-action@v3` 部署 Worker。
 
-4. **`deploy-redirect` Job**（目標環境：`production`）：
+5. **`deploy-redirect` Job**（目標環境：`production`）：
    - 執行與 `deploy-admin-api` 相同的已驗證檢出與主線 recheck。
    - 在任何 Cloudflare 呼叫前驗證 `SENTRY_REDIRECT_DSN`，並將 `src/redirect/wrangler.toml` 的 `ENVIRONMENT` 寫死為 `"production"`。
    - 取得 `akamoney-clicks` 的 D1 資料庫 ID 並注入至 `src/redirect/wrangler.toml`。
    - 透過 `cloudflare/wrangler-action@v3` 部署重定向服務 Worker。
 
-5. **`deploy-frontend` Job**（目標環境：`production`）：
+6. **`deploy-frontend` Job**（目標環境：`production`）：
    - 只檢出受信任的 `.release-policy` clone，並在接觸 artifact 或任何憑證前重新確認主線祖先關係；此工作永遠不檢出應用程式原始碼。
    - 下載 `frontend-dist` 建置產物。
    - 上傳並隨後刪除 hidden source maps（詳見 [Monitoring](MONITORING.zh-TW.md)）。
@@ -164,7 +168,7 @@ gh api repos/lettucebo/AkaMoney/environments/production/deployment-branch-polici
 ### Workflow Secrets
 
 - `CLOUDFLARE_API_TOKEN`：具備 Workers、Pages、D1 與 R2 權限之 Cloudflare API Token（需包含 `Edit Cloudflare Workers`、`D1:Edit`、`R2:Edit`、`Pages:Edit` 權限）。目前存放為 **repository** secret。
-- `SENTRY_AUTH_TOKEN`：**必要的 production environment secret。** 僅供受保護的前端部署工作上傳 source maps。請勿存為 repository secret，並應要求 production environment reviewer 核准。
+- `SENTRY_AUTH_TOKEN`：**必要的 production environment secret。** 僅供受保護的前端部署工作上傳 source maps。請勿存為 repository secret；environment 有 ref 限制，但沒有必要審核者。
 - `ENTRA_ID_CLIENT_SECRET`：*（選填）* Release workflow 只會在此值存在時注入；runtime backend 不會讀取此值，也不會執行 SSO 權杖交換。目前**兩種範圍都未設定**；若日後要新增，請建立為 `production` environment secret。
 - `AZURE_STORAGE_SAS_TOKEN`：*（選填）* Azure Blob Storage SAS 權杖（僅在 `STORAGE_PROVIDER=azure` 時需要）。目前存放為 **repository** secret。
 
@@ -174,6 +178,7 @@ gh api repos/lettucebo/AkaMoney/environments/production/deployment-branch-polici
 
 - `CLOUDFLARE_ACCOUNT_ID`：Cloudflare 帳號 ID。
 - `CLOUDFLARE_D1_DATABASE_ID`：*（選填）* 若需手動覆寫 D1 UUID 時填寫。
+- `ALLOW_DESTRUCTIVE_D1_MIGRATIONS`：*（選填，平常留空）* 以逗號分隔、允許在非空資料庫執行 `DROP TABLE`、`DROP COLUMN`、`DELETE FROM` 或 `TRUNCATE` 的精確 migration 檔名。這是只供受信任 migration guard 使用的 repository variable；布林值或部分檔名都不算核准。
 - `ENTRA_ID_TENANT_ID`：Microsoft Entra ID 租用戶識別碼（Tenant ID）。
 - `ENTRA_ID_CLIENT_ID`：Microsoft Entra ID 應用程式（用戶端）識別碼（Client ID）。
 - `ENTRA_ID_REDIRECT_URI`：前端重定向網址（例如 `https://admin.aka.money`）。
@@ -215,14 +220,22 @@ crons = ["0 2 * * *"]  # 每日 UTC 02:00（台灣時間 10:00）執行
 
 ## 部署中的資料庫遷移
 
-資料庫遷移 SQL 檔案位於 `src/backend/migrations/`。若要在部署時更新正式環境結構：
+資料庫遷移 SQL 檔案位於 `src/backend/migrations/`。Release workflow 的 `migrate-d1` 工作會在驗證與建置後執行，所有服務部署都依賴此工作。
+
+受信任 guard 會在 apply 前讀取正式環境 schema 與 Wrangler 的 `d1_migrations` journal，並拒絕：
+
+- 已存在 `urls` table 但 journal 為空，避免在既有 schema 上重播 bootstrap migrations；
+- pending 檔名排序早於最後一個已套用檔名；
+- pending 檔案含 `DROP TABLE`、`DROP COLUMN`、`DELETE FROM` 或 `TRUNCATE`，但該精確檔名未列入 `ALLOW_DESTRUCTIVE_D1_MIGRATIONS`。
+
+`DROP INDEX`、註解與字串常值不算破壞性 SQL。真正空白的資料庫可不經 allowlist 執行 bootstrap migrations。核准的 migrations 仍交由 Wrangler 套用，以保留其 journal、backup 與逐 migration rollback 語意；之後必須驗證 pending 數為零，部署工作才會開始。
+
+正常 release 路徑不得手動套用 migration。下列指令只是在診斷 `migrate-d1` 失敗後使用的手動復原備援：
 
 ```bash
 cd src/backend
 npx wrangler d1 migrations apply DB --remote --config wrangler.toml
 ```
-
-*（注意：請確認 D1 資料庫名稱 `akamoney-clicks` 與線上 D1 實例名稱一致）。*
 
 ---
 

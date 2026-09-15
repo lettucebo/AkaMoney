@@ -47,7 +47,7 @@ on:
 
 Merging a pull request deploys nothing: `main` has no push trigger, and pull request events cannot start this workflow at all. The former label-driven path — a `pull_request_target` trigger plus a `run-release` label that built and deployed the **unmerged PR head commit** in jobs holding Cloudflare, Azure, Entra and Sentry credentials — has been removed (issue #140).
 
-Only accounts with write access to this repository can push a tag or start a manual dispatch, and `production` deployments still wait for the environment's required reviewer.
+Only accounts with write access to this repository can push a tag or start a manual dispatch. The `production` environment has no required reviewer, so a valid release proceeds end-to-end without human approval.
 
 ### Release Trust Boundary
 
@@ -56,38 +56,38 @@ Only accounts with write access to this repository can push a tag or start a man
 - It checks out **only `main`** into `.release-policy` with `fetch-depth: 0`. The ref being released is never checked out as executable code in this job, so a tag or dispatch cannot supply the validator that judges it.
 - It runs the trusted `.release-policy/.github/scripts/resolve-release-ref.mjs`. Every event value (`github.event_name`, `github.ref_type`, `github.ref_name`, `github.sha`, and both dispatch inputs) is passed through `env:` into shell-free Node code; git is invoked with fixed argv arrays, so no ref name or input is ever expanded by a shell.
 - The resolver fetches `origin/main` with full history (deepening a shallow clone), dereferences annotated tags with `^{commit}`, cross-checks the resolved commit against the SHA GitHub reported for the event, verifies the object with `git cat-file -e`, and requires `git merge-base --is-ancestor` to place the commit on `origin/main`. A "not an ancestor" answer (exit 1) is reported separately from a git failure (exit >1) so infrastructure errors cannot be mistaken for policy decisions.
-- The immutable commit SHA is the job's only output. `build`, `deploy-admin-api` and `deploy-redirect` check out exactly that SHA; `deploy-frontend` checks out no application code and deploys the artifact `build` produced from it. Every deployment summary reports that SHA instead of the raw event ref.
-- Each deploy job checks out the validated commit first, then adds the trusted `.release-policy` clone from `main`, and re-runs the resolver in ancestry-recheck mode on the runner's preinstalled Node **before** `actions/setup-node`, before `npm ci` (which executes the released commit's lifecycle scripts) and before any step that reads a secret — so not even the npm cache is keyed on the selected tree until ancestry has been re-proved. This closes the drift window while a release waits for reviewer approval. `deploy-frontend` performs the same trusted checkout and recheck before it downloads the artifact or touches a credential, even though it deploys only the prebuilt artifact and checks out no application code.
+- The immutable commit SHA is the job's only output. `build`, `migrate-d1`, `deploy-admin-api` and `deploy-redirect` check out exactly that SHA; `deploy-frontend` checks out no application code and deploys the artifact `build` produced from it. Every release summary reports that SHA instead of the raw event ref.
+- `migrate-d1` and each deploy job add the trusted `.release-policy` clone from `main`, then re-run the resolver in ancestry-recheck mode on the runner's preinstalled Node **before** `actions/setup-node`, before `npm ci` (which executes the released commit's lifecycle scripts) and before any step that reads a secret — so not even the npm cache is keyed on the selected tree until ancestry has been re-proved. `deploy-frontend` performs the same trusted checkout and recheck before it downloads the artifact or touches a credential, even though it deploys only the prebuilt artifact and checks out no application code.
 - `concurrency: { group: release-production, cancel-in-progress: false }` serialises releases and never cancels a half-finished deployment.
 
-`prepare-release` holds no environment, no secret and only `contents: read`. `build` also receives no deployment credential; production secrets stay in the three reviewer-protected `environment: production` jobs.
+`prepare-release` holds no environment, no secret and only `contents: read`. `build` also receives no deployment credential; production secrets stay in `migrate-d1` and the three deploy jobs, all of which declare `environment: production` for ref policy and deployment history.
 
 The invariants above are enforced by tests in `src/backend/src/__tests__/release-ref-security.test.ts`, which execute the resolver against throwaway git repositories (hostile tags, hostile dispatch inputs, annotated tags, non-mainline commits, git failures) and assert the workflow's structure.
 
 ### Production Environment Protection Policy
 
-All three deploy jobs declare `environment: production`, so GitHub's environment protection is the platform-side half of the trust boundary. The intended configuration is:
+The migration job and all three deploy jobs declare `environment: production`, so GitHub's environment ref policy is the platform-side half of the trust boundary. The intended configuration is:
 
 | Setting | Intended value | Why |
 |---------|----------------|-----|
-| Required reviewers | The maintainer (`lettucebo`) | A human must confirm every production deployment. |
+| Required reviewers | None | A valid release must run without human approval; repository and workflow policy provide the gate. |
 | Deployment branch/tag policy | Custom policies: branch `main` **and** tag `*.*.*` | A dispatch or tag from any other ref cannot obtain the environment, even if that ref rewrote the workflow. |
 | Protected-branches mode | Not used | The repository has no branch protection rules, so that mode would allow nothing. |
 
-**Verified current state (2026-09-03)**: the required reviewer (`lettucebo`) is configured, `prevent_self_review` is `false`, `can_admins_bypass` is `true`, and the deployment branch/tag policy in the table above **is applied** — `deployment_branch_policy` is `{ "protected_branches": false, "custom_branch_policies": true }` with exactly two policies, branch `main` and tag `*.*.*`. The ref restriction is therefore enforced both by the environment and by the checks inside the workflow.
+**Verified current state (2026-09-16)**: `reviewers` is empty, `prevent_self_review` is `false`, `can_admins_bypass` is `true`, and the deployment branch/tag policy in the table above **is applied** — `deployment_branch_policy` is `{ "protected_branches": false, "custom_branch_policies": true }` with exactly two policies, branch `main` and tag `*.*.*`. The ref restriction is therefore enforced both by the environment and by the checks inside the workflow.
 
-The commands below are **reference material for re-verifying or re-applying** that configuration, not a pending action. The environment `PUT` replaces the configuration, so `reviewers` must be sent again or the required reviewer is removed:
+The commands below are **reference material for re-verifying or re-applying** that configuration, not a pending action. The environment `PUT` replaces the configuration, so the empty `reviewers` array and deployment policy must both be explicit:
 
 ```bash
 # 1. Read-only inspection of the current state.
 gh api repos/lettucebo/AkaMoney/environments/production
 
-# 2. Enable custom deployment policies while preserving the required reviewer.
+# 2. Enable custom deployment policies without a required reviewer.
 #    environment-policy.json:
 #    {
 #      "wait_timer": 0,
 #      "prevent_self_review": false,
-#      "reviewers": [{ "type": "User", "id": 891383 }],
+#      "reviewers": [],
 #      "deployment_branch_policy": { "protected_branches": false, "custom_branch_policies": true }
 #    }
 gh api --method PUT repos/lettucebo/AkaMoney/environments/production --input environment-policy.json
@@ -103,20 +103,18 @@ gh api repos/lettucebo/AkaMoney/environments/production
 gh api repos/lettucebo/AkaMoney/environments/production/deployment-branch-policies
 ```
 
-`prevent_self_review` stays `false` on purpose: the maintainer is the only reviewer, so enabling it would block every release. That trade-off is recorded as a limitation below rather than hidden.
-
 ### Known Limitations of the Release Controls
 
 These are real, documented gaps rather than solved problems:
 
-- **Required reviewer is a confirmation, not independent authorization.** The `production` environment reviewer is the sole maintainer, self-review is permitted (`prevent_self_review: false`), and repository admins can bypass environment protection (`can_admins_bypass: true`).
-- **Historical workflows.** A newly created SemVer tag that points at a historical commit runs *that commit's* workflow file, including versions from before this hardening. Neither the tag pattern nor the reviewer can inspect workflow age; the maintainer must reject such a run.
+- **No human approval gate.** The `production` environment has no required reviewer, so a valid tag or confirmed dispatch proceeds automatically. Repository admins can also bypass environment protection (`can_admins_bypass: true`); the custom ref policy and trusted workflow checks, not a person, are the release gate.
+- **Historical workflows.** A newly created SemVer tag that points at a historical commit runs *that commit's* workflow file, including versions from before this hardening. The tag pattern cannot inspect workflow age, and removing the reviewer also removes the former opportunity to reject such a run while it was waiting.
 - **Same-repo write access is trusted.** Anyone with write access can push a tag or dispatch the workflow, and the repository currently has no branch protection or rulesets, so such an account can also change `main`. This fix removes *external/unmerged PR-head* code execution; it does not attempt to constrain trusted writers.
 - **Repository-scoped secrets.** `CLOUDFLARE_API_TOKEN` and `AZURE_STORAGE_SAS_TOKEN` are still repository secrets, so they are readable by any workflow run in this repository, not only by `environment: production` jobs. Only `SENTRY_AUTH_TOKEN` is environment-scoped today. Migrating the remaining secrets requires the maintainer to supply or mint replacement values (GitHub secret values are write-only and cannot be read back for copying); it is deliberately **not** attempted automatically, because deleting the repository copies on name evidence alone would risk breaking production deployment.
 
 ### Pipeline Execution Order and Provisioning
 
-The workflow contains five coordinated jobs:
+The workflow contains six coordinated jobs:
 
 1. **`prepare-release` Job** (no environment, no secrets):
    - Checks out `main` into `.release-policy` and validates the event as described above.
@@ -129,7 +127,13 @@ The workflow contains five coordinated jobs:
    - Builds frontend assets (`src/frontend/dist/`) and uploads `frontend-dist` artifact.
    - Runs dry-run deployment checks (`wrangler deploy --dry-run`) for backend and redirect workers.
 
-3. **`deploy-admin-api` Job** (Target environment: `production`):
+3. **`migrate-d1` Job** (Target environment: `production`):
+   - Checks out the validated commit and trusted `.release-policy`, then rechecks mainline ancestry before setup, dependency installation, or Cloudflare credentials.
+   - Ensures `akamoney-clicks` exists, injects its UUID into the backend Wrangler config, and queries the remote schema and `d1_migrations` journal as JSON.
+   - Runs `.release-policy/.github/scripts/check-d1-migrations.mjs` before any migration is applied. It fails closed for a populated `urls` schema with an empty journal, out-of-order pending filenames, or unapproved destructive SQL.
+   - Applies pending files through `wrangler d1 migrations apply DB --remote`, then re-queries the journal and requires zero pending files before any deploy job can start.
+
+4. **`deploy-admin-api` Job** (Target environment: `production`):
    - Checks out the validated commit, adds the trusted `.release-policy` clone, and rechecks mainline ancestry before installing dependencies or reading a secret.
    - Validates `SENTRY_BACKEND_DSN` and hardcodes `ENVIRONMENT = "production"` in `src/backend/wrangler.toml` before any Cloudflare call, verifying that exactly one production assignment exists.
    - Automatically checks if D1 database `akamoney-clicks` exists; creates it via `wrangler d1 create` if missing.
@@ -141,13 +145,13 @@ The workflow contains five coordinated jobs:
    - Injects worker variables (`[vars]`) and worker secrets (`wrangler secret put`).
    - Deploys the worker via `cloudflare/wrangler-action@v3`.
 
-4. **`deploy-redirect` Job** (Target environment: `production`):
+5. **`deploy-redirect` Job** (Target environment: `production`):
    - Performs the same validated checkout and mainline recheck as `deploy-admin-api`.
    - Validates `SENTRY_REDIRECT_DSN` and hardcodes `ENVIRONMENT = "production"` in `src/redirect/wrangler.toml` before any Cloudflare call.
    - Retrieves the D1 database ID for `akamoney-clicks` and injects it into `src/redirect/wrangler.toml`.
    - Deploys the redirect worker via `cloudflare/wrangler-action@v3`.
 
-5. **`deploy-frontend` Job** (Target environment: `production`):
+6. **`deploy-frontend` Job** (Target environment: `production`):
    - Checks out only the trusted `.release-policy` clone and rechecks mainline ancestry before touching the artifact or any credential; it never checks out application code.
    - Downloads `frontend-dist` artifact.
    - Uploads and then deletes hidden source maps (see [Monitoring](MONITORING.md)).
@@ -164,7 +168,7 @@ Configure the following GitHub Secrets and Variables under **Settings > Secrets 
 ### Workflow Secrets
 
 - `CLOUDFLARE_API_TOKEN`: Cloudflare API token with permissions for Workers, Pages, D1, and R2 (`Edit Cloudflare Workers`, `D1:Edit`, `R2:Edit`, `Pages:Edit`). Currently stored as a **repository** secret.
-- `SENTRY_AUTH_TOKEN`: **Required production environment secret.** Used only by the protected frontend deploy job to inject and upload source maps. Keep it out of repository secrets and require a production environment reviewer.
+- `SENTRY_AUTH_TOKEN`: **Required production environment secret.** Used only by the protected frontend deploy job to inject and upload source maps. Keep it out of repository secrets; the environment has ref restrictions but no required reviewer.
 - `ENTRA_ID_CLIENT_SECRET`: *(Optional)* The release workflow injects it only when present. The runtime backend does not read it or perform an SSO token exchange. It is currently **not configured at either scope**; if it is ever added, create it as a `production` environment secret.
 - `AZURE_STORAGE_SAS_TOKEN`: *(Optional)* Azure Blob Storage SAS token (only required when `STORAGE_PROVIDER=azure`). Currently stored as a **repository** secret.
 
@@ -174,6 +178,7 @@ Configure the following GitHub Secrets and Variables under **Settings > Secrets 
 
 - `CLOUDFLARE_ACCOUNT_ID`: Cloudflare Account ID.
 - `CLOUDFLARE_D1_DATABASE_ID`: *(Optional)* Explicit D1 UUID override if not querying dynamically.
+- `ALLOW_DESTRUCTIVE_D1_MIGRATIONS`: *(Optional, normally empty)* Comma-separated exact migration filenames allowed to contain `DROP TABLE`, `DROP COLUMN`, `DELETE FROM`, or `TRUNCATE` on a non-empty database. This is a repository variable consumed only by the trusted migration guard; a boolean or partial filename does not opt in.
 - `ENTRA_ID_TENANT_ID`: Microsoft Entra ID Tenant ID.
 - `ENTRA_ID_CLIENT_ID`: Microsoft Entra ID Application (client) ID.
 - `ENTRA_ID_REDIRECT_URI`: Frontend redirect URL (e.g., `https://admin.aka.money`).
@@ -215,14 +220,22 @@ crons = ["0 2 * * *"]  # Daily at 02:00 UTC (10:00 Taiwan time)
 
 ## Database Migrations in Deployment
 
-Database migrations are located in `src/backend/migrations/`. When deploying schema updates to production:
+Database migrations are located in `src/backend/migrations/`. The release workflow's `migrate-d1` job runs after validation and build, and every service deploy depends on it.
+
+The trusted guard reads the production schema and Wrangler's `d1_migrations` journal before apply. It rejects:
+
+- an existing `urls` table with an empty journal, which would otherwise replay bootstrap migrations over a populated schema;
+- a pending filename that sorts before the latest applied filename;
+- pending `DROP TABLE`, `DROP COLUMN`, `DELETE FROM`, or `TRUNCATE` statements unless that exact filename is listed in `ALLOW_DESTRUCTIVE_D1_MIGRATIONS`.
+
+`DROP INDEX`, comments, and string literals do not count as destructive SQL. A genuinely empty database may run bootstrap migrations without an allowlist. Approved migrations are applied through Wrangler so its journal, backup, and per-migration rollback behavior remain authoritative; the job then verifies that no migration remains before deploys start.
+
+Do not manually apply migrations during the normal release path. The command below is only a manual recovery fallback after diagnosing a failed `migrate-d1` job:
 
 ```bash
 cd src/backend
 npx wrangler d1 migrations apply DB --remote --config wrangler.toml
 ```
-
-*(Note: Verify the D1 database name `akamoney-clicks` matches your production D1 instance name).*
 
 ---
 
