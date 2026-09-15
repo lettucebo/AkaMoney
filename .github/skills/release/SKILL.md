@@ -11,7 +11,7 @@ description: |
   DO NOT USE FOR: hotfix patches to a single package, general git operations,
   or re-deploying an already released version (use the manual workflow_dispatch
   path documented in docs/DEPLOYMENT.md).
-argument-hint: 'Specify the target version, e.g. "1.5.0"'
+argument-hint: 'Specify the target version, e.g. "1.5.1"'
 ---
 
 # Release Workflow

@@ -7,6 +7,27 @@ All notable changes to the AkaMoney project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.1] - 2026-09-15
+
+### Added
+- Added account-wide link search across short codes, destination URLs, and titles, with active, expired, and archived status filters plus created, updated, and click-count sorting (#133).
+- Added status totals that remain accurate for the current search and query-string state for restoring, sharing, and navigating dashboard list views.
+
+### Changed
+- Moved search, filtering, sorting, counting, and pagination into the Admin API and D1 queries instead of applying them only to the 20 links loaded on the current page.
+- Changed URL mutations to reconcile the current list silently with the server, preserving visible rows while reflecting search, status, pagination, and recently-updated ordering changes.
+- Clarified dashboard labels so the non-archived KPI and active-status rows match the statistics they represent.
+
+### Fixed
+- Fixed misleading empty search results and click-count ordering when matching links were outside the currently loaded page.
+- Fixed invalid and out-of-range page requests, zero-result status counts, non-ASCII search parity, and stale list responses that could rewrite another route's query string.
+
+### Infrastructure
+- Added account-scoped D1 indexes for URL list ordering and active-state queries in migration `0005_add_url_list_indexes.sql`.
+
+### Documentation
+- Updated the bilingual API, implementation summary, and project structure documentation for the server-backed URL list contract and its known offset-pagination limitation.
+
 ## [1.5.0] - 2026-09-03
 
 ### Added
