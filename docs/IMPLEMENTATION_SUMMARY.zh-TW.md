@@ -106,9 +106,12 @@ npm run test:coverage     # 含覆蓋率
 狀態宣稱：
 
 - [#132 — Epic：Proposal F（mone-dense）儀表板推行的後端 API 缺口](https://github.com/lettucebo/AkaMoney/issues/132)
-- [#133 — `GET /api/urls`：新增搜尋（q）、排序／順序、狀態篩選、狀態計數](https://github.com/lettucebo/AkaMoney/issues/133)
 - [#134 — `OverallStatsResponse`：新增與 `date_range` 連動的 `links_created_in_range`](https://github.com/lettucebo/AkaMoney/issues/134)
 - [#135 — `AnalyticsResponse`：新增 `clicks_by_os` 與 `clicks_by_referer`（安全 hostname）](https://github.com/lettucebo/AkaMoney/issues/135)
+
+已完成：
+
+- [#133 — `GET /api/urls`：新增搜尋（q）、排序／順序、狀態篩選、狀態計數](https://github.com/lettucebo/AkaMoney/issues/133) — 清單端點已接受 `search`、`status`、`sort` 並回傳 `counts`，儀表板的搜尋／篩選／排序涵蓋整個帳號。
 
 ## 相關文件
 

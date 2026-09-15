@@ -1,13 +1,16 @@
 import authService, { isAuthSkipped } from './auth';
 import axios, { AxiosInstance, AxiosError } from 'axios';
 import { applyMockUrlUpdate } from './mockUrlUpdate';
+import { queryMockUrls } from './mockUrlList';
+import { toUrlListApiParams } from '@/utils/urlListQuery';
 import type {
   UrlResponse,
   CreateUrlRequest,
   UpdateUrlRequest,
   AnalyticsResponse,
   OverallStatsResponse,
-  PaginatedResponse,
+  UrlListQueryState,
+  UrlListResponse,
   ApiError
 } from '@/types';
 
@@ -186,24 +189,14 @@ class ApiService {
     return response.data;
   }
 
-  async getUrls(page: number = 1, limit: number = 20): Promise<PaginatedResponse<UrlResponse>> {
+  async getUrls(state: UrlListQueryState, limit: number = 20): Promise<UrlListResponse> {
     // Return mock data in skip auth mode
     if (isAuthSkipped()) {
-      const start = (page - 1) * limit;
-      const end = start + limit;
-      return {
-        data: mockUrls.slice(start, end),
-        pagination: {
-          page,
-          limit,
-          total: mockUrls.length,
-          total_pages: Math.ceil(mockUrls.length / limit)
-        }
-      };
+      return queryMockUrls(mockUrls, state, limit);
     }
 
-    const response = await this.api.get<PaginatedResponse<UrlResponse>>('/api/urls', {
-      params: { page, limit }
+    const response = await this.api.get<UrlListResponse>('/api/urls', {
+      params: toUrlListApiParams(state, limit)
     });
     return response.data;
   }

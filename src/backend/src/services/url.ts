@@ -1,6 +1,43 @@
 import { nanoid } from 'nanoid';
-import type { Env, Url, CreateUrlRequest, UpdateUrlRequest, UrlResponse } from '../types';
+import type {
+  Env,
+  Url,
+  CreateUrlRequest,
+  UpdateUrlRequest,
+  UrlResponse,
+  UrlListSort,
+  UrlListStatus,
+  UrlStatusCounts
+} from '../types';
 import { NotFoundError, ConflictError, ValidationError, ForbiddenError } from '../types/errors';
+import {
+  DEFAULT_URL_LIST_LIMIT,
+  DEFAULT_URL_LIST_PAGE,
+  buildUrlCountsSelection,
+  buildUrlListFilter,
+  buildUrlListOrderBy,
+  clampPage,
+  toUrlStatusCounts
+} from './urlListQuery';
+
+export interface UrlListOptions {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: UrlListStatus;
+  sort?: UrlListSort;
+  /** Single evaluation instant shared by every status predicate in one request. */
+  now?: number;
+}
+
+export interface UserUrlsResult {
+  urls: UrlResponse[];
+  total: number;
+  totalPages: number;
+  /** The page actually served, after clamping against `totalPages`. */
+  page: number;
+  counts: UrlStatusCounts;
+}
 
 // Constants
 const MAX_SHORT_CODE_GENERATION_ATTEMPTS = 5;
@@ -293,43 +330,67 @@ function redactText(value: string | undefined, redactions: string[]): string | u
 }
 
 /**
- * Get all URLs for a user
+ * Get a page of URLs for a user, with account-wide search, status filtering,
+ * sorting and status counts.
+ *
+ * The status counts double as the totals: `COUNT(CASE WHEN <status> ... END)`
+ * over the owner+search scope is by definition the same number a
+ * status-filtered `COUNT(*)` would return, so `total` is read straight out of
+ * `counts`. That removes a second full scan per request (a searched scan cannot
+ * use an index) and makes it impossible for `total` and `counts` to disagree.
+ *
+ * The paged SELECT is a separate statement because its OFFSET depends on the
+ * total, so it can observe a write that landed after the counts were taken.
+ * A single `now` is threaded through every status predicate so at least the
+ * expiry boundary is evaluated identically everywhere.
+ *
+ * The requested page is clamped against the filtered total before the page
+ * query runs, and the effective page is returned so callers never render a
+ * page number the result set does not have.
  */
 export async function getUserUrls(
   db: D1Database,
   userId: string,
-  page: number = 1,
-  limit: number = 20
-): Promise<{ urls: UrlResponse[], total: number }> {
-  try {
-    console.log('getUserUrls called with:', { page, limit });
+  options: UrlListOptions = {}
+): Promise<UserUrlsResult> {
+  const {
+    page: requestedPage = DEFAULT_URL_LIST_PAGE,
+    limit = DEFAULT_URL_LIST_LIMIT,
+    search = '',
+    status = 'all',
+    sort = 'default',
+    now = Date.now()
+  } = options;
 
+  try {
+    // Counts ignore the status filter (every tab needs its own total), so they
+    // are scoped by owner + search only.
+    const countsSelection = buildUrlCountsSelection(now);
+    const countsFilter = buildUrlListFilter({ userId, search, status: 'all', now });
+
+    const countsRow = await db
+      .prepare(`${countsSelection.sql} ${countsFilter.sql}`)
+      .bind(...countsSelection.params, ...countsFilter.params)
+      .first<Record<string, unknown>>();
+
+    const counts = toUrlStatusCounts(countsRow);
+    const total = status === 'all' ? counts.all : counts[status];
+    const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
+    const page = clampPage(requestedPage, totalPages);
     const offset = (page - 1) * limit;
 
-    console.log('Executing SELECT query...');
+    const filter = buildUrlListFilter({ userId, search, status, now });
     const { results } = await db
-      .prepare(`
-        SELECT * FROM urls 
-        WHERE user_id = ? 
-        ORDER BY created_at DESC 
-        LIMIT ? OFFSET ?
-      `)
-      .bind(userId, limit, offset)
+      .prepare(`SELECT * FROM urls ${filter.sql} ${buildUrlListOrderBy(sort)} LIMIT ? OFFSET ?`)
+      .bind(...filter.params, limit, offset)
       .all<Url>();
 
-    console.log('SELECT query completed:', { count: results?.length || 0 });
-
-    console.log('Executing COUNT query...');
-    const countResult = await db
-      .prepare('SELECT COUNT(*) as count FROM urls WHERE user_id = ?')
-      .bind(userId)
-      .first<{ count: number }>();
-
-    console.log('COUNT query completed:', { count: countResult?.count || 0 });
-
     return {
-      urls: results.map(url => formatUrlResponse(url)),
-      total: countResult?.count || 0
+      urls: (results || []).map(url => formatUrlResponse(url)),
+      total,
+      totalPages,
+      page,
+      counts
     };
   } catch (error) {
     const redactions = [userId];
@@ -337,8 +398,12 @@ export async function getUserUrls(
     console.error('Error in getUserUrls:', {
       error: diagnosticMessage,
       stack: redactText(error instanceof Error ? error.stack : undefined, redactions),
-      page,
-      limit
+      page: requestedPage,
+      limit,
+      status,
+      sort,
+      // The term itself is never logged - only whether one was present.
+      hasSearch: search.length > 0
     });
     throw new Error(diagnosticMessage || 'Failed to get user URLs');
   }

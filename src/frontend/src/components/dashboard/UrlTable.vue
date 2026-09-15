@@ -1,5 +1,5 @@
 <template>
-  <div class="table" role="table" aria-label="短網址清單（目前頁面）">
+  <div class="table" role="table" aria-label="短網址清單">
     <div class="thead" aria-hidden="true">
       <span>短連結</span>
       <span>原始網址</span>
@@ -142,7 +142,9 @@ const statusLabel = (url: UrlResponse): string => {
     case 'exp':
       return '已過期';
     default:
-      return '作用中';
+      // Must match the toolbar's status tab label - the two sit on the same
+      // screen and filtering by 使用中 shows exactly these rows.
+      return '使用中';
   }
 };
 

@@ -206,10 +206,15 @@ Authorization: Bearer TOKEN_VALUE
 | 項目 | 行為 |
 | --- | --- |
 | 驗證 | 必填 |
-| 查詢參數 | `page` 預設 `1`；`limit` 預設 `20` |
-| 分頁行為 | 值會用 `parseInt(...)` 解析後直接往下傳，不會額外 clamp；格式錯誤時可能引發資料庫錯誤並變成 `500` |
-| 成功 | `200 OK`，回傳 `{ data, pagination }` |
-| 擁有權模型 | 只回傳 `user_id` 等於目前 Entra 使用者 ID 的資料列 |
+| 查詢參數 | `page` 預設 `1`；`limit` 預設 `20`（上限 `100`）；`search`（比對 `short_code`、`original_url`、`title`，上限 200 字元）；`status` 可為 `all`（預設）／`active`／`expired`／`archived`；`sort` 可為 `default`（最新建立）／`created-asc`／`updated-desc`／`clicks-desc`／`clicks-asc` |
+| 篩選範圍 | 搜尋、狀態篩選與排序套用於該使用者的全部連結，不限於目前頁面 |
+| 狀態語意 | `active` = `is_active = 1` 且尚未過期；`expired` = `is_active = 1` 且已過期；`archived` = `is_active` 不等於 `1`。`expires_at` 為 `NULL` 或 `0` 都代表「永不過期」，與轉址 Worker 的 truthy 判斷一致 |
+| 參數驗證 | `page` 夾擠至 `>= 1`、`limit` 夾擠至 `1..100`，格式錯誤時退回預設值；`status`／`sort` 為未知值時退回 `all`／`default` |
+| 分頁行為 | 超出結果集範圍的 `page` 會夾擠到最後一個有資料的頁面；`pagination.page` 一律回傳實際提供的頁碼 |
+| 成功 | `200 OK`，回傳 `{ data, pagination, counts }` |
+| `counts` | `{ all, active, expired, archived }`，以目前 `search` 為範圍計算整個帳號的數量，但不套用目前的 `status`，讓每個狀態分頁都能顯示真實總數。即使結果為空也一定是數值 |
+| 擁有權模型 | 只回傳 `user_id` 等於目前 Entra 使用者 ID 的資料列；清單、總數與計數三個查詢都套用相同範圍 |
+| 已知限制 | 分頁採 offset 方式，因此在 `clicks-desc`／`clicks-asc` 排序下，點擊持續累加時資料列可能在翻頁之間位移 |
 | 錯誤 | 缺少驗證會回 `401`；缺少 `DB` 會回 `500`；其他 service 或 D1 失敗會回 `500` |
 
 ### `GET /api/urls/:id`

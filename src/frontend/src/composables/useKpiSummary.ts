@@ -28,6 +28,11 @@ const toneFor = (change: number | null): KpiTone => {
  * The click card compares the latest seven days against the previous seven and hides
  * its subtitle when there is no usable baseline. The average is deliberately computed
  * across *all* links (not just active ones) so it matches `total_clicks`.
+ *
+ * `active_links` comes from `analytics.ts`, which counts `is_active === 1` - that
+ * includes links past their expiry. The card is therefore labelled 未封存連結
+ * rather than 作用中, so it cannot be read as contradicting the list's 使用中
+ * status tab, which excludes expired links.
  */
 export function useKpiSummary(stats: Ref<OverallStatsResponse | null>): ComputedRef<KpiCard[]> {
   return computed(() => {
@@ -51,7 +56,7 @@ export function useKpiSummary(stats: Ref<OverallStatsResponse | null>): Computed
       },
       {
         key: 'active',
-        label: '作用中連結',
+        label: '未封存連結',
         value: formatNumber(value.active_links),
         detail: null,
         tone: 'neutral'

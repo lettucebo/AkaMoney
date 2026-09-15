@@ -206,10 +206,15 @@ Authorization: Bearer TOKEN_VALUE
 | Item | Behavior |
 | --- | --- |
 | Auth | Required |
-| Query parameters | `page` default `1`; `limit` default `20` |
-| Pagination behavior | Values are parsed with `parseInt(...)` and passed through without clamping; malformed values can propagate into a database error and produce `500` |
-| Success | `200 OK` with `{ data, pagination }` |
-| Ownership model | Returns only rows whose `user_id` matches the authenticated Entra user ID |
+| Query parameters | `page` default `1`; `limit` default `20` (max `100`); `search` (matches `short_code`, `original_url`, `title`; max 200 chars); `status` one of `all` (default) / `active` / `expired` / `archived`; `sort` one of `default` (newest first) / `created-asc` / `updated-desc` / `clicks-desc` / `clicks-asc` |
+| Filtering scope | Search, status and sort apply to the caller's whole account, not just the requested page |
+| Status semantics | `active` = `is_active = 1` and not past its expiry; `expired` = `is_active = 1` and past its expiry; `archived` = `is_active` is not `1`. An `expires_at` of `NULL` or `0` means "never expires", matching the redirect worker's truthiness check |
+| Parameter validation | `page` is clamped to `>= 1`, `limit` to `1..100`, and malformed values fall back to defaults; unknown `status`/`sort` values fall back to `all`/`default` |
+| Pagination behavior | A `page` past the end of the result set is clamped to the last populated page; `pagination.page` always reports the page actually served |
+| Success | `200 OK` with `{ data, pagination, counts }` |
+| `counts` | `{ all, active, expired, archived }` for the whole account under the current `search`, ignoring the current `status`, so every status tab can show a real total. Always numeric, including for empty result sets |
+| Ownership model | Returns only rows whose `user_id` matches the authenticated Entra user ID; the list, total and counts queries are all scoped the same way |
+| Known limitation | Pagination is offset-based, so under `clicks-desc`/`clicks-asc` a row can shift between pages while clicks are being recorded |
 | Errors | Missing auth yields `401`; missing `DB` yields `500`; unexpected service or D1 failures yield `500` |
 
 ### `GET /api/urls/:id`

@@ -27,15 +27,40 @@ const createMockDb = () => {
   const mockPrepare = vi.fn().mockReturnValue({
     bind: mockBind
   });
+  const mockBatch = vi.fn();
 
   return {
     prepare: mockPrepare,
+    batch: mockBatch,
     _mockFirst: mockFirst,
     _mockAll: mockAll,
     _mockRun: mockRun,
-    _mockBind: mockBind
+    _mockBind: mockBind,
+    _mockBatch: mockBatch
   };
 };
+
+/**
+ * Wires the counts query `getUserUrls` issues, so tests only have to state the
+ * totals they care about. `total` is derived from these counts.
+ */
+const stubUrlListCounts = (
+  mockDb: ReturnType<typeof createMockDb>,
+  { all = 0, active = 0, expired = 0, archived = 0 } = {}
+) => {
+  mockDb._mockFirst.mockResolvedValue({
+    all_count: all,
+    active_count: active,
+    expired_count: expired,
+    archived_count: archived
+  });
+};
+
+/** The SQL text of the paged SELECT (the only statement that reads rows). */
+const listSql = (mockDb: ReturnType<typeof createMockDb>): string =>
+  String(
+    mockDb.prepare.mock.calls.map((call: any[]) => String(call[0])).find((sql) => sql.includes('SELECT * FROM urls'))
+  );
 
 describe('URL Service - Pure Functions', () => {
   describe('generateShortCode', () => {
@@ -593,40 +618,70 @@ describe('URL Service - Database Functions', () => {
   });
 
   describe('getUserUrls', () => {
+    const buildRow = (overrides: Record<string, unknown> = {}) => ({
+      id: 'url-1',
+      short_code: 'abc123',
+      original_url: 'https://example1.com',
+      user_id: 'user-123',
+      title: null,
+      description: null,
+      created_at: Date.now(),
+      updated_at: Date.now(),
+      expires_at: null,
+      is_active: 1,
+      click_count: 5,
+      ...overrides
+    });
+
     it('should return empty array when user has no URLs', async () => {
       const mockDb = createMockDb();
       mockDb._mockAll.mockResolvedValue({ results: [] });
-      mockDb._mockFirst.mockResolvedValue({ count: 0 });
-      
+      stubUrlListCounts(mockDb);
+
       const result = await getUserUrls(mockDb as any, 'user-123');
-      
+
       expect(result.urls).toEqual([]);
       expect(result.total).toBe(0);
+      expect(result.totalPages).toBe(0);
+      expect(result.page).toBe(1);
     });
 
-    it('should not include raw user id in success logs', async () => {
+    it('should return zeroed counts rather than nulls for an empty result set', async () => {
+      const mockDb = createMockDb();
+      mockDb._mockAll.mockResolvedValue({ results: [] });
+      // A NULL-producing aggregate is exactly what SUM(CASE ...) would return
+      // over zero rows; the service must never surface that to callers.
+      mockDb._mockFirst.mockResolvedValue({
+        all_count: 0,
+        active_count: null,
+        expired_count: null,
+        archived_count: null
+      });
+
+      const result = await getUserUrls(mockDb as any, 'user-123', { search: 'no-match' });
+
+      expect(result.counts).toEqual({ all: 0, active: 0, expired: 0, archived: 0 });
+    });
+
+    it('should not include raw user id in logs on success', async () => {
       const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
       const rawUserId = 'oid-url-service-raw-user';
       const mockDb = createMockDb();
       mockDb._mockAll.mockResolvedValue({ results: [] });
-      mockDb._mockFirst.mockResolvedValue({ count: 0 });
+      stubUrlListCounts(mockDb);
 
-      await getUserUrls(mockDb as any, rawUserId, 3, 15);
+      await getUserUrls(mockDb as any, rawUserId, { page: 3, limit: 15 });
 
-      const logged = JSON.stringify(consoleLog.mock.calls);
-      expect(logged).not.toContain(rawUserId);
-      expect(logged).toContain('"page":3');
-      expect(logged).toContain('"limit":15');
-      expect(logged).toContain('"count":0');
+      expect(JSON.stringify(consoleLog.mock.calls)).not.toContain(rawUserId);
     });
 
     it('should not include raw user id in error logs while retaining diagnostics', async () => {
       const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
       const rawUserId = 'oid-url-service-error-user';
       const mockDb = createMockDb();
-      mockDb._mockAll.mockRejectedValue(new Error(`database unavailable for ${rawUserId}`));
+      mockDb._mockFirst.mockRejectedValue(new Error(`database unavailable for ${rawUserId}`));
 
-      const thrown = await getUserUrls(mockDb as any, rawUserId, 4, 25).catch(
+      const thrown = await getUserUrls(mockDb as any, rawUserId, { page: 4, limit: 25 }).catch(
         (error) => error as Error
       );
 
@@ -639,43 +694,31 @@ describe('URL Service - Database Functions', () => {
       expect(logged).toContain('"limit":25');
     });
 
-    it('should return user URLs with pagination', async () => {
-      const mockUrls = [
-        {
-          id: 'url-1',
-          short_code: 'abc123',
-          original_url: 'https://example1.com',
-          user_id: 'user-123',
-          title: null,
-          description: null,
-          created_at: Date.now(),
-          updated_at: Date.now(),
-          expires_at: null,
-          is_active: 1,
-          click_count: 5
-        },
-        {
-          id: 'url-2',
-          short_code: 'def456',
-          original_url: 'https://example2.com',
-          user_id: 'user-123',
-          title: 'Test',
-          description: null,
-          created_at: Date.now(),
-          updated_at: Date.now(),
-          expires_at: null,
-          is_active: 1,
-          click_count: 10
-        }
-      ];
+    it('should never log the search term itself', async () => {
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
       const mockDb = createMockDb();
-      mockDb._mockAll.mockResolvedValue({ results: mockUrls });
-      mockDb._mockFirst.mockResolvedValue({ count: 2 });
-      
-      const result = await getUserUrls(mockDb as any, 'user-123', 1, 20);
-      
+      mockDb._mockFirst.mockRejectedValue(new Error('database unavailable'));
+
+      await getUserUrls(mockDb as any, 'user-123', { search: 'confidential-project' }).catch(() => undefined);
+
+      const logged = JSON.stringify(consoleError.mock.calls);
+      expect(logged).not.toContain('confidential-project');
+      expect(logged).toContain('"hasSearch":true');
+    });
+
+    it('should return user URLs with pagination', async () => {
+      const mockDb = createMockDb();
+      mockDb._mockAll.mockResolvedValue({
+        results: [buildRow(), buildRow({ id: 'url-2', short_code: 'def456', title: 'Test', click_count: 10 })]
+      });
+      stubUrlListCounts(mockDb, { all: 2, active: 2, expired: 0, archived: 0 });
+
+      const result = await getUserUrls(mockDb as any, 'user-123', { page: 1, limit: 20 });
+
       expect(result.urls).toHaveLength(2);
       expect(result.total).toBe(2);
+      expect(result.totalPages).toBe(1);
+      expect(result.counts).toEqual({ all: 2, active: 2, expired: 0, archived: 0 });
       expect(result.urls[0].short_code).toBe('abc123');
       expect(result.urls[1].short_code).toBe('def456');
     });
@@ -683,11 +726,169 @@ describe('URL Service - Database Functions', () => {
     it('should use default pagination values', async () => {
       const mockDb = createMockDb();
       mockDb._mockAll.mockResolvedValue({ results: [] });
-      mockDb._mockFirst.mockResolvedValue({ count: 0 });
-      
+      stubUrlListCounts(mockDb);
+
       const result = await getUserUrls(mockDb as any, 'user-123');
-      
+
       expect(result.urls).toEqual([]);
+    });
+
+    it('should scope every query to the owning user', async () => {
+      const mockDb = createMockDb();
+      mockDb._mockAll.mockResolvedValue({ results: [] });
+      stubUrlListCounts(mockDb);
+
+      await getUserUrls(mockDb as any, 'user-123', { search: 'abc', status: 'active' });
+
+      const statements = mockDb.prepare.mock.calls.map((call: any[]) => String(call[0]));
+      expect(statements).toHaveLength(2);
+      for (const sql of statements) {
+        expect(sql).toContain('urls.user_id = ?');
+      }
+      // The counts statement binds its projection's `now` values first, so the
+      // owner is not always at index 0 - only that every statement binds it.
+      for (const bound of mockDb._mockBind.mock.calls) {
+        expect(bound).toContain('user-123');
+      }
+    });
+
+    it('issues exactly two statements: the counts aggregate and the page query', async () => {
+      const mockDb = createMockDb();
+      mockDb._mockAll.mockResolvedValue({ results: [] });
+      stubUrlListCounts(mockDb);
+
+      await getUserUrls(mockDb as any, 'user-123');
+
+      // A separate status-filtered COUNT(*) would be a redundant second scan:
+      // the counts aggregate already yields that number per status bucket.
+      const statements = mockDb.prepare.mock.calls.map((call: any[]) => String(call[0]));
+      expect(statements).toHaveLength(2);
+      expect(statements.filter((sql) => sql.includes('COUNT(*) as count'))).toHaveLength(0);
+    });
+
+    it('derives the filtered total from the matching counts bucket', async () => {
+      const mockDb = createMockDb();
+      mockDb._mockAll.mockResolvedValue({ results: [] });
+      stubUrlListCounts(mockDb, { all: 30, active: 12, expired: 8, archived: 10 });
+
+      const all = await getUserUrls(mockDb as any, 'user-123', { status: 'all' });
+      const active = await getUserUrls(mockDb as any, 'user-123', { status: 'active' });
+      const expired = await getUserUrls(mockDb as any, 'user-123', { status: 'expired' });
+      const archived = await getUserUrls(mockDb as any, 'user-123', { status: 'archived' });
+
+      expect(all.total).toBe(30);
+      expect(active.total).toBe(12);
+      expect(expired.total).toBe(8);
+      expect(archived.total).toBe(10);
+      // Counts always describe the whole search, regardless of the status filter.
+      expect(archived.counts).toEqual({ all: 30, active: 12, expired: 8, archived: 10 });
+    });
+
+    it('paginates against the filtered total, not the account total', async () => {
+      const mockDb = createMockDb();
+      mockDb._mockAll.mockResolvedValue({ results: [] });
+      stubUrlListCounts(mockDb, { all: 100, active: 5, expired: 0, archived: 95 });
+
+      const result = await getUserUrls(mockDb as any, 'user-123', { status: 'active', limit: 20, page: 3 });
+
+      expect(result.total).toBe(5);
+      expect(result.totalPages).toBe(1);
+      expect(result.page).toBe(1);
+    });
+
+    it('should bind the search pattern and LIMIT/OFFSET to the page query', async () => {
+      const mockDb = createMockDb();
+      mockDb._mockAll.mockResolvedValue({ results: [] });
+      stubUrlListCounts(mockDb, { all: 100, active: 100 });
+
+      await getUserUrls(mockDb as any, 'user-123', { page: 2, limit: 10, search: 'Report' });
+
+      expect(listSql(mockDb)).toContain('LIMIT ? OFFSET ?');
+      const pageBind = mockDb._mockBind.mock.calls.at(-1);
+      expect(pageBind).toEqual(['user-123', '%report%', '%report%', '%report%', 10, 10]);
+    });
+
+    it('should clamp a page past the end of the result set and report the effective page', async () => {
+      const mockDb = createMockDb();
+      mockDb._mockAll.mockResolvedValue({ results: [] });
+      stubUrlListCounts(mockDb, { all: 5, active: 5 });
+
+      const result = await getUserUrls(mockDb as any, 'user-123', { page: 999, limit: 20 });
+
+      expect(result.page).toBe(1);
+      expect(result.totalPages).toBe(1);
+      // Offset must follow the clamped page, not the requested one.
+      expect(mockDb._mockBind.mock.calls.at(-1)?.at(-1)).toBe(0);
+    });
+
+    it('should clamp to the last populated page', async () => {
+      const mockDb = createMockDb();
+      mockDb._mockAll.mockResolvedValue({ results: [] });
+      stubUrlListCounts(mockDb, { all: 45, active: 45 });
+
+      const result = await getUserUrls(mockDb as any, 'user-123', { page: 99, limit: 20 });
+
+      expect(result.page).toBe(3);
+      expect(result.totalPages).toBe(3);
+      expect(mockDb._mockBind.mock.calls.at(-1)?.at(-1)).toBe(40);
+    });
+
+    it.each([
+      ['default', 'ORDER BY urls.created_at DESC, urls.id DESC'],
+      ['clicks-desc', 'ORDER BY urls.click_count DESC, urls.created_at DESC, urls.id DESC'],
+      ['updated-desc', 'ORDER BY urls.updated_at DESC, urls.id DESC']
+    ] as const)('should apply the %s sort to the page query', async (sort, expected) => {
+      const mockDb = createMockDb();
+      mockDb._mockAll.mockResolvedValue({ results: [] });
+      stubUrlListCounts(mockDb);
+
+      await getUserUrls(mockDb as any, 'user-123', { sort });
+
+      expect(listSql(mockDb)).toContain(expected);
+    });
+
+    it('should share one now value between the status filter and the counts projection', async () => {
+      const mockDb = createMockDb();
+      mockDb._mockAll.mockResolvedValue({ results: [] });
+      stubUrlListCounts(mockDb);
+
+      await getUserUrls(mockDb as any, 'user-123', { status: 'active', now: 555 });
+
+      const bound = mockDb._mockBind.mock.calls.flat();
+      expect(bound.filter((value: unknown) => value === 555).length).toBeGreaterThanOrEqual(3);
+    });
+
+    describe('status predicates', () => {
+      const statusSql = async (status: 'active' | 'expired' | 'archived') => {
+        const mockDb = createMockDb();
+        mockDb._mockAll.mockResolvedValue({ results: [] });
+        stubUrlListCounts(mockDb);
+        await getUserUrls(mockDb as any, 'user-123', { status, now: 1_000 });
+        return listSql(mockDb);
+      };
+
+      it('treats a zero expiry as "never expires", matching the redirect worker', async () => {
+        expect(await statusSql('active')).toContain('urls.expires_at IS NULL OR urls.expires_at = 0');
+        expect(await statusSql('expired')).toContain('urls.expires_at <> 0');
+      });
+
+      it('keeps a link expiring exactly now in the active bucket', async () => {
+        // `>= now` for active and `< now` for expired makes the boundary
+        // active, matching getLinkStatus's `expires_at < now` test.
+        expect(await statusSql('active')).toContain('urls.expires_at >= ?');
+        expect(await statusSql('expired')).toContain('urls.expires_at < ?');
+      });
+
+      it('treats any non-1 is_active value, including NULL, as archived', async () => {
+        const sql = await statusSql('archived');
+        expect(sql).toContain('urls.is_active IS NOT 1');
+        expect(sql).not.toContain('is_active = 0');
+      });
+
+      it('never classifies an archived link as expired', async () => {
+        expect(await statusSql('expired')).toContain('urls.is_active = 1');
+      });
     });
   });
 });
+

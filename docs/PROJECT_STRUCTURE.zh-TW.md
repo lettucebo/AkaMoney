@@ -76,7 +76,7 @@ D1 schema 只放在 `src/backend/migrations/`：
 
 ## 前端邊界
 
-路由表在 `src/frontend/src/router/index.ts`。需登入的畫面包在 `AppShell`；`/login` 獨立渲染（`App.vue`）。清單的搜尋／篩選／排序**只作用於目前頁面**，因為 `GET /api/urls` 目前只接受 `page` / `limit`。
+路由表在 `src/frontend/src/router/index.ts`。需登入的畫面包在 `AppShell`；`/login` 獨立渲染（`App.vue`）。清單的搜尋／篩選／排序**套用於整個帳號**：Dashboard 會把 `search`／`status`／`sort` 傳給 `GET /api/urls`，並同步到瀏覽器網址列（`q`／`status`／`sort`／`page`），因此重新整理、上一頁／下一頁與分享連結都能還原同一個檢視。
 
 主題、代幣與 Chart.js 規則見 [主題系統](THEME.zh-TW.md)。已上線畫面與設計截圖見 [畫面截圖](SCREENSHOTS.zh-TW.md)。
 
