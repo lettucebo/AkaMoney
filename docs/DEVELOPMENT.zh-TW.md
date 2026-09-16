@@ -58,7 +58,7 @@ Cloudflare Workers 本地執行所需之設定檔會被 git 忽略（`.gitignore
    cd src/backend
    cp wrangler.local.toml.example wrangler.local.toml
    ```
-   - **Wrangler v4 與相容性標籤**：後端採用 Wrangler v4（精確版本 `4.90.0`），並配置 `compatibility_flags = ["nodejs_compat"]`。
+   - **Wrangler v4 與相容性標籤**：後端採用 Wrangler v4（精確版本 `4.130.0`），並配置 `compatibility_flags = ["nodejs_compat"]`。
    - 在 `wrangler.local.toml` 中，D1 binding 的資料庫名稱為 `akamoney-clicks`。請將 `database_id` 填入您的 D1 UUID，或於本地 Miniflare 模擬時使用任意虛擬字串。
 
 2. **重定向服務**:
@@ -66,7 +66,7 @@ Cloudflare Workers 本地執行所需之設定檔會被 git 忽略（`.gitignore
    cd src/redirect
    cp wrangler.local.toml.example wrangler.local.toml
    ```
-   - **Wrangler 相容性旗標**：重新導向服務目前使用 Wrangler v3（精確版本 `3.114.17`）並設定 `compatibility_flags = ["nodejs_compat"]`。複製或更新本地 Wrangler 設定時，請勿重新加入舊版 `node_compat = true` key。
+   - **Wrangler v4 與相容性旗標**：重新導向服務也使用精確版本 `4.130.0` 的 Wrangler，並設定 `compatibility_flags = ["nodejs_compat"]`。複製或更新本地 Wrangler 設定時，請勿重新加入舊版 `node_compat = true` key。
 
 3. **前端環境變數**:
    ```bash

@@ -59,7 +59,7 @@ Cloudflare Workers configurations for local execution require local `.toml` file
    cd src/backend
    cp wrangler.local.toml.example wrangler.local.toml
    ```
-   - **Wrangler v4 & Compatibility**: The backend uses Wrangler v4 (exact `4.90.0`) with `compatibility_flags = ["nodejs_compat"]`.
+   - **Wrangler v4 & Compatibility**: The backend uses Wrangler v4 (exact `4.130.0`) with `compatibility_flags = ["nodejs_compat"]`.
    - In `wrangler.local.toml`, the D1 binding uses database name `akamoney-clicks`. Set `database_id` to your local D1 database UUID or dummy string for local Miniflare simulation.
 
 2. **Redirect Service**:
@@ -67,7 +67,7 @@ Cloudflare Workers configurations for local execution require local `.toml` file
    cd src/redirect
    cp wrangler.local.toml.example wrangler.local.toml
    ```
-   - **Wrangler compatibility flag**: The redirect service currently uses Wrangler v3 (exact `3.114.17`) with `compatibility_flags = ["nodejs_compat"]`. Do not reintroduce the older `node_compat = true` key when copying or refreshing local Wrangler config.
+   - **Wrangler v4 & compatibility flag**: The redirect service also uses exact Wrangler `4.130.0` with `compatibility_flags = ["nodejs_compat"]`. Do not reintroduce the older `node_compat = true` key when copying or refreshing local Wrangler config.
 
 3. **Frontend Environment**:
    ```bash

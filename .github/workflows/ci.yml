@@ -28,6 +28,9 @@ jobs:
           cache: 'npm'
           cache-dependency-path: package-lock.json
 
+      - name: Verify Wrangler pins
+        run: node .github/scripts/verify-wrangler-pins.mjs
+
       - name: Install workspace dependencies
         run: npm ci
 

@@ -37,9 +37,10 @@
   not rely on those scripts until they are aligned. From `src/backend`, apply
   local migrations against the binding explicitly:
   `npx wrangler d1 migrations apply DB --local --config wrangler.local.toml`.
-- Use each package's local npm scripts for Wrangler commands. The Admin API
-  and redirect package intentionally pin different exact Wrangler versions
-  (backend `4.90.0`, redirect `3.114.17`); do not unify them.
+- Use each package's local npm scripts for Wrangler commands. The Admin API and
+  redirect package both pin exact Wrangler `4.130.0`, and those package pins
+  must stay aligned with the explicit `wranglerVersion` values in
+  `.github/workflows/release.yml`.
 
 ## Architecture
 
