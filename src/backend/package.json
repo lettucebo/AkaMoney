@@ -38,7 +38,7 @@
   "dependencies": {
     "@sentry/cloudflare": "^10.40.0",
     "hono": "^4.13.5",
-    "jose": "^5.2.0",
+    "jose": "^6.2.12",
     "nanoid": "^5.0.9"
   }
 }
