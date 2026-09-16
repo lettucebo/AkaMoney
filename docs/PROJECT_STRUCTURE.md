@@ -104,6 +104,7 @@ Treat mockups as design history. Runtime CSS is `src/frontend/src/assets/css/mai
 `.github/scripts/`:
 
 - `resolve-release-ref.mjs` — trusted release ref validator run from a `main`-only checkout; turns the triggering event into an immutable, mainline-verified commit SHA (see [Deployment](DEPLOYMENT.md))
+- `check-d1-migrations.mjs` — trusted production D1 guard for journal drift, filename ordering, and explicit destructive-SQL approval before release migrations
 
 ## Related documents
 

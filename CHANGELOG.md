@@ -7,6 +7,15 @@ All notable changes to the AkaMoney project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Infrastructure
+- Added a trusted production D1 migration guard that fails closed on migration journal drift, out-of-order files, and unapproved destructive SQL.
+- Added a `migrate-d1` release gate that applies and verifies pending production migrations before any service deploy, and removed the production environment's required reviewer so valid releases run without human approval.
+
+### Documentation
+- Updated bilingual deployment, configuration, monitoring, project structure, and release guidance for automatic guarded migrations and the remaining historical-workflow risk.
+
 ## [1.5.1] - 2026-09-15
 
 ### Added

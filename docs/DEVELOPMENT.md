@@ -158,13 +158,13 @@ D1 schema migrations are located in `src/backend/migrations/`.
   npx wrangler d1 migrations apply DB --local --config wrangler.local.toml
   ```
 
-- **Apply Migrations to Production D1**:
+- **Production D1 migrations** are applied automatically by the release workflow's trusted `migrate-d1` gate before any service deploy. Use the command below only for diagnosed manual recovery:
   ```bash
   cd src/backend
   npx wrangler d1 migrations apply DB --remote --config wrangler.toml
   ```
 
-  Populate the tracked config's empty `database_id` before running a manual remote command. The release workflow injects it automatically.
+  Populate the tracked config's empty `database_id` before running a manual remote command. The release workflow injects it automatically, checks journal/order/destructive-SQL policy, applies through Wrangler, and verifies zero pending migrations.
 
 The package's current `db:*` scripts use the database name `akamoney`, while the
 Worker binds `akamoney-clicks`. Use the `DB` binding commands above until those

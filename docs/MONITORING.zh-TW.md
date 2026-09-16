@@ -59,7 +59,7 @@
 
 建議 guardrails：
 
-1. 將 `SENTRY_AUTH_TOKEN` 放在受保護的 GitHub `production` environment，且 job 存取前至少需要一位 required reviewer 核准。
+1. 將 `SENTRY_AUTH_TOKEN` 放在 GitHub `production` environment，讓只有通過 ref policy 的 release jobs 參照；此 environment 刻意不設定 required reviewer。
 2. 使用 source map 上傳專用權杖。請參閱 [Sentry Vite source map 指南](https://docs.sentry.io/platforms/javascript/sourcemaps/uploading/vite/)所列的 Organization Token，或具備 `Project: Read & Write` 與 `Release: Admin` 權限的 Personal Token。
 3. 除非未來 workflow 有已記錄的需求，不要授予 source-map token issue write、member 或 admin 權限。
 4. 若 token 曾出現在 log、本機 shell history 或被複製的設定檔，請立即輪替。
@@ -68,11 +68,11 @@
 
 1. 發布流程的 `build` 工作會收到公開 DSN variables，但不會收到 Sentry 上傳憑證（`.github/workflows/release.yml:145-161`）。該工作在受保護環境之外執行被發布 commit 的建置腳本，因此不得持有任何憑證。
 2. 只有能把 source maps 交給 Sentry 的建置才會產生 hidden source maps：Vite 設定在具備 `GITHUB_ACTIONS` 或 `SENTRY_AUTH_TOKEN` 時才啟用，其餘情況一律關閉，因此手動 `npm run build` 後再執行 `wrangler pages deploy` 不可能發布 map（`src/frontend/vite.config.ts:8-43`）。
-3. 受保護的部署工作只會在 environment protection 通過、且完成受信任的主線祖先 recheck（在下載 artifact 之前執行）之後才取得 `SENTRY_AUTH_TOKEN`（`.github/workflows/release.yml:1021-1064`）。
+3. 受保護的部署工作只會在 environment ref policy 接受 release，且完成受信任的主線祖先 recheck（在下載 artifact 之前執行）之後才取得 `SENTRY_AUTH_TOKEN`（`.github/workflows/release.yml:1021-1064`）。
 4. 受保護的工作會針對已建置好的前端 artifact 執行 `sentry-cli sourcemaps inject` 與 `sentry-cli sourcemaps upload`（`.github/workflows/release.yml:1079-1086`）。
 5. Workflow 會刪除 `.map` 檔，並在 Cloudflare Pages 部署前檢查沒有任何 `.map` 檔殘留（`.github/workflows/release.yml:1087-1094`）。
 
-正式環境發布只能由 SemVer tag push 或已確認的手動觸發啟動——Pull Request 事件無法啟動此工作流程，也沒有任何標籤能觸發部署——且每個部署工作都會從受信任的 `main` 專用政策檢出，重新確認自己部署的正是 `prepare-release` 驗證後的不可變 commit。信任邊界、**已套用**的 `production` environment 政策（branch `main` 加上 tag `*.*.*`，並保留必要審核者）與已知限制詳見[部署指南](DEPLOYMENT.zh-TW.md)：審核者可自我核准、管理員可略過保護，對歷史 commit 打 tag 仍會執行該 commit 當時的工作流程，同存放庫寫入者仍受信任，且 `CLOUDFLARE_API_TOKEN`／`AZURE_STORAGE_SAS_TOKEN` 仍是 repository secrets，只有 `SENTRY_AUTH_TOKEN` 屬於 environment 範圍。
+正式環境發布只能由 SemVer tag push 或已確認的手動觸發啟動——Pull Request 事件無法啟動此工作流程，也沒有任何標籤能觸發部署——且每個部署工作都會從受信任的 `main` 專用政策檢出，重新確認自己部署的正是 `prepare-release` 驗證後的不可變 commit。信任邊界、**已套用**的 `production` environment 政策（branch `main` 加上 tag `*.*.*`，且沒有必要審核者）與已知限制詳見[部署指南](DEPLOYMENT.zh-TW.md)：release 無需人工核准即可繼續、管理員可略過保護，對歷史 commit 打 tag 仍會執行該 commit 當時的工作流程，同存放庫寫入者仍受信任，且 `CLOUDFLARE_API_TOKEN`／`AZURE_STORAGE_SAS_TOKEN` 仍是 repository secrets，只有 `SENTRY_AUTH_TOKEN` 屬於 environment 範圍。
 
 在第一次正式環境 release 於 Sentry 確認 symbolication 前，不要宣稱 production source maps 已驗證。
 
@@ -152,7 +152,7 @@ curl.exe --oauth2-bearer $env:SENTRY_AUTH_TOKEN "$env:SENTRY_BASE_URL/api/0/orga
 
 - 確認 `VITE_SENTRY_DSN`、`SENTRY_BACKEND_DSN` 與 `SENTRY_REDIRECT_DSN` 已設定為 repository variables，且不包含 whitespace。
 - 確認 `VITE_SENTRY_REPLAY_ENABLED` 是刻意設定；若要不移除 integration 但停用 error Replay，請設為 `false`。
-- 確認 `SENTRY_AUTH_TOKEN` 只存在於受保護的 production environment，且需要 reviewer approval。
+- 確認 `SENTRY_AUTH_TOKEN` 只存在於 production environment，且其 branch／tag ref policy 仍完整。
 - 確認本地範例使用空 DSN 預設值或 ignored local files；不得提交實際 DSNs 或 tokens。
 - 確認 release workflow logs 不會印出 DSN 或 token 值。
 
