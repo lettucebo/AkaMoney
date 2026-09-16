@@ -51,7 +51,7 @@ AkaMoney 由三個獨立的子系統所組成（前端、管理 API 與重定向
 ### 4. 後端本地 Wrangler 設定殘留舊版 node_compat
 
 - **現象**：Wrangler v4 顯示棄用警告或錯誤：`ExperimentalNodeCompatError: node_compat is deprecated`。
-- **原因**：舊版 `wrangler.local.toml.example` 包含 `node_compat = true`。後端目前已採用 Wrangler v4（精確版本 `4.90.0`），需要使用現代相容性標籤。
+- **原因**：舊版 `wrangler.local.toml.example` 包含 `node_compat = true`。後端目前已採用 Wrangler v4（精確版本 `4.130.0`），需要使用現代相容性標籤。
 - **解決方案**：更新本地 `src/backend/wrangler.local.toml`，將 `node_compat` 替換為：
   ```toml
   # 於 src/backend/wrangler.local.toml

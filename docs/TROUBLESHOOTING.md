@@ -51,7 +51,7 @@ AkaMoney consists of three distinct subsystems (Frontend, Admin API, and Redirec
 ### 4. Stale Backend node_compat in Local Wrangler Configs
 
 - **Symptom**: Wrangler v4 displays deprecation warnings or errors: `ExperimentalNodeCompatError: node_compat is deprecated`.
-- **Cause**: Older versions of `wrangler.local.toml.example` contained `node_compat = true`. The backend uses Wrangler v4 (exact `4.90.0`), which requires `compatibility_flags`.
+- **Cause**: Older versions of `wrangler.local.toml.example` contained `node_compat = true`. The backend uses Wrangler v4 (exact `4.130.0`), which requires `compatibility_flags`.
 - **Remedy**: Update your local `src/backend/wrangler.local.toml` to replace `node_compat` with:
   ```toml
   # In src/backend/wrangler.local.toml

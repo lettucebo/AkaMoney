@@ -26,7 +26,7 @@ AkaMoney is structured as an **npm workspace** with three application packages i
     ├── backend/              # Cloudflare Workers Admin API (Hono)
     │   └── package.json      # Backend dependencies & scripts (Wrangler v4)
     └── redirect/             # Cloudflare Workers Redirect Service (Hono)
-        └── package.json      # Redirect dependencies & scripts (Wrangler v3)
+        └── package.json      # Redirect dependencies & scripts (Wrangler v4)
 ```
 
 `docs/design-mockups/validation` is an intentionally independent npm package with
@@ -50,6 +50,14 @@ repository root:
 npm install
 ```
 
+> **npm 11 override warning:** An upstream npm workspace bug can cause
+> `npm update` to ignore the root `sharp` security override and restore a
+> vulnerable transitive version. Until
+> [npm/cli#9514](https://github.com/npm/cli/issues/9514) is verified fixed by
+> rerunning the update scenario, do not use `npm update` in this repository.
+> Make intentional dependency changes with `npm install` from the repository
+> root, then run `npm audit`. CI also rejects high-severity vulnerabilities.
+
 ### 2. Local Wrangler Configuration
 
 Cloudflare Workers configurations for local execution require local `.toml` files that are ignored by git (`.gitignore` excludes `wrangler.local.toml` and `.dev.vars`):
@@ -59,7 +67,7 @@ Cloudflare Workers configurations for local execution require local `.toml` file
    cd src/backend
    cp wrangler.local.toml.example wrangler.local.toml
    ```
-   - **Wrangler v4 & Compatibility**: The backend uses Wrangler v4 (exact `4.90.0`) with `compatibility_flags = ["nodejs_compat"]`.
+   - **Wrangler v4 & Compatibility**: The backend uses Wrangler v4 (exact `4.130.0`) with `compatibility_flags = ["nodejs_compat"]`.
    - In `wrangler.local.toml`, the D1 binding uses database name `akamoney-clicks`. Set `database_id` to your local D1 database UUID or dummy string for local Miniflare simulation.
 
 2. **Redirect Service**:
@@ -67,7 +75,7 @@ Cloudflare Workers configurations for local execution require local `.toml` file
    cd src/redirect
    cp wrangler.local.toml.example wrangler.local.toml
    ```
-   - **Wrangler compatibility flag**: The redirect service currently uses Wrangler v3 (exact `3.114.17`) with `compatibility_flags = ["nodejs_compat"]`. Do not reintroduce the older `node_compat = true` key when copying or refreshing local Wrangler config.
+   - **Wrangler v4 & compatibility flag**: The redirect service also uses exact Wrangler `4.130.0` with `compatibility_flags = ["nodejs_compat"]`. Do not reintroduce the older `node_compat = true` key when copying or refreshing local Wrangler config.
 
 3. **Frontend Environment**:
    ```bash

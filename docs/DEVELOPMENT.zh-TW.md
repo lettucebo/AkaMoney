@@ -26,7 +26,7 @@ AkaMoney 是一個 **npm workspace**，`src/` 底下有三個應用程式套件�
     ├── backend/              # Cloudflare Workers 管理 API（Hono）
     │   └── package.json      # 後端依賴與腳本（Wrangler v4）
     └── redirect/             # Cloudflare Workers 重定向服務（Hono）
-        └── package.json      # 重定向服務依賴與腳本（Wrangler v3）
+        └── package.json      # 重定向服務依賴與腳本（Wrangler v4）
 ```
 
 `docs/design-mockups/validation` 是刻意獨立的 npm 套件，擁有自己的
@@ -49,6 +49,13 @@ AkaMoney 是一個 **npm workspace**，`src/` 底下有三個應用程式套件�
 npm install
 ```
 
+> **npm 11 override 注意事項：** npm workspace 的上游問題可能使
+> `npm update` 忽略根目錄的 `sharp` 安全 override，並還原有漏洞的間接相依版本。
+> 在透過更新情境重新驗證
+> [npm/cli#9514](https://github.com/npm/cli/issues/9514) 已修正之前，請勿在此
+> repository 使用 `npm update`。如需調整相依套件，請從 repository 根目錄執行
+> `npm install`，接著執行 `npm audit`；CI 也會阻擋 high severity 漏洞。
+
 ### 2. 本地 Wrangler 設定
 
 Cloudflare Workers 本地執行所需之設定檔會被 git 忽略（`.gitignore` 排除 `wrangler.local.toml` 與 `.dev.vars`）：
@@ -58,7 +65,7 @@ Cloudflare Workers 本地執行所需之設定檔會被 git 忽略（`.gitignore
    cd src/backend
    cp wrangler.local.toml.example wrangler.local.toml
    ```
-   - **Wrangler v4 與相容性標籤**：後端採用 Wrangler v4（精確版本 `4.90.0`），並配置 `compatibility_flags = ["nodejs_compat"]`。
+   - **Wrangler v4 與相容性標籤**：後端採用 Wrangler v4（精確版本 `4.130.0`），並配置 `compatibility_flags = ["nodejs_compat"]`。
    - 在 `wrangler.local.toml` 中，D1 binding 的資料庫名稱為 `akamoney-clicks`。請將 `database_id` 填入您的 D1 UUID，或於本地 Miniflare 模擬時使用任意虛擬字串。
 
 2. **重定向服務**:
@@ -66,7 +73,7 @@ Cloudflare Workers 本地執行所需之設定檔會被 git 忽略（`.gitignore
    cd src/redirect
    cp wrangler.local.toml.example wrangler.local.toml
    ```
-   - **Wrangler 相容性旗標**：重新導向服務目前使用 Wrangler v3（精確版本 `3.114.17`）並設定 `compatibility_flags = ["nodejs_compat"]`。複製或更新本地 Wrangler 設定時，請勿重新加入舊版 `node_compat = true` key。
+   - **Wrangler v4 與相容性旗標**：重新導向服務也使用精確版本 `4.130.0` 的 Wrangler，並設定 `compatibility_flags = ["nodejs_compat"]`。複製或更新本地 Wrangler 設定時，請勿重新加入舊版 `node_compat = true` key。
 
 3. **前端環境變數**:
    ```bash

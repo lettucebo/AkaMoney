@@ -365,8 +365,8 @@ jobs:
           set -euo pipefail
           VERSION=$(cd src/backend && npx --no-install wrangler --version)
           echo "Resolved Wrangler version: $VERSION"
-          if [ "$VERSION" != "4.90.0" ]; then
-            echo "Error: expected Wrangler 4.90.0 for the Admin API, got '$VERSION'"
+          if [ "$VERSION" != "4.130.0" ]; then
+            echo "Error: expected Wrangler 4.130.0 for the Admin API, got '$VERSION'"
             exit 1
           fi
 
@@ -684,7 +684,7 @@ jobs:
           accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: src/backend
           command: deploy
-          wranglerVersion: '4.90.0'
+          wranglerVersion: '4.130.0'
 
       - name: Add deployment summary
         if: always()
@@ -851,8 +851,8 @@ jobs:
           set -euo pipefail
           VERSION=$(cd src/redirect && npx --no-install wrangler --version)
           echo "Resolved Wrangler version: $VERSION"
-          if [ "$VERSION" != "3.114.17" ]; then
-            echo "Error: expected Wrangler 3.114.17 for the redirect Worker, got '$VERSION'"
+          if [ "$VERSION" != "4.130.0" ]; then
+            echo "Error: expected Wrangler 4.130.0 for the redirect Worker, got '$VERSION'"
             exit 1
           fi
 
@@ -981,7 +981,7 @@ jobs:
           accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: src/redirect
           command: deploy
-          wranglerVersion: '3.114.17'
+          wranglerVersion: '4.130.0'
 
       - name: Add deployment summary
         if: always()
@@ -1100,11 +1100,11 @@ jobs:
         run: |
           PROJECT_NAME="${{ env.CLOUDFLARE_PAGES_PROJECT }}"
           echo "Checking if Pages project '$PROJECT_NAME' exists..."
-          if npx wrangler pages project list 2>/dev/null | grep -qw "$PROJECT_NAME"; then
+          if npx --yes wrangler@4.130.0 pages project list 2>/dev/null | grep -qw "$PROJECT_NAME"; then
             echo "Pages project '$PROJECT_NAME' already exists"
           else
             echo "Creating Pages project '$PROJECT_NAME'..."
-            npx wrangler pages project create "$PROJECT_NAME" --production-branch=main
+            npx --yes wrangler@4.130.0 pages project create "$PROJECT_NAME" --production-branch=main
             echo "Pages project '$PROJECT_NAME' created successfully"
           fi
 
@@ -1115,7 +1115,7 @@ jobs:
           accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: src/frontend
           command: pages deploy dist --project-name=${{ env.CLOUDFLARE_PAGES_PROJECT }}
-          wranglerVersion: '4.90.0'
+          wranglerVersion: '4.130.0'
 
       - name: Add deployment summary
         if: always()
