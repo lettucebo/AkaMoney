@@ -75,3 +75,6 @@ jobs:
           name: redirect-coverage-report
           path: src/redirect/coverage/
           retention-days: 30
+
+      - name: Audit high-severity dependency vulnerabilities
+        run: npm audit --audit-level=high

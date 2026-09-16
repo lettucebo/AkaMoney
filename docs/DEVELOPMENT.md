@@ -26,7 +26,7 @@ AkaMoney is structured as an **npm workspace** with three application packages i
     ├── backend/              # Cloudflare Workers Admin API (Hono)
     │   └── package.json      # Backend dependencies & scripts (Wrangler v4)
     └── redirect/             # Cloudflare Workers Redirect Service (Hono)
-        └── package.json      # Redirect dependencies & scripts (Wrangler v3)
+        └── package.json      # Redirect dependencies & scripts (Wrangler v4)
 ```
 
 `docs/design-mockups/validation` is an intentionally independent npm package with
@@ -49,6 +49,14 @@ repository root:
 # Install root and all workspace dependencies (npm run setup is an alias)
 npm install
 ```
+
+> **npm 11 override warning:** An upstream npm workspace bug can cause
+> `npm update` to ignore the root `sharp` security override and restore a
+> vulnerable transitive version. Until
+> [npm/cli#9514](https://github.com/npm/cli/issues/9514) is verified fixed by
+> rerunning the update scenario, do not use `npm update` in this repository.
+> Make intentional dependency changes with `npm install` from the repository
+> root, then run `npm audit`. CI also rejects high-severity vulnerabilities.
 
 ### 2. Local Wrangler Configuration
 
