@@ -76,14 +76,14 @@ jobs:
       # Trusted policy source. Only `main` is checked out here, never the ref being released, so a
       # tag or dispatch can never supply the validator that judges it.
       - name: Checkout trusted release policy from main
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: main
           path: .release-policy
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '24.x'
 
@@ -128,12 +128,12 @@ jobs:
     steps:
       # Only the immutable commit validated by prepare-release is ever built.
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare-release.outputs.sha }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '24.x'
           cache: 'npm'
@@ -225,7 +225,7 @@ jobs:
         run: npm run build -w akamoney-redirect
 
       - name: Upload frontend build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: frontend-dist
           path: src/frontend/dist/
@@ -240,12 +240,12 @@ jobs:
       # The validated commit is checked out first: actions/checkout cleans its target directory, so
       # the trusted policy tree is created afterwards and cannot be removed by this checkout.
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare-release.outputs.sha }}
 
       - name: Checkout trusted release policy from main
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: main
           path: .release-policy
@@ -264,7 +264,7 @@ jobs:
         run: node .release-policy/.github/scripts/resolve-release-ref.mjs
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '24.x'
           cache: 'npm'
@@ -678,7 +678,7 @@ jobs:
           echo "Worker secrets configured successfully"
 
       - name: Deploy to Cloudflare Workers
-        uses: cloudflare/wrangler-action@v3
+        uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
@@ -731,12 +731,12 @@ jobs:
       # The validated commit is checked out first: actions/checkout cleans its target directory, so
       # the trusted policy tree is created afterwards and cannot be removed by this checkout.
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare-release.outputs.sha }}
 
       - name: Checkout trusted release policy from main
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: main
           path: .release-policy
@@ -753,7 +753,7 @@ jobs:
         run: node .release-policy/.github/scripts/resolve-release-ref.mjs
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '24.x'
           cache: 'npm'
@@ -975,7 +975,7 @@ jobs:
           echo "Sentry DSN injected into src/redirect/wrangler.toml"
 
       - name: Deploy Redirect Service to Cloudflare Workers
-        uses: cloudflare/wrangler-action@v3
+        uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
@@ -1028,7 +1028,7 @@ jobs:
       # validated commit. The trusted policy tree is still required so the ancestry recheck runs
       # from `main` before the Sentry and Cloudflare credentials are used.
       - name: Checkout trusted release policy from main
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: main
           path: .release-policy
@@ -1045,12 +1045,12 @@ jobs:
         run: node .release-policy/.github/scripts/resolve-release-ref.mjs
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '24.x'
 
       - name: Download frontend build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: frontend-dist
           path: src/frontend/dist/
@@ -1109,12 +1109,13 @@ jobs:
           fi
 
       - name: Deploy to Cloudflare Pages
-        uses: cloudflare/wrangler-action@v3
+        uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: src/frontend
           command: pages deploy dist --project-name=${{ env.CLOUDFLARE_PAGES_PROJECT }}
+          wranglerVersion: '4.90.0'
 
       - name: Add deployment summary
         if: always()
