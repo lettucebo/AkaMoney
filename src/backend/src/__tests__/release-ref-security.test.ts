@@ -660,7 +660,7 @@ describe('release.yml - production trust boundary invariants', () => {
       const body = jobs.get(jobId) ?? '';
       const policyStep = splitSteps(body).find((step) => step.body.includes(`path: ${POLICY_CHECKOUT_PATH}`));
       expect(policyStep, `${jobId} must check out the trusted policy tree`).toBeTruthy();
-      expect(policyStep?.body).toMatch(/uses: actions\/checkout@v4/);
+      expect(policyStep?.body).toMatch(/uses: actions\/checkout@v7/);
       expect(policyStep?.body).toMatch(/^ {10}ref: main$/m);
       expect(policyStep?.body).toMatch(/^ {10}fetch-depth: 0$/m);
     }
@@ -689,7 +689,7 @@ describe('release.yml - production trust boundary invariants', () => {
   it('checks out application code only at the validated immutable SHA', () => {
     for (const [jobId, body] of jobs) {
       for (const step of splitSteps(body)) {
-        if (!step.body.includes('uses: actions/checkout@v4')) {
+        if (!step.body.includes('uses: actions/checkout@v7')) {
           continue;
         }
         const isPolicyCheckout = step.body.includes(`path: ${POLICY_CHECKOUT_PATH}`);
@@ -750,7 +750,7 @@ describe('release.yml - production trust boundary invariants', () => {
     for (const jobId of DEPLOY_JOBS) {
       const steps = splitSteps(jobs.get(jobId) ?? '');
       const recheckIndex = steps.findIndex((step) => step.body.includes(TRUSTED_RESOLVER_PATH));
-      const setupNodeIndex = steps.findIndex((step) => step.body.includes('uses: actions/setup-node@v4'));
+      const setupNodeIndex = steps.findIndex((step) => step.body.includes('uses: actions/setup-node@v7'));
       expect(setupNodeIndex, `${jobId} must set up Node`).toBeGreaterThanOrEqual(0);
       expect(recheckIndex, `${jobId} must recheck before setup-node`).toBeLessThan(setupNodeIndex);
     }
@@ -760,7 +760,7 @@ describe('release.yml - production trust boundary invariants', () => {
     for (const jobId of CODE_DEPLOY_JOBS) {
       const steps = splitSteps(jobs.get(jobId) ?? '');
       const selectedIndex = steps.findIndex(
-        (step) => step.body.includes('uses: actions/checkout@v4') && !step.body.includes(`path: ${POLICY_CHECKOUT_PATH}`)
+        (step) => step.body.includes('uses: actions/checkout@v7') && !step.body.includes(`path: ${POLICY_CHECKOUT_PATH}`)
       );
       const policyIndex = steps.findIndex((step) => step.body.includes(`path: ${POLICY_CHECKOUT_PATH}`));
       expect(selectedIndex, `${jobId} must check out the validated commit`).toBe(0);
@@ -770,7 +770,7 @@ describe('release.yml - production trust boundary invariants', () => {
 
   it('keeps deploy-frontend free of any application code checkout', () => {
     const steps = splitSteps(jobs.get('deploy-frontend') ?? '');
-    const checkouts = steps.filter((step) => step.body.includes('uses: actions/checkout@v4'));
+    const checkouts = steps.filter((step) => step.body.includes('uses: actions/checkout@v7'));
     expect(checkouts).toHaveLength(1);
     expect(checkouts[0].body).toContain(`path: ${POLICY_CHECKOUT_PATH}`);
     expect(steps[0].body).toContain(`path: ${POLICY_CHECKOUT_PATH}`);
