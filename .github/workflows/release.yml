@@ -1100,11 +1100,11 @@ jobs:
         run: |
           PROJECT_NAME="${{ env.CLOUDFLARE_PAGES_PROJECT }}"
           echo "Checking if Pages project '$PROJECT_NAME' exists..."
-          if npx wrangler pages project list 2>/dev/null | grep -qw "$PROJECT_NAME"; then
+          if npx --yes wrangler@4.130.0 pages project list 2>/dev/null | grep -qw "$PROJECT_NAME"; then
             echo "Pages project '$PROJECT_NAME' already exists"
           else
             echo "Creating Pages project '$PROJECT_NAME'..."
-            npx wrangler pages project create "$PROJECT_NAME" --production-branch=main
+            npx --yes wrangler@4.130.0 pages project create "$PROJECT_NAME" --production-branch=main
             echo "Pages project '$PROJECT_NAME' created successfully"
           fi
 

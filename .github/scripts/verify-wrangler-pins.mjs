@@ -122,6 +122,20 @@ function requireMatch(actual, expected, label, errors) {
 }
 
 /**
+ * @param {string[]} lines
+ * @param {string} anchor
+ * @param {RegExp} versionPattern
+ * @param {string} label
+ * @param {string} expected
+ * @param {string[]} errors
+ */
+function requirePinnedCommand(lines, anchor, versionPattern, label, expected, errors) {
+  const lineIndex = findUniqueLineIndex(lines, anchor, label, errors);
+  const actual = findCapturedValue(lines, lineIndex, versionPattern, `${label} version`, errors, 1);
+  requireMatch(actual, expected, label, errors);
+}
+
+/**
  * @param {VerificationPaths} [paths]
  */
 export function verifyWranglerPins(paths = resolveVerificationPaths()) {
@@ -238,6 +252,22 @@ export function verifyWranglerPins(paths = resolveVerificationPaths()) {
     ),
     redirectPin,
     'Redirect deploy wranglerVersion',
+    errors
+  );
+  requirePinnedCommand(
+    workflowLines,
+    'pages project list',
+    /npx --yes wrangler@([^ ]+) pages project list/,
+    'Pages project existence check list command',
+    backendPin,
+    errors
+  );
+  requirePinnedCommand(
+    workflowLines,
+    'pages project create',
+    /npx --yes wrangler@([^ ]+) pages project create/,
+    'Pages project existence check create command',
+    backendPin,
     errors
   );
 

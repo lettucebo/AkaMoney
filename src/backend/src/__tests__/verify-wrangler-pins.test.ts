@@ -19,6 +19,8 @@ interface FixtureOptions {
   redirectGateVersion: string;
   redirectGateErrorVersion: string;
   redirectDeployVersion: string;
+  pagesListWranglerInvocation: string;
+  pagesCreateWranglerInvocation: string;
   pagesDeployVersion: string;
 }
 
@@ -51,6 +53,8 @@ function createFixture(overrides: Partial<FixtureOptions> = {}): FixturePaths {
     redirectGateVersion: '4.130.0',
     redirectGateErrorVersion: '4.130.0',
     redirectDeployVersion: '4.130.0',
+    pagesListWranglerInvocation: 'npx --yes wrangler@4.130.0',
+    pagesCreateWranglerInvocation: 'npx --yes wrangler@4.130.0',
     pagesDeployVersion: '4.130.0',
     ...overrides
   };
@@ -107,6 +111,16 @@ jobs:
 
   deploy-pages:
     steps:
+      - name: Ensure Pages project exists
+        run: |
+          PROJECT_NAME="akamoney"
+          if ${options.pagesListWranglerInvocation} pages project list 2>/dev/null | grep -qw "$PROJECT_NAME"; then
+            echo "Pages project '$PROJECT_NAME' already exists"
+          else
+            ${options.pagesCreateWranglerInvocation} pages project create "$PROJECT_NAME" --production-branch=main
+            echo "Pages project '$PROJECT_NAME' created successfully"
+          fi
+
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v4
         with:
@@ -169,5 +183,15 @@ describe('verify-wrangler-pins.mjs', () => {
       'Redirect Verify pinned Wrangler version error message'
     );
     expect((thrown as Error).message).toContain('Pages deploy wranglerVersion');
+  });
+
+  it('reports Pages setup commands that are not pinned to the unified Wrangler version', async () => {
+    const { verifyWranglerPins } = await loadVerifier();
+    const fixture = createFixture({
+      pagesListWranglerInvocation: 'npx wrangler',
+      pagesCreateWranglerInvocation: 'npx wrangler'
+    });
+
+    expect(() => verifyWranglerPins(fixture)).toThrowError(/Pages project existence check/);
   });
 });
