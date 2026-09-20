@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AccountInfo } from '@azure/msal-browser';
+import type { AxiosRequestConfig, AxiosResponse } from 'axios';
 
 /**
  * Integration coverage for the Blocking-1 finding: a `getToken()` silent
@@ -7,10 +8,12 @@ import type { AccountInfo } from '@azure/msal-browser';
  * expired the session must not let the request interceptor attach a stale
  * Authorization header, invoke axios's adapter, or rewrite `auth_token`.
  *
- * This intentionally exercises the *real* `services/auth.ts` and
- * `services/api.ts` together (only MSAL and axios are mocked) - unlike
- * `api.test.ts`, which mocks `services/auth` entirely and so cannot observe
- * this race.
+ * This drives the *real* Axios request pipeline - real request/response
+ * interceptors, real `dispatchRequest` - through genuine `ApiService.getUrl()`
+ * calls. Only MSAL and the network transport (axios's adapter, replaced by a
+ * controlled stand-in below) are mocked; `services/auth.ts` and
+ * `services/api.ts` run unmocked, unlike `api.test.ts`, which mocks
+ * `services/auth` entirely and so cannot observe this race.
  */
 
 const account: AccountInfo = {
@@ -52,56 +55,79 @@ vi.mock('@azure/msal-browser', () => ({
   InteractionRequiredAuthError: MockInteractionRequiredAuthError
 }));
 
-const { requestHandlers, adapterCalls } = vi.hoisted(() => ({
-  requestHandlers: {} as { fulfilled?: (config: any) => any; rejected?: (error: any) => any },
-  adapterCalls: { get: 0, post: 0, put: 0, delete: 0 }
+interface AdapterCallRecord {
+  readonly url: string | undefined;
+  readonly authorization: string | undefined;
+}
+
+interface AdapterResponder {
+  readonly status: number;
+  readonly data?: unknown;
+}
+
+const { adapterCalls, adapterResponders } = vi.hoisted(() => ({
+  adapterCalls: [] as AdapterCallRecord[],
+  adapterResponders: [] as AdapterResponder[]
 }));
 
-vi.mock('axios', () => ({
-  default: {
-    create: vi.fn(() => ({
-      interceptors: {
-        request: {
-          use: vi.fn((fulfilled, rejected) => {
-            requestHandlers.fulfilled = fulfilled;
-            requestHandlers.rejected = rejected;
-          })
-        },
-        response: {
-          use: vi.fn()
-        }
-      },
-      // Standing in for axios's adapter/network dispatch: a request that is
-      // aborted in the request interceptor must never reach these.
-      get: vi.fn(async () => {
-        adapterCalls.get += 1;
-        return { data: {} };
-      }),
-      post: vi.fn(async () => {
-        adapterCalls.post += 1;
-        return { data: {} };
-      }),
-      put: vi.fn(async () => {
-        adapterCalls.put += 1;
-        return { data: {} };
-      }),
-      delete: vi.fn(async () => {
-        adapterCalls.delete += 1;
-        return { data: {} };
-      })
-    }))
-  }
-}));
+// Real axios (interceptors, `dispatchRequest`, `AxiosHeaders`, error
+// construction) is used unmodified; only the network transport - the
+// adapter a real build would hand off to XHR/`http` - is replaced by a
+// controlled stand-in that records every dispatched request and settles it
+// exactly like axios's own adapters do: a real `AxiosError` carrying a
+// `response` for non-2xx status, so the real response interceptor runs.
+vi.mock('axios', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('axios')>();
+  const AxiosErrorCtor = actual.default.AxiosError;
+
+  const controlledAdapter = async (config: AxiosRequestConfig): Promise<AxiosResponse> => {
+    const headers = config.headers as unknown as Record<string, unknown> | undefined;
+    const authorization = typeof headers?.Authorization === 'string' ? (headers.Authorization as string) : undefined;
+    adapterCalls.push({ url: config.url, authorization });
+
+    const responder = adapterResponders.shift();
+    if (!responder) {
+      throw new Error(`Unexpected adapter dispatch for ${config.url ?? '(unknown url)'}`);
+    }
+
+    const response = {
+      data: responder.data ?? {},
+      status: responder.status,
+      statusText: responder.status === 200 ? 'OK' : 'Unauthorized',
+      headers: {},
+      config,
+      request: {}
+    } as AxiosResponse;
+
+    if (responder.status >= 200 && responder.status < 300) {
+      return response;
+    }
+
+    throw new AxiosErrorCtor(
+      `Request failed with status code ${responder.status}`,
+      AxiosErrorCtor.ERR_BAD_REQUEST,
+      config as AxiosResponse['config'],
+      {},
+      response
+    );
+  };
+
+  return {
+    ...actual,
+    default: {
+      ...actual.default,
+      create: (config?: AxiosRequestConfig) => actual.default.create({ ...config, adapter: controlledAdapter })
+    }
+  };
+});
 
 beforeEach(async () => {
   vi.resetModules();
   vi.clearAllMocks();
   localStorage.clear();
   sessionStorage.clear();
-  adapterCalls.get = 0;
-  adapterCalls.post = 0;
-  adapterCalls.put = 0;
-  adapterCalls.delete = 0;
+  adapterCalls.length = 0;
+  adapterResponders.length = 0;
   vi.stubEnv('VITE_ENTRA_ID_CLIENT_ID', 'test-client-id');
   vi.stubEnv('VITE_ENTRA_ID_TENANT_ID', 'tenant-id');
   msal.initialize.mockResolvedValue(undefined);
@@ -109,76 +135,103 @@ beforeEach(async () => {
   msal.getActiveAccount.mockReturnValue(account);
   msal.getAllAccounts.mockReturnValue([account]);
   msal.clearCache.mockResolvedValue(undefined);
-
-  // Loading api.ts (fresh module instance) registers its interceptors
-  // against the mocked axios instance created above.
-  await import('../api');
 });
 
 afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-describe('request interceptor + real auth service: stale silent acquisition race', () => {
-  it('rejects before the adapter runs and never restores auth_token when a concurrent 401 expires the session mid-flight', async () => {
-    const { markSessionExpired } = await import('@/utils/sessionExpiry');
+describe('ApiService + real auth service: stale silent-acquisition race (real Axios pipeline)', () => {
+  it('rejects request A before adapter dispatch when a concurrent request 401s and expires the session mid-flight', async () => {
+    // Fresh module instances so `api.ts` registers its interceptors against
+    // the controlled-adapter axios instance created above.
+    const apiModule = await import('../api');
+    const apiService = apiModule.default;
+    const { AuthTokenUnavailableError } = apiModule;
+    const { getSessionGeneration, readSessionExpiry } = await import('@/utils/sessionExpiry');
 
-    let resolveSilent!: (value: { accessToken: string }) => void;
-    msal.acquireTokenSilent.mockImplementation(
-      () =>
-        new Promise((resolve) => {
-          resolveSilent = resolve;
-        })
-    );
+    let resolveSilentA!: (value: { accessToken: string }) => void;
+    let acquireCallCount = 0;
+    msal.acquireTokenSilent.mockImplementation(() => {
+      acquireCallCount += 1;
+      if (acquireCallCount === 1) {
+        // Request A's silent acquisition: deliberately left pending.
+        return new Promise((resolve) => {
+          resolveSilentA = resolve;
+        });
+      }
+      // Request B's silent acquisition: resolves immediately.
+      return Promise.resolve({ accessToken: 'b-token' });
+    });
 
-    const config: any = { headers: {} };
-    const pending = requestHandlers.fulfilled!(config);
-    // Let the request interceptor's getToken() clear SDK-readiness and reach
-    // the acquireTokenSilent call before interleaving the concurrent 401.
+    // Queued for whichever request reaches the controlled adapter first.
+    adapterResponders.push({ status: 401, data: { message: 'unauthorized' } });
+
+    const pendingA = apiService.getUrl('url-a');
+    // Let request A's interceptor run past getAccount()/ensureMsalInitialized
+    // and reach the still-pending acquireTokenSilent call.
     await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(adapterCalls).toHaveLength(0);
 
-    // Another request's 401 handler expires the session synchronously while
-    // this request's silent acquisition is still awaiting MSAL.
-    markSessionExpired('unauthorized');
+    // Request B acquires a token and runs all the way through the real
+    // pipeline to the controlled adapter, which returns a real Axios-shaped
+    // 401 that the real response interceptor turns into a session expiry -
+    // all while request A is still awaiting its own silent acquisition.
+    const pendingB = apiService.getUrl('url-b');
+    await expect(pendingB).rejects.toThrow();
 
-    // The deferred silent acquisition now "wins the race" and resolves with
-    // what looks like a valid token.
-    resolveSilent({ accessToken: 'late-token' });
+    expect(adapterCalls).toHaveLength(1);
+    expect(adapterCalls[0].url).toContain('url-b');
+    expect(readSessionExpiry()).toBe('unauthorized');
+    const generationAfterExpiry = getSessionGeneration();
 
-    await expect(pending).rejects.toThrow();
-    expect(config.headers.Authorization).toBeUndefined();
+    // Request A's deferred silent acquisition now "wins the race" and
+    // resolves with what looks like a valid token, after the session was
+    // already expired by request B's real 401 above.
+    resolveSilentA({ accessToken: 'late-token' });
+
+    await expect(pendingA).rejects.toBeInstanceOf(AuthTokenUnavailableError);
+
+    // Request A must never have reached the adapter: only request B did.
+    expect(adapterCalls).toHaveLength(1);
+    expect(adapterCalls[0].url).toContain('url-b');
     expect(localStorage.getItem('auth_token')).toBeNull();
-
-    // Prove the adapter/network layer was never reached for this request.
-    expect(adapterCalls.get).toBe(0);
-    expect(adapterCalls.post).toBe(0);
+    // The stale completion must not invalidate anything further: the
+    // session generation is unchanged since request B's real 401.
+    expect(getSessionGeneration()).toBe(generationAfterExpiry);
   });
 
-  it('does not clear the account cache for a stale silent-acquisition failure after the session was already refreshed by a newer login', async () => {
-    const { clearSessionExpiry, readSessionExpiry } = await import('@/utils/sessionExpiry');
+  it('does not clear the account cache for a stale silent-acquisition failure after the session was already refreshed by a newer login (real Axios pipeline)', async () => {
+    const apiModule = await import('../api');
+    const apiService = apiModule.default;
+    const { clearSessionExpiry, getSessionGeneration, readSessionExpiry } = await import('@/utils/sessionExpiry');
 
-    let rejectSilent!: (error: unknown) => void;
+    let rejectSilentA!: (error: unknown) => void;
     msal.acquireTokenSilent.mockImplementation(
       () =>
         new Promise((_resolve, reject) => {
-          rejectSilent = reject;
+          rejectSilentA = reject;
         })
     );
 
-    const config: any = { headers: {} };
-    const pending = requestHandlers.fulfilled!(config);
-    // Let the request interceptor's getToken() clear SDK-readiness and reach
-    // the acquireTokenSilent call before interleaving the newer session.
+    const pendingA = apiService.getUrl('url-a');
+    // Let request A's interceptor reach the still-pending acquireTokenSilent
+    // call before interleaving the newer, already-successful session.
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    // A newer, already-successful auth clears expiry while this request's
+    // A newer, already-successful auth clears expiry while request A's
     // silent acquisition is still in flight.
     clearSessionExpiry();
-    rejectSilent(new MockInteractionRequiredAuthError('interaction_required', 'stale'));
+    const generationAfterRefresh = getSessionGeneration();
 
-    await expect(pending).rejects.toThrow();
+    rejectSilentA(new MockInteractionRequiredAuthError('interaction_required', 'stale'));
+
+    await expect(pendingA).rejects.toThrow();
+
     expect(msal.clearCache).not.toHaveBeenCalled();
     expect(readSessionExpiry()).toBeNull();
-    expect(adapterCalls.get).toBe(0);
+    expect(getSessionGeneration()).toBe(generationAfterRefresh);
+    // The stale failure must never have reached the network layer either.
+    expect(adapterCalls).toHaveLength(0);
   });
 });
