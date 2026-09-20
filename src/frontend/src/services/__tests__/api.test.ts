@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { TokenResult } from '../auth';
-import { readSessionExpiry } from '@/utils/sessionExpiry';
+import { readSessionExpiry, recordAuthRedirect } from '@/utils/sessionExpiry';
 
 const { requestHandlers, responseHandlers } = vi.hoisted(() => ({
   requestHandlers: {} as {
@@ -138,6 +138,44 @@ describe('api interceptors', () => {
       await Promise.resolve();
       await Promise.resolve();
 
+      await requestHandlers.fulfilled!({ headers: {} }).catch(() => undefined);
+      expect(handler).toHaveBeenCalledTimes(2);
+    });
+
+    it('keeps a single in-flight transition until a pending navigation (e.g. router.replace) settles, coalescing cross-tick failures into one navigation and one fuse count', async () => {
+      vi.mocked(authService.getToken).mockResolvedValue({ status: 'interaction-required' });
+
+      let resolveNavigation: () => void;
+      const pendingNavigation = new Promise<void>((resolve) => {
+        resolveNavigation = resolve;
+      });
+      // Mirrors the router's real auth-failure handler: record a redirect
+      // fuse hit synchronously, then return the still-pending navigation
+      // promise so the caller's single-flight guard waits for it.
+      const handler = vi.fn(() => {
+        recordAuthRedirect();
+        return pendingNavigation;
+      });
+      registerAuthFailureHandler(handler);
+
+      await requestHandlers.fulfilled!({ headers: {} }).catch(() => undefined);
+      await Promise.resolve();
+      await requestHandlers.fulfilled!({ headers: {} }).catch(() => undefined);
+      await Promise.resolve();
+      await requestHandlers.fulfilled!({ headers: {} }).catch(() => undefined);
+
+      // The navigation from the first failure has not settled yet: later
+      // failures arriving on subsequent ticks must not independently
+      // re-trigger the handler (one navigation, one fuse hit).
+      expect(handler).toHaveBeenCalledTimes(1);
+
+      resolveNavigation!();
+      await pendingNavigation;
+      await Promise.resolve();
+      await Promise.resolve();
+
+      // Only once the pending navigation settles does a later, distinct
+      // failure trigger the handler again.
       await requestHandlers.fulfilled!({ headers: {} }).catch(() => undefined);
       expect(handler).toHaveBeenCalledTimes(2);
     });

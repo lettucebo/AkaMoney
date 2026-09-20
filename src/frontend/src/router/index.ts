@@ -65,12 +65,32 @@ export const createAppRouter = (): Router => {
     routes
   });
 
+  // Tracks the current auth-failure-to-Login transition while it is
+  // pending. `router.currentRoute` only reflects the new location once
+  // `router.replace()` resolves, so a failure that arrives on a later tick
+  // while this is still in flight cannot rely on the "already on Login"
+  // check above alone; it must instead be coalesced into the same
+  // transition (returned below) rather than recording another fuse hit and
+  // navigating a second time.
+  let redirectInFlight: Promise<void> | null = null;
+
   // Registered once per router instance: reacts to auth failures reported by
   // the API layer (interaction-required/no-account/initialization-failed
   // from a request, or an unauthorized 401 from a response) by expiring the
   // session and landing safely on Login.
-  registerAuthFailureHandler((reason: SessionExpiryReason) => {
+  //
+  // The returned promise is also awaited by the API layer's own
+  // single-flight guard (see `triggerAuthFailure` in `services/api.ts`), so
+  // the two layers agree on when the transition has settled.
+  registerAuthFailureHandler((reason: SessionExpiryReason): Promise<void> | void => {
     const authStore = useAuthStore();
+
+    if (redirectInFlight) {
+      // A previous auth-failure transition has not settled yet: fold this
+      // failure into it instead of recording another fuse hit or
+      // navigating again, preserving the first redirect.
+      return redirectInFlight;
+    }
 
     if (router.currentRoute.value.name === 'Login') {
       // Already on a safe landing page: do not count this as a new redirect
@@ -87,7 +107,18 @@ export const createAppRouter = (): Router => {
     authStore.expireSession(effectiveReason);
 
     const redirect = getValidatedRedirect(router.currentRoute.value.fullPath);
-    void router.replace({ name: 'Login', query: { redirect } });
+    // Preserve the first redirect: resolve regardless of outcome (e.g. a
+    // duplicate-navigation rejection) so this transition always "settles"
+    // rather than propagating an unhandled rejection, and clear the
+    // in-flight marker once it does.
+    redirectInFlight = router.replace({ name: 'Login', query: { redirect } }).then(
+      () => undefined,
+      () => undefined
+    ).finally(() => {
+      redirectInFlight = null;
+    });
+
+    return redirectInFlight;
   });
 
   // Navigation guard for authentication

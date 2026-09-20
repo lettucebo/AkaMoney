@@ -178,6 +178,32 @@ describe('authService.initialize result contract', () => {
     expect(error.mock.calls[0]).toHaveLength(1);
     expect(JSON.stringify(error.mock.calls)).not.toContain(CANARY);
     expect(JSON.stringify(error.mock.calls)).not.toContain('hash_empty_error');
+    expect(readSessionExpiry()).toBe('initialization-failed');
+  });
+
+  it('persists initialization-failed so a cached account cannot restore validity on a clean reload after a callback throw', async () => {
+    setLaunchUrl(`/dashboard?code=${CANARY}`);
+    localStorage.setItem('auth_token', 'stale-token');
+    msal.handleRedirectPromise.mockRejectedValue(new Error('hash_empty_error'));
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const authService = await loadAuthService();
+
+    await authService.initialize();
+
+    // The expiry marker must survive in sessionStorage exactly like a real
+    // reload: it is not cleared by loading a fresh module instance below.
+    expect(readSessionExpiry()).toBe('initialization-failed');
+
+    // Simulate a clean reload: a new module instance, no callback in the URL
+    // this time, but MSAL's local cache still has the previously
+    // authenticated account (it was never cleared by the throw).
+    setLaunchUrl('/dashboard');
+    msal.getActiveAccount.mockReturnValue(null);
+    msal.getAllAccounts.mockReturnValue([account]);
+    const reloadedAuthService = await loadAuthService();
+
+    expect(reloadedAuthService.getAccount()).toBeNull();
+    expect(msal.setActiveAccount).not.toHaveBeenCalled();
   });
 
   it('separates SDK readiness from callback handling: a readiness failure never calls handleRedirectPromise', async () => {

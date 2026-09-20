@@ -123,7 +123,7 @@ export class AuthTokenUnavailableError extends Error {
   }
 }
 
-export type AuthFailureHandler = (reason: SessionExpiryReason) => void;
+export type AuthFailureHandler = (reason: SessionExpiryReason) => void | Promise<void>;
 
 let authFailureHandler: AuthFailureHandler | null = null;
 let authFailureInFlight = false;
@@ -148,9 +148,18 @@ export function registerAuthFailureHandler(handler: AuthFailureHandler | null): 
  * exactly once for a burst of concurrent failures. Multiple requests that
  * fail in the same synchronous window (e.g. several in-flight calls all
  * losing their token together) must not each independently trigger
- * navigation/redirect-fuse accounting - only the first of the burst does,
- * and the in-flight flag resets on the next microtask so a later, distinct
- * failure can still trigger again.
+ * navigation/redirect-fuse accounting - only the first of the burst does.
+ *
+ * When the handler returns a promise (e.g. the router's handler, which
+ * awaits its own `router.replace()`), the in-flight flag is held until that
+ * promise settles rather than resetting after a fixed microtask. Without
+ * this, a failure that arrives on a later tick - while the first redirect's
+ * navigation is still pending - would see the flag already cleared and the
+ * route not yet updated to Login, and would independently re-trigger the
+ * fuse/navigation instead of being coalesced into the same transition. A
+ * handler that returns nothing (e.g. a synchronous test double) keeps the
+ * previous microtask-based reset so a later, distinct failure can still
+ * trigger again.
  */
 function triggerAuthFailure(reason: SessionExpiryReason): void {
   if (authFailureInFlight) {
@@ -158,8 +167,13 @@ function triggerAuthFailure(reason: SessionExpiryReason): void {
   }
   authFailureInFlight = true;
 
+  const settle = (): void => {
+    authFailureInFlight = false;
+  };
+
+  let handlerResult: void | Promise<void> = undefined;
   if (authFailureHandler) {
-    authFailureHandler(reason);
+    handlerResult = authFailureHandler(reason);
   } else {
     // Before the router has registered a handler (e.g. during early
     // bootstrap), only persist the expiry marker. Never fall back to a
@@ -167,9 +181,11 @@ function triggerAuthFailure(reason: SessionExpiryReason): void {
     markSessionExpired(reason);
   }
 
-  Promise.resolve().then(() => {
-    authFailureInFlight = false;
-  });
+  if (handlerResult && typeof handlerResult.then === 'function') {
+    handlerResult.then(settle, settle);
+  } else {
+    Promise.resolve().then(settle);
+  }
 }
 
 /** Maps a non-acquired `getToken()` status to a persisted expiry reason. */

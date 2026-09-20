@@ -249,6 +249,49 @@ describe('router auth-failure handling', { timeout: 15_000 }, () => {
     expect(router.currentRoute.value.name).toBe('Login');
   });
 
+  it('keeps a single in-flight transition until a pending navigation settles, so cross-tick failures do not double-navigate or double-count the fuse', async () => {
+    const { router, authStore } = await createAuthenticatedRouterWithStore();
+
+    await router.push('/stats');
+    await router.isReady();
+
+    // Control exactly when the handler's own navigation settles, so the test
+    // can assert what happens to failures that arrive on later ticks while
+    // it is still pending - `currentRoute` does not become 'Login' until
+    // `router.replace` resolves, so the "already on Login" guard alone
+    // cannot protect against a burst spread across ticks.
+    let resolveReplace: () => void;
+    const pendingReplace = new Promise<void>((resolve) => {
+      resolveReplace = resolve;
+    });
+    const originalReplace = router.replace.bind(router);
+    const replaceSpy = vi
+      .spyOn(router, 'replace')
+      .mockImplementation((location) => pendingReplace.then(() => originalReplace(location)));
+
+    capturedAuthFailureHandler.current!('interaction-required');
+    await Promise.resolve();
+    capturedAuthFailureHandler.current!('interaction-required');
+    await Promise.resolve();
+    capturedAuthFailureHandler.current!('interaction-required');
+    await Promise.resolve();
+
+    // Still pending: the first failure's transition has not settled yet, so
+    // the later, same-burst failures must not have navigated or counted
+    // against the redirect fuse again.
+    expect(replaceSpy).toHaveBeenCalledTimes(1);
+    expect(authStore.expiryReason).toBe('interaction-required');
+
+    resolveReplace!();
+    await pendingReplace;
+    await vi.waitFor(() => expect(router.currentRoute.value.name).toBe('Login'));
+
+    expect(replaceSpy).toHaveBeenCalledTimes(1);
+    // Not 'loop-detected': the fuse must have recorded only the single,
+    // coalesced redirect - not one per handler invocation in the burst.
+    expect(authStore.expiryReason).toBe('interaction-required');
+  });
+
   it('marks loop-detected and still lands safely on Login once the redirect fuse is exhausted', async () => {
     const { router, authStore } = await createAuthenticatedRouterWithStore();
 

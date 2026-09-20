@@ -301,6 +301,11 @@ class AuthService {
       console.error(INITIALIZATION_FAILED_MESSAGE);
       // Clean up potentially corrupted state
       localStorage.removeItem('auth_token');
+      // Persist the failure the same way a readiness failure does: without an
+      // expiry marker, a stale cached MSAL account could otherwise be read
+      // back as valid by `getAccount()` on a later, unrelated reload even
+      // though no access token was ever confirmed here.
+      markSessionExpired('initialization-failed');
       // Don't throw - let the application continue
       return { status: 'failed', callbackPresent };
     }
