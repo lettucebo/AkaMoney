@@ -110,7 +110,8 @@ const bootstrapRealAppAt = async (path: string): Promise<BootstrapScenario> => {
           total_pages: 0
         }
       }))
-    }
+    },
+    registerAuthFailureHandler: vi.fn()
   }));
 
   const [{ createApp }, { createPinia }, { default: App }, { createAppRouter }] = await Promise.all([

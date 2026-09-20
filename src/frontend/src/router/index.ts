@@ -2,6 +2,8 @@ import { createRouter, createWebHistory } from 'vue-router';
 import type { RouteRecordRaw, Router } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { getValidatedRedirect } from '@/utils/redirect';
+import { registerAuthFailureHandler } from '@/services/api';
+import { recordAuthRedirect, type SessionExpiryReason } from '@/utils/sessionExpiry';
 
 // Extend vue-router RouteMeta interface to include requiresAuth
 declare module 'vue-router' {
@@ -63,6 +65,31 @@ export const createAppRouter = (): Router => {
     routes
   });
 
+  // Registered once per router instance: reacts to auth failures reported by
+  // the API layer (interaction-required/no-account/initialization-failed
+  // from a request, or an unauthorized 401 from a response) by expiring the
+  // session and landing safely on Login.
+  registerAuthFailureHandler((reason: SessionExpiryReason) => {
+    const authStore = useAuthStore();
+
+    if (router.currentRoute.value.name === 'Login') {
+      // Already on a safe landing page: do not count this as a new redirect
+      // or navigate again.
+      return;
+    }
+
+    const fuseResult = recordAuthRedirect();
+    const effectiveReason: SessionExpiryReason = fuseResult.loopDetected ? 'loop-detected' : reason;
+
+    // Update Pinia state (and persistence, via expireSession) before
+    // navigating, so the guard below and LoginView both see the final
+    // reason immediately.
+    authStore.expireSession(effectiveReason);
+
+    const redirect = getValidatedRedirect(router.currentRoute.value.fullPath);
+    void router.replace({ name: 'Login', query: { redirect } });
+  });
+
   // Navigation guard for authentication
   router.beforeEach(async (to, _from, next) => {
     const authStore = useAuthStore();
@@ -72,9 +99,9 @@ export const createAppRouter = (): Router => {
       await authStore.initialize();
     }
 
-    if (to.meta.requiresAuth && !authStore.isAuthenticated) {
+    if (to.meta.requiresAuth && !authStore.hasValidSession) {
       next({ name: 'Login', query: { redirect: to.fullPath } });
-    } else if (to.name === 'Login' && authStore.isAuthenticated) {
+    } else if (to.name === 'Login' && authStore.hasValidSession) {
       // Single non-skip-auth decision point for post-login redirects.
       const redirect = getValidatedRedirect(to.query.redirect);
       next(redirect);

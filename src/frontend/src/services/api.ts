@@ -3,6 +3,7 @@ import axios, { AxiosInstance, AxiosError } from 'axios';
 import { applyMockUrlUpdate } from './mockUrlUpdate';
 import { queryMockUrls } from './mockUrlList';
 import { toUrlListApiParams } from '@/utils/urlListQuery';
+import { markSessionExpired, type SessionExpiryReason } from '@/utils/sessionExpiry';
 import type {
   UrlResponse,
   CreateUrlRequest,
@@ -109,6 +110,76 @@ function createMockApiError(message: string, status: number = 404): Error {
   return error;
 }
 
+/**
+ * Rejected by the request interceptor when no acquired token is available.
+ * Distinguishes an intentionally-aborted request (missing/invalid auth) from
+ * a network/axios failure, without ever sending a request that has no valid
+ * Authorization header.
+ */
+export class AuthTokenUnavailableError extends Error {
+  constructor(public readonly reason: string) {
+    super(`Request aborted: no acquired auth token available (${reason}).`);
+    this.name = 'AuthTokenUnavailableError';
+  }
+}
+
+export type AuthFailureHandler = (reason: SessionExpiryReason) => void;
+
+let authFailureHandler: AuthFailureHandler | null = null;
+let authFailureInFlight = false;
+
+/**
+ * Registers the single handler invoked when the API layer detects the
+ * session can no longer be used (interaction-required/no-account/
+ * initialization-failed from the request interceptor, or an unauthorized
+ * 401 from the response interceptor). The router registers this once, at
+ * router-creation time, so navigation only ever happens there - `api.ts`
+ * itself never touches `window.location` or the router.
+ *
+ * Passing `null` clears the handler (used by tests, and reflects the state
+ * before the router has registered one).
+ */
+export function registerAuthFailureHandler(handler: AuthFailureHandler | null): void {
+  authFailureHandler = handler;
+}
+
+/**
+ * Persists the expiry reason and, if a handler is registered, invokes it
+ * exactly once for a burst of concurrent failures. Multiple requests that
+ * fail in the same synchronous window (e.g. several in-flight calls all
+ * losing their token together) must not each independently trigger
+ * navigation/redirect-fuse accounting - only the first of the burst does,
+ * and the in-flight flag resets on the next microtask so a later, distinct
+ * failure can still trigger again.
+ */
+function triggerAuthFailure(reason: SessionExpiryReason): void {
+  if (authFailureInFlight) {
+    return;
+  }
+  authFailureInFlight = true;
+
+  if (authFailureHandler) {
+    authFailureHandler(reason);
+  } else {
+    // Before the router has registered a handler (e.g. during early
+    // bootstrap), only persist the expiry marker. Never fall back to a
+    // full-page navigation here.
+    markSessionExpired(reason);
+  }
+
+  Promise.resolve().then(() => {
+    authFailureInFlight = false;
+  });
+}
+
+/** Maps a non-acquired `getToken()` status to a persisted expiry reason. */
+function toExpiryReason(status: 'interaction-required' | 'initialization-failed' | 'no-account'): SessionExpiryReason {
+  if (status === 'no-account') {
+    return 'unauthorized';
+  }
+  return status;
+}
+
 class ApiService {
   private api: AxiosInstance;
 
@@ -123,21 +194,28 @@ class ApiService {
     // Add request interceptor to include auth token
     this.api.interceptors.request.use(
       async (config) => {
-        // Try to get a fresh token from MSAL
-        const token = await authService.getToken();
-        
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
+        const tokenResult = await authService.getToken();
+
+        if (tokenResult.status === 'acquired') {
+          config.headers.Authorization = `Bearer ${tokenResult.token}`;
           // Update localStorage to keep it in sync
-          localStorage.setItem('auth_token', token);
-        } else {
-          // Fallback to cached token if MSAL fails
-          const cachedToken = localStorage.getItem('auth_token');
-          if (cachedToken) {
-            config.headers.Authorization = `Bearer ${cachedToken}`;
-          }
+          localStorage.setItem('auth_token', tokenResult.token);
+          return config;
         }
-        return config;
+
+        if (
+          tokenResult.status === 'interaction-required' ||
+          tokenResult.status === 'no-account' ||
+          tokenResult.status === 'initialization-failed'
+        ) {
+          triggerAuthFailure(toExpiryReason(tokenResult.status));
+        }
+        // A transient/'unavailable' failure must not invalidate the session
+        // or trigger navigation - only abort this one request.
+
+        // No acquired token: abort before the adapter/network request runs.
+        // There is intentionally no cached-token fallback here.
+        return Promise.reject(new AuthTokenUnavailableError(tokenResult.status));
       },
       (error) => {
         return Promise.reject(error);
@@ -149,14 +227,21 @@ class ApiService {
       (response) => response,
       (error: AxiosError<ApiError>) => {
         if (error.response?.status === 401) {
-          // Handle unauthorized access
-          localStorage.removeItem('auth_token');
-          // Store current path for redirect after login
-          const currentPath = window.location.pathname + window.location.search;
-          if (currentPath !== '/login') {
-            sessionStorage.setItem('redirect_after_login', currentPath);
+          const authHeader = error.config?.headers?.Authorization;
+          const bearerMatch =
+            typeof authHeader === 'string' ? authHeader.match(/^Bearer\s+(.+)$/) : null;
+          const failingToken = bearerMatch ? bearerMatch[1] : null;
+          const currentToken = localStorage.getItem('auth_token');
+
+          if (failingToken && currentToken && failingToken !== currentToken) {
+            // A delayed 401 for a request that used an old token: the
+            // session has already been successfully refreshed, so this
+            // stale response must not tear down the new one.
+            return Promise.reject(error);
           }
-          window.location.href = '/login';
+
+          localStorage.removeItem('auth_token');
+          triggerAuthFailure('unauthorized');
         }
         return Promise.reject(error);
       }
