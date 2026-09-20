@@ -393,6 +393,67 @@ describe('authService.getToken discriminated result', () => {
       expect(error).not.toHaveBeenCalled();
     }
   );
+
+  it('rejects a stale successful silent acquisition as unavailable instead of restoring it, when the session was invalidated by another request while it was in flight', async () => {
+    const authService = await loadAuthService();
+    // `loadAuthService()` calls `vi.resetModules()`, so the freshly-loaded
+    // `auth.ts` bundles its own fresh `sessionExpiry.ts` instance with its
+    // own in-memory generation counter, distinct from this file's
+    // top-level, pre-reset import. Re-import it here so the marker call
+    // below bumps the *same* generation counter `getToken()` reads.
+    const { markSessionExpired: markExpiredInService } = await import('@/utils/sessionExpiry');
+    msal.getActiveAccount.mockReturnValue(account);
+    let resolveSilent!: (value: { accessToken: string }) => void;
+    msal.acquireTokenSilent.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveSilent = resolve;
+        })
+    );
+
+    const pending = authService.getToken();
+    // Let getToken() clear SDK-readiness and reach the acquireTokenSilent
+    // call before we interleave the concurrent expiry below.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    // Simulate another request's 401 synchronously expiring the session
+    // while this silent acquisition is still awaiting MSAL.
+    markExpiredInService('unauthorized');
+    resolveSilent({ accessToken: 'late-token' });
+
+    await expect(pending).resolves.toEqual({ status: 'unavailable' });
+    expect(readSessionExpiry()).toBe('unauthorized');
+  });
+
+  it('does not invalidate a newer, already-successful session when a stale silent acquisition later fails with interaction-required', async () => {
+    const authService = await loadAuthService();
+    // Same module-instance concern as above: use the `sessionExpiry.ts`
+    // instance freshly loaded alongside this `auth.ts` instance.
+    const { clearSessionExpiry: clearExpiryInService } = await import('@/utils/sessionExpiry');
+    msal.getActiveAccount.mockReturnValue(account);
+    let rejectSilent!: (error: unknown) => void;
+    msal.acquireTokenSilent.mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectSilent = reject;
+        })
+    );
+
+    const pending = authService.getToken();
+    // Let getToken() clear SDK-readiness and reach the acquireTokenSilent
+    // call before we interleave the newer, already-successful session below.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    // Meanwhile a newer, successful auth (e.g. a completed login/callback)
+    // clears any prior expiry: the session generation moves on before this
+    // call's silent acquisition settles.
+    clearExpiryInService();
+    rejectSilent(new MockInteractionRequiredAuthError('interaction_required', 'stale'));
+
+    await expect(pending).resolves.toEqual({ status: 'unavailable' });
+    expect(msal.clearCache).not.toHaveBeenCalled();
+    expect(readSessionExpiry()).toBeNull();
+  });
 });
 
 describe('authService.getAccount and expiry', () => {
@@ -440,6 +501,43 @@ describe('authService.login (popup) restores a session only with an access token
     expect(readSessionExpiry()).toBe('interaction-required');
     expect(msal.setActiveAccount).not.toHaveBeenCalled();
     expect(localStorage.getItem('auth_token')).toBeNull();
+  });
+
+  it('persists an expiry marker and clears the affected account cache even when no marker existed before the tokenless response', async () => {
+    const authService = await loadAuthService();
+    msal.loginPopup.mockResolvedValue(redirectResponse(null));
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    expect(readSessionExpiry()).toBeNull();
+
+    await expect(authService.login()).resolves.toBeUndefined();
+
+    expect(readSessionExpiry()).toBe('interaction-required');
+    expect(msal.clearCache).toHaveBeenCalledWith({ account });
+    expect(msal.setActiveAccount).not.toHaveBeenCalled();
+    expect(localStorage.getItem('auth_token')).toBeNull();
+  });
+
+  it('prevents a cached account from restoring a valid session after a tokenless popup response and a clean reload', async () => {
+    const authService = await loadAuthService();
+    msal.loginPopup.mockResolvedValue(redirectResponse(null));
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    await authService.login();
+    expect(readSessionExpiry()).toBe('interaction-required');
+
+    // Simulate a clean reload: a new module instance, no callback in the
+    // URL, but MSAL's local cache still holds the previously-seen account
+    // (clearCache is best-effort local cleanup, not guaranteed to remove
+    // every trace from getAllAccounts()).
+    setLaunchUrl('/dashboard');
+    msal.getActiveAccount.mockReturnValue(null);
+    msal.getAllAccounts.mockReturnValue([account]);
+    const reloadedAuthService = await loadAuthService();
+
+    expect(reloadedAuthService.getAccount()).toBeNull();
+    expect(reloadedAuthService.isAuthenticated()).toBe(false);
+    expect(msal.setActiveAccount).not.toHaveBeenCalled();
   });
 });
 

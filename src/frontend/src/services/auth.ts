@@ -6,7 +6,7 @@ import {
 } from '@azure/msal-browser';
 import { inspectOAuthCallback } from '@/utils/oauthCallback';
 import { toSafeErrorContext } from '@/utils/safeError';
-import { clearSessionExpiry, markSessionExpired, readSessionExpiry } from '@/utils/sessionExpiry';
+import { clearSessionExpiry, getSessionGeneration, markSessionExpired, readSessionExpiry } from '@/utils/sessionExpiry';
 
 export class AuthConfigurationError extends Error {
   constructor(message: string) {
@@ -344,6 +344,11 @@ class AuthService {
         console.warn(
           'Login succeeded but no access token was returned. Subsequent API calls relying on auth_token may fail.'
         );
+        // An account without a token must not restore a valid session, even
+        // if nothing had previously marked it expired: persist the expiry
+        // marker and clear only this account's local cache so a later
+        // reload cannot resurrect it as if it were still valid.
+        await this.handleInteractionRequired(loginResponse.account);
       }
       // No account, or an account without a token: do not restore a valid session.
       return undefined;
@@ -469,6 +474,14 @@ class AuthService {
       return { status: 'initialization-failed' };
     }
 
+    // Captured before awaiting acquireTokenSilent: if another request's 401
+    // expires the session, or a newer login/callback establishes one, while
+    // this call is suspended, the generation moves on. Checked again right
+    // after the await returns/throws and before acting on the result, so a
+    // stale completion can never restore a token for an already-invalidated
+    // session nor invalidate a session it no longer corresponds to.
+    const generationBeforeAcquire = getSessionGeneration();
+
     try {
       const response = await this.msalInstance.acquireTokenSilent({
         scopes: [
@@ -479,12 +492,23 @@ class AuthService {
         ],
         account
       });
+      if (getSessionGeneration() !== generationBeforeAcquire) {
+        // The session changed while this call was in flight: treat the
+        // result as stale rather than restoring it.
+        return { status: 'unavailable' };
+      }
       if (!response.accessToken) {
         return { status: 'unavailable' };
       }
       return { status: 'acquired', token: response.accessToken };
     } catch (error) {
       if (isInteractionRequiredError(error)) {
+        if (getSessionGeneration() !== generationBeforeAcquire) {
+          // The session already changed (expired independently, or a newer
+          // successful auth took over) while this call was awaiting MSAL:
+          // this stale failure must not expire whatever session is current.
+          return { status: 'unavailable' };
+        }
         await this.handleInteractionRequired(account);
         return { status: 'interaction-required' };
       }

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   clearAuthRedirectFuse,
   clearSessionExpiry,
+  getSessionGeneration,
   markSessionExpired,
   readSessionExpiry,
   recordAuthRedirect
@@ -102,5 +103,31 @@ describe('auth redirect fuse', () => {
     recordAuthRedirect(0);
     // Reading the raw persisted value confirms storage - not just in-memory state - backs the fuse.
     expect(sessionStorage.getItem('akamoney_auth_redirect_fuse')).not.toBeNull();
+  });
+});
+
+describe('session generation guard', () => {
+  // Used by callers that span an `await` (e.g. `acquireTokenSilent`) to
+  // detect a session-state change - expiry or a newer successful auth - that
+  // happened while they were suspended, so a stale completion can reject
+  // itself instead of restoring/invalidating the wrong session.
+  it('increments when the session is marked expired', () => {
+    const before = getSessionGeneration();
+    markSessionExpired('unauthorized');
+    expect(getSessionGeneration()).toBe(before + 1);
+  });
+
+  it('increments when a session is (re)established via clearSessionExpiry', () => {
+    markSessionExpired('unauthorized');
+    const before = getSessionGeneration();
+    clearSessionExpiry();
+    expect(getSessionGeneration()).toBeGreaterThan(before);
+  });
+
+  it('does not change merely from reading the expiry state', () => {
+    markSessionExpired('unauthorized');
+    const before = getSessionGeneration();
+    readSessionExpiry();
+    expect(getSessionGeneration()).toBe(before);
   });
 });

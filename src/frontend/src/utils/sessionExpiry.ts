@@ -52,9 +52,27 @@ const removeStorage = (key: string): void => {
   }
 };
 
+/**
+ * Monotonic, in-memory counter bumped every time the session's valid/invalid
+ * state changes (an expiry is marked, or a session is confirmed/re-cleared).
+ * Callers that span an `await` - notably a silent token acquisition - can
+ * capture this before awaiting and compare it after: a mismatch means some
+ * other in-flight work (a concurrent 401, or a newer successful login)
+ * already changed which session is current, so the awaited result is stale
+ * and must not be applied (neither restoring a token nor invalidating a
+ * session it no longer corresponds to).
+ */
+let sessionGeneration = 0;
+
+/** Current session generation. See {@link sessionGeneration}. */
+export function getSessionGeneration(): number {
+  return sessionGeneration;
+}
+
 /** Marks the current session as expired for the given reason. */
 export function markSessionExpired(reason: SessionExpiryReason): void {
   writeStorage(EXPIRY_REASON_KEY, reason);
+  sessionGeneration += 1;
 }
 
 /** Reads the persisted expiry reason, or `null` when no valid marker exists. */
@@ -70,6 +88,7 @@ export function readSessionExpiry(): SessionExpiryReason | null {
 export function clearSessionExpiry(): void {
   removeStorage(EXPIRY_REASON_KEY);
   clearAuthRedirectFuse();
+  sessionGeneration += 1;
 }
 
 interface FuseState {
