@@ -80,4 +80,21 @@ describe('App', () => {
     expect(wrapper.find('.app-shell').exists()).toBe(false);
     wrapper.unmount();
   });
+
+  it('hides the shell for an authenticated-but-expired session', async () => {
+    const router = buildRouter();
+    const authStore = useAuthStore();
+    authStore.initialized = true;
+    authStore.isAuthenticated = true;
+    authStore.expireSession('interaction-required');
+
+    await router.push('/dashboard');
+    await router.isReady();
+
+    const wrapper = mount(App, { global: { plugins: [router] }, attachTo: document.body });
+    await flushPromises();
+
+    expect(wrapper.find('.app-shell').exists()).toBe(false);
+    wrapper.unmount();
+  });
 });

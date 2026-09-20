@@ -6,7 +6,8 @@
       <p>使用 Microsoft 帳號（Entra ID）繼續管理你的短網址與成效分析。</p>
 
       <div v-if="authSkipped" class="notice" data-tone="warning" role="status">目前使用開發環境略過驗證模式。</div>
-      <div v-if="error" class="notice" data-tone="error" role="alert">{{ error }}</div>
+      <div v-if="expiryMessage" class="notice" data-tone="error" role="alert">{{ expiryMessage }}</div>
+      <div v-else-if="error" class="notice" data-tone="error" role="alert">{{ error }}</div>
 
       <button type="button" :disabled="loading" @click="handleLogin">
         <svg v-if="loading" class="spinner" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" /></svg>
@@ -20,7 +21,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { AuthConfigurationError, isAuthSkipped } from '@/services/auth';
@@ -33,6 +34,28 @@ const authStore = useAuthStore();
 const loading = ref(false);
 const error = ref<string | null>(null);
 const authSkipped = ref(isAuthSkipped());
+
+/**
+ * Traditional-Chinese messaging for a session the store has marked expired.
+ * `interaction-required` and `unauthorized` share one generic message since
+ * both simply mean "sign in again"; `initialization-failed` and
+ * `loop-detected` get their own distinct wording per the brief.
+ */
+const expiryMessage = computed<string | null>(() => {
+  if (!authStore.sessionExpired) {
+    return null;
+  }
+  switch (authStore.expiryReason) {
+    case 'initialization-failed':
+      return '驗證服務初始化失敗，請重新整理頁面或稍後再試。';
+    case 'loop-detected':
+      return '偵測到重複的登入失敗，請確認網路連線後再試一次。';
+    case 'interaction-required':
+    case 'unauthorized':
+    default:
+      return '登入已逾時，請重新登入。';
+  }
+});
 
 onMounted(async () => {
   if (!authSkipped.value) return;
@@ -52,11 +75,19 @@ const handleLogin = async (): Promise<void> => {
   loading.value = true;
   error.value = null;
   try {
+    // Does not clear the store's sessionExpired/expiryReason before
+    // redirecting: only a confirmed callback/popup account+token restores
+    // the session (see the auth service and store).
     await authStore.loginRedirect();
   } catch (caught: unknown) {
-    error.value = caught instanceof AuthConfigurationError
-      ? caught.message || '驗證尚未設定，請聯絡系統管理員。'
-      : '登入失敗，請再試一次。';
+    // If the store already reports an expired session (e.g. the service
+    // persisted a marker before rejecting), the banner above already shows
+    // the right zh-TW message - avoid a redundant/colliding local message.
+    if (!authStore.sessionExpired) {
+      error.value = caught instanceof AuthConfigurationError
+        ? caught.message || '驗證尚未設定，請聯絡系統管理員。'
+        : '登入失敗，請再試一次。';
+    }
     console.error('[Auth] Login failed.', toSafeErrorContext(caught));
   } finally {
     loading.value = false;

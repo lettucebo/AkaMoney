@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { AccountInfo } from '@azure/msal-browser';
 import type { RouteLocationRaw, Router } from 'vue-router';
 import type { AuthInitializationResult } from '@/services/auth';
+import type { SessionExpiryReason } from '@/utils/sessionExpiry';
+import { recordAuthRedirect } from '@/utils/sessionExpiry';
 
 /** Counters survive `vi.resetModules()`, unlike spies created inside the factory. */
 const vueRouterCalls = { createRouter: 0, createWebHistory: 0 };
@@ -21,6 +23,17 @@ vi.mock('vue-router', async (importOriginal) => {
     }
   };
 });
+
+/** Captures the handler the router registers with the API layer, without loading real axios/api plumbing. */
+const capturedAuthFailureHandler = vi.hoisted(() => ({
+  current: null as ((reason: SessionExpiryReason) => void) | null
+}));
+
+vi.mock('@/services/api', () => ({
+  registerAuthFailureHandler: (handler: ((reason: SessionExpiryReason) => void) | null) => {
+    capturedAuthFailureHandler.current = handler;
+  }
+}));
 
 interface MockAuthService {
   initialize: ReturnType<typeof vi.fn<() => Promise<AuthInitializationResult>>>;
@@ -73,6 +86,7 @@ const loadRouterModule = async () => {
   window.history.replaceState({}, '', '/');
   vueRouterCalls.createRouter = 0;
   vueRouterCalls.createWebHistory = 0;
+  capturedAuthFailureHandler.current = null;
 
   const authService = createAuthenticatedAuthService();
   vi.doMock('@/services/auth', () => ({
@@ -118,6 +132,14 @@ const navigateFromAsAuthenticatedUser = async (
   await router.push(loginPath);
 
   return router.currentRoute.value.fullPath;
+};
+
+const createAuthenticatedRouterWithStore = async () => {
+  const routerModule = await loadRouterModule();
+  const { useAuthStore } = await import('@/stores/auth');
+  const authStore = useAuthStore();
+  const router = routerModule.createAppRouter();
+  return { router, authStore };
 };
 
 afterEach(() => {
@@ -180,5 +202,142 @@ describe('router auth guard redirect validation', { timeout: 15_000 }, () => {
         query: { redirect: ['/stats', '/analytics/abc123'] }
       })
     ).resolves.toBe('/dashboard');
+  });
+});
+
+describe('router auth-failure handling', { timeout: 15_000 }, () => {
+  it('registers an auth-failure handler with the API layer when the router is created', async () => {
+    await createAuthenticatedRouterWithStore();
+
+    expect(typeof capturedAuthFailureHandler.current).toBe('function');
+  });
+
+  it('expires the session and redirects to Login preserving the current route', async () => {
+    const { router, authStore } = await createAuthenticatedRouterWithStore();
+
+    await router.push('/stats');
+    await router.isReady();
+
+    capturedAuthFailureHandler.current!('interaction-required');
+    await vi.waitFor(() => expect(router.currentRoute.value.name).toBe('Login'));
+
+    expect(authStore.sessionExpired).toBe(true);
+    expect(authStore.expiryReason).toBe('interaction-required');
+    expect(router.currentRoute.value.query.redirect).toBe('/stats');
+  });
+
+  it('does not expire the session or navigate again when already on Login', async () => {
+    const { router, authStore } = await createAuthenticatedRouterWithStore();
+
+    await router.push('/stats');
+    await router.isReady();
+    // Puts the store in an expired state first so the guard permits staying
+    // on Login (an authenticated-but-valid session would otherwise bounce
+    // straight back to the dashboard).
+    authStore.expireSession('unauthorized');
+
+    await router.push('/login');
+    await router.isReady();
+    expect(router.currentRoute.value.name).toBe('Login');
+
+    capturedAuthFailureHandler.current!('interaction-required');
+    await router.isReady();
+
+    // The reason from the earlier expiry is preserved - the handler must not
+    // re-run expireSession while already on Login.
+    expect(authStore.expiryReason).toBe('unauthorized');
+    expect(router.currentRoute.value.name).toBe('Login');
+  });
+
+  it('keeps a single in-flight transition until a pending navigation settles, so cross-tick failures do not double-navigate or double-count the fuse', async () => {
+    const { router, authStore } = await createAuthenticatedRouterWithStore();
+
+    await router.push('/stats');
+    await router.isReady();
+
+    // Control exactly when the handler's own navigation settles, so the test
+    // can assert what happens to failures that arrive on later ticks while
+    // it is still pending - `currentRoute` does not become 'Login' until
+    // `router.replace` resolves, so the "already on Login" guard alone
+    // cannot protect against a burst spread across ticks.
+    let resolveReplace: () => void;
+    const pendingReplace = new Promise<void>((resolve) => {
+      resolveReplace = resolve;
+    });
+    const originalReplace = router.replace.bind(router);
+    const replaceSpy = vi
+      .spyOn(router, 'replace')
+      .mockImplementation((location) => pendingReplace.then(() => originalReplace(location)));
+
+    capturedAuthFailureHandler.current!('interaction-required');
+    await Promise.resolve();
+    capturedAuthFailureHandler.current!('interaction-required');
+    await Promise.resolve();
+    capturedAuthFailureHandler.current!('interaction-required');
+    await Promise.resolve();
+
+    // Still pending: the first failure's transition has not settled yet, so
+    // the later, same-burst failures must not have navigated or counted
+    // against the redirect fuse again.
+    expect(replaceSpy).toHaveBeenCalledTimes(1);
+    expect(authStore.expiryReason).toBe('interaction-required');
+
+    resolveReplace!();
+    await pendingReplace;
+    await vi.waitFor(() => expect(router.currentRoute.value.name).toBe('Login'));
+
+    expect(replaceSpy).toHaveBeenCalledTimes(1);
+    // Not 'loop-detected': the fuse must have recorded only the single,
+    // coalesced redirect - not one per handler invocation in the burst.
+    expect(authStore.expiryReason).toBe('interaction-required');
+  });
+
+  it('marks loop-detected and still lands safely on Login once the redirect fuse is exhausted', async () => {
+    const { router, authStore } = await createAuthenticatedRouterWithStore();
+
+    await router.push('/stats');
+    await router.isReady();
+
+    // Pre-exhaust the fuse (2 allowed redirects already recorded elsewhere)
+    // so this handler invocation is the 3rd within the window.
+    recordAuthRedirect();
+    recordAuthRedirect();
+
+    capturedAuthFailureHandler.current!('interaction-required');
+    await vi.waitFor(() => expect(router.currentRoute.value.name).toBe('Login'));
+
+    expect(authStore.sessionExpired).toBe(true);
+    expect(authStore.expiryReason).toBe('loop-detected');
+  });
+});
+
+describe('router guard uses hasValidSession', { timeout: 15_000 }, () => {
+  it('keeps an authenticated-but-expired user on Login instead of bouncing them to the dashboard', async () => {
+    const { router, authStore } = await createAuthenticatedRouterWithStore();
+
+    // Let the app finish its normal bootstrap/initialize() first so the
+    // subsequent expireSession() is not overwritten by hydration.
+    await router.push('/stats');
+    await router.isReady();
+    authStore.expireSession('unauthorized');
+
+    await router.push('/login');
+    await router.isReady();
+
+    expect(router.currentRoute.value.name).toBe('Login');
+  });
+
+  it('redirects an authenticated-but-expired user away from a protected route', async () => {
+    const { router, authStore } = await createAuthenticatedRouterWithStore();
+
+    await router.push('/stats');
+    await router.isReady();
+    authStore.expireSession('unauthorized');
+
+    await router.push('/dashboard');
+    await router.isReady();
+
+    expect(router.currentRoute.value.name).toBe('Login');
+    expect(router.currentRoute.value.query.redirect).toBe('/dashboard');
   });
 });

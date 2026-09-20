@@ -14,6 +14,6 @@ import AppShell from '@/components/layout/AppShell.vue';
 const route = useRoute();
 const authStore = useAuthStore();
 
-/** The login screen is standalone; every authenticated route renders inside the shell. */
-const showShell = computed(() => authStore.isAuthenticated && route.name !== 'Login');
+/** The login screen is standalone; every route with a valid session renders inside the shell. */
+const showShell = computed(() => authStore.hasValidSession && route.name !== 'Login');
 </script>

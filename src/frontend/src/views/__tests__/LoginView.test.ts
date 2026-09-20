@@ -57,6 +57,7 @@ describe('LoginView', () => {
   beforeEach(() => {
     pinia = createPinia();
     setActivePinia(pinia);
+    sessionStorage.clear();
 
     router = createRouter({
       history: createMemoryHistory(),
@@ -81,6 +82,7 @@ describe('LoginView', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.clearAllMocks();
+    sessionStorage.clear();
   });
 
   describe('non-skip-auth mount boundary', () => {
@@ -246,6 +248,98 @@ describe('LoginView', () => {
       await flushPromises();
 
       expect(wrapper.text()).toContain('Entra ID client is not configured');
+    });
+  });
+
+  describe('session-expiry messaging', () => {
+    it('shows a generic re-login message for an interaction-required expiry', async () => {
+      await setRoute('/login');
+      const authStore = useAuthStore();
+      authStore.isAuthenticated = false;
+      authStore.initialized = true;
+      authStore.expireSession('interaction-required');
+
+      const wrapper = mountLoginView();
+      await flushPromises();
+
+      expect(wrapper.text()).toContain('登入已逾時，請重新登入。');
+    });
+
+    it('shows the same generic re-login message for an unauthorized expiry', async () => {
+      await setRoute('/login');
+      const authStore = useAuthStore();
+      authStore.isAuthenticated = false;
+      authStore.initialized = true;
+      authStore.expireSession('unauthorized');
+
+      const wrapper = mountLoginView();
+      await flushPromises();
+
+      expect(wrapper.text()).toContain('登入已逾時，請重新登入。');
+    });
+
+    it('shows a distinct message for an initialization failure', async () => {
+      await setRoute('/login');
+      const authStore = useAuthStore();
+      authStore.isAuthenticated = false;
+      authStore.initialized = true;
+      authStore.expireSession('initialization-failed');
+
+      const wrapper = mountLoginView();
+      await flushPromises();
+
+      expect(wrapper.text()).toContain('驗證服務初始化失敗，請重新整理頁面或稍後再試。');
+    });
+
+    it('shows a distinct message when a redirect loop was detected', async () => {
+      await setRoute('/login');
+      const authStore = useAuthStore();
+      authStore.isAuthenticated = false;
+      authStore.initialized = true;
+      authStore.expireSession('loop-detected');
+
+      const wrapper = mountLoginView();
+      await flushPromises();
+
+      expect(wrapper.text()).toContain('偵測到重複的登入失敗，請確認網路連線後再試一次。');
+    });
+
+    it('shows no expiry banner when the session was never marked expired', async () => {
+      await setRoute('/login');
+      const authStore = useAuthStore();
+      authStore.isAuthenticated = false;
+      authStore.initialized = true;
+
+      const wrapper = mountLoginView();
+      await flushPromises();
+
+      expect(wrapper.text()).not.toContain('登入已逾時，請重新登入。');
+      expect(wrapper.text()).not.toContain('驗證服務初始化失敗，請重新整理頁面或稍後再試。');
+      expect(wrapper.text()).not.toContain('偵測到重複的登入失敗，請確認網路連線後再試一次。');
+    });
+
+    it('does not show the generic failure message when the store already reports session expiry', async () => {
+      await setRoute('/login');
+      const authStore = useAuthStore();
+      authStore.isAuthenticated = false;
+      authStore.initialized = true;
+      // Simulates the service having persisted an expiry marker before
+      // rejecting (re-synced onto the store by loginRedirect()'s catch).
+      authStore.expireSession('interaction-required');
+
+      const error = new Error('redirect could not start');
+      vi.mocked(authService.loginRedirect).mockRejectedValue(error);
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const wrapper = mountLoginView();
+      await flushPromises();
+
+      const button = wrapper.find('button');
+      await button.trigger('click');
+      await flushPromises();
+
+      expect(wrapper.text()).not.toContain('登入失敗，請再試一次。');
+      expect(wrapper.text()).toContain('登入已逾時，請重新登入。');
     });
   });
 });

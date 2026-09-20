@@ -1,8 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { setActivePinia, createPinia } from 'pinia';
 import { useAuthStore } from '../auth';
 import authService, { AuthConfigurationError, type AuthInitializationResult } from '@/services/auth';
 import { clearSentryUser, setSentryUser } from '@/utils/sentry';
+import { markSessionExpired, readSessionExpiry } from '@/utils/sessionExpiry';
 
 const authResult = (
   status: AuthInitializationResult['status'],
@@ -44,6 +45,11 @@ describe('Auth Store', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     vi.clearAllMocks();
+    sessionStorage.clear();
+  });
+
+  afterEach(() => {
+    sessionStorage.clear();
   });
 
   describe('initial state', () => {
@@ -53,6 +59,8 @@ describe('Auth Store', () => {
       expect(store.user).toBeNull();
       expect(store.isAuthenticated).toBe(false);
       expect(store.loading).toBe(false);
+      expect(store.sessionExpired).toBe(false);
+      expect(store.expiryReason).toBeNull();
       expect(store.initialized).toBe(false);
     });
   });
@@ -90,6 +98,65 @@ describe('Auth Store', () => {
       
       expect(store.userEmail).toBe('');
     });
+
+    describe('hasValidSession', () => {
+      it('is false when not authenticated even without an expiry marker', () => {
+        const store = useAuthStore();
+        store.isAuthenticated = false;
+        store.sessionExpired = false;
+
+        expect(store.hasValidSession).toBe(false);
+      });
+
+      it('is true when authenticated and not expired', () => {
+        const store = useAuthStore();
+        store.isAuthenticated = true;
+        store.sessionExpired = false;
+
+        expect(store.hasValidSession).toBe(true);
+      });
+
+      it('is false when authenticated but the session has expired', () => {
+        const store = useAuthStore();
+        store.isAuthenticated = true;
+        store.sessionExpired = true;
+
+        expect(store.hasValidSession).toBe(false);
+      });
+
+      it('changes synchronously and immediately when expireSession is called after initialization', () => {
+        const store = useAuthStore();
+        store.isAuthenticated = true;
+        store.initialized = true;
+
+        expect(store.hasValidSession).toBe(true);
+
+        store.expireSession('unauthorized');
+
+        expect(store.hasValidSession).toBe(false);
+      });
+    });
+  });
+
+  describe('expireSession', () => {
+    it('updates Pinia state and persists the reason so it can be hydrated later', () => {
+      const store = useAuthStore();
+
+      store.expireSession('interaction-required');
+
+      expect(store.sessionExpired).toBe(true);
+      expect(store.expiryReason).toBe('interaction-required');
+      expect(readSessionExpiry()).toBe('interaction-required');
+    });
+
+    it.each(['interaction-required', 'unauthorized', 'initialization-failed', 'loop-detected'] as const)(
+      'accepts the %s reason',
+      (reason) => {
+        const store = useAuthStore();
+        store.expireSession(reason);
+        expect(store.expiryReason).toBe(reason);
+      }
+    );
   });
 
   describe('initialize', () => {
@@ -107,6 +174,33 @@ describe('Auth Store', () => {
       expect(setSentryUser).toHaveBeenCalledWith('home-account-id');
       expect(store.loading).toBe(false);
       expect(store.initialized).toBe(true);
+    });
+
+    it('hydrates a persisted expiry marker when no account is restored', async () => {
+      markSessionExpired('interaction-required');
+      vi.mocked(authService.initialize).mockResolvedValue(authResult('none'));
+      vi.mocked(authService.getAccount).mockReturnValue(null);
+
+      const store = useAuthStore();
+      await store.initialize();
+
+      expect(store.sessionExpired).toBe(true);
+      expect(store.expiryReason).toBe('interaction-required');
+      expect(store.hasValidSession).toBe(false);
+    });
+
+    it('resets sessionExpired/expiryReason when an account is restored, even if a stale marker was persisted', async () => {
+      markSessionExpired('interaction-required');
+      const mockAccount = { homeAccountId: 'home-account-id', name: 'John', username: 'john@example.com' };
+      vi.mocked(authService.initialize).mockResolvedValue(authResult('handled', true));
+      vi.mocked(authService.getAccount).mockReturnValue(mockAccount as any);
+
+      const store = useAuthStore();
+      await store.initialize();
+
+      expect(store.sessionExpired).toBe(false);
+      expect(store.expiryReason).toBeNull();
+      expect(store.hasValidSession).toBe(true);
     });
 
     it('should initialize with no user if no account', async () => {
@@ -246,6 +340,19 @@ describe('Auth Store', () => {
       expect(store.loading).toBe(false);
     });
 
+    it('clears any stale sessionExpired/expiryReason state on a successful login', async () => {
+      const mockAccount = { homeAccountId: 'home-account-id', name: 'John', username: 'john@example.com' };
+      vi.mocked(authService.login).mockResolvedValue(mockAccount as any);
+
+      const store = useAuthStore();
+      store.expireSession('interaction-required');
+
+      await store.login();
+
+      expect(store.sessionExpired).toBe(false);
+      expect(store.expiryReason).toBeNull();
+    });
+
     it('should handle login returning no account', async () => {
       vi.mocked(authService.login).mockResolvedValue(undefined);
       
@@ -327,6 +434,33 @@ describe('Auth Store', () => {
       }
       expect(store.loading).toBe(false);
     });
+
+    it('does not clear sessionExpired/expiryReason on a plain redirect-start failure with no persisted marker', async () => {
+      vi.mocked(authService.loginRedirect).mockRejectedValue(new Error('popup_window_error'));
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const store = useAuthStore();
+
+      await expect(store.loginRedirect()).rejects.toThrow();
+
+      expect(store.sessionExpired).toBe(false);
+      expect(store.expiryReason).toBeNull();
+    });
+
+    it('re-syncs sessionExpired/expiryReason from a marker the service persisted before rejecting', async () => {
+      vi.mocked(authService.loginRedirect).mockImplementation(async () => {
+        markSessionExpired('initialization-failed');
+        throw new Error('Authentication could not be initialized.');
+      });
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const store = useAuthStore();
+
+      await expect(store.loginRedirect()).rejects.toThrow();
+
+      expect(store.sessionExpired).toBe(true);
+      expect(store.expiryReason).toBe('initialization-failed');
+    });
   });
 
   describe('logout', () => {
@@ -344,6 +478,20 @@ describe('Auth Store', () => {
       expect(store.isAuthenticated).toBe(false);
       expect(clearSentryUser).toHaveBeenCalledOnce();
       expect(store.loading).toBe(false);
+    });
+
+    it('clears sessionExpired/expiryReason and the persisted fuse on logout', async () => {
+      vi.mocked(authService.logout).mockResolvedValue(undefined);
+
+      const store = useAuthStore();
+      store.isAuthenticated = true;
+      store.expireSession('unauthorized');
+
+      await store.logout();
+
+      expect(store.sessionExpired).toBe(false);
+      expect(store.expiryReason).toBeNull();
+      expect(readSessionExpiry()).toBeNull();
     });
 
     it('should handle logout error', async () => {
