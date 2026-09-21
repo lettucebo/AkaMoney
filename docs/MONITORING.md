@@ -59,7 +59,7 @@ See [Sentry Replay default masking](https://docs.sentry.io/platforms/javascript/
 
 Recommended guardrails:
 
-1. Keep `SENTRY_AUTH_TOKEN` in a protected GitHub `production` environment with at least one required reviewer before the job can access it.
+1. Keep `SENTRY_AUTH_TOKEN` in the GitHub `production` environment so only ref-policy-admitted release jobs reference it; the environment intentionally has no required reviewer.
 2. Use a token dedicated to source-map upload. [Sentry's Vite source-map guide](https://docs.sentry.io/platforms/javascript/sourcemaps/uploading/vite/) documents Organization Tokens, or Personal Tokens with `Project: Read & Write` and `Release: Admin` permissions.
 3. Do not grant issue write, member, or admin privileges to the source-map token unless a future workflow has a documented need.
 4. Rotate the token if it is ever exposed in a log, local shell history, or copied configuration file.
@@ -68,11 +68,11 @@ Recommended guardrails:
 
 1. The release workflow's `build` job receives public DSN variables but no Sentry upload credential (`.github/workflows/release.yml:145-161`). It runs outside the protected environment and executes the released commit's build scripts, so it must hold no credential.
 2. Hidden frontend source maps are generated only by builds that can hand them to Sentry: the Vite config emits them when `GITHUB_ACTIONS` or `SENTRY_AUTH_TOKEN` is present and disables them otherwise, so a manual `npm run build` plus `wrangler pages deploy` can never publish a map (`src/frontend/vite.config.ts:8-43`).
-3. The protected deploy job receives `SENTRY_AUTH_TOKEN` only after environment protection passes, and only after the trusted mainline ancestry recheck that runs before the artifact is downloaded (`.github/workflows/release.yml:1021-1064`).
+3. The protected deploy job receives `SENTRY_AUTH_TOKEN` only after the environment ref policy admits the release, and only after the trusted mainline ancestry recheck that runs before the artifact is downloaded (`.github/workflows/release.yml:1021-1064`).
 4. The protected job runs `sentry-cli sourcemaps inject` and `sentry-cli sourcemaps upload` against the already-built frontend artifact (`.github/workflows/release.yml:1079-1086`).
 5. The workflow deletes `.map` files and checks that none remain before Cloudflare Pages deploy (`.github/workflows/release.yml:1087-1094`).
 
-Production releases start only from a SemVer tag push or a confirmed manual dispatch — pull request events cannot start the workflow and no label deploys anything — and every deploy job re-proves, from a trusted `main`-only policy checkout, that it is deploying the immutable commit validated by `prepare-release`. See [Deployment](DEPLOYMENT.md) for the trust boundary, the applied `production` environment policy (branch `main` plus tag `*.*.*`, with the required reviewer preserved) and the documented limitations: reviewer self-review and admin bypass are possible, a tag on a historical commit still runs that commit's workflow, same-repo writers stay trusted, and `CLOUDFLARE_API_TOKEN`/`AZURE_STORAGE_SAS_TOKEN` remain repository secrets while only `SENTRY_AUTH_TOKEN` is environment-scoped.
+Production releases start only from a SemVer tag push or a confirmed manual dispatch — pull request events cannot start the workflow and no label deploys anything — and every deploy job re-proves, from a trusted `main`-only policy checkout, that it is deploying the immutable commit validated by `prepare-release`. See [Deployment](DEPLOYMENT.md) for the trust boundary, the applied `production` environment policy (branch `main` plus tag `*.*.*`, with no required reviewer) and the documented limitations: releases proceed without human approval, admins can bypass environment protection, a tag on a historical commit still runs that commit's workflow, same-repo writers stay trusted, and `CLOUDFLARE_API_TOKEN`/`AZURE_STORAGE_SAS_TOKEN` remain repository secrets while only `SENTRY_AUTH_TOKEN` is environment-scoped.
 
 Do not state that production source maps are verified until the first production release confirms symbolication in Sentry.
 
@@ -152,7 +152,7 @@ The `logs list` command is currently marked beta by Sentry CLI. See the [Sentry 
 
 - Confirm `VITE_SENTRY_DSN`, `SENTRY_BACKEND_DSN`, and `SENTRY_REDIRECT_DSN` are configured as repository variables and contain no whitespace.
 - Confirm `VITE_SENTRY_REPLAY_ENABLED` is set intentionally; use `false` to disable error Replay without removing the integration.
-- Confirm `SENTRY_AUTH_TOKEN` exists only in the protected production environment and requires reviewer approval.
+- Confirm `SENTRY_AUTH_TOKEN` exists only in the production environment and that its branch/tag ref policy is intact.
 - Confirm local examples use empty DSN defaults or ignored local files; never commit concrete DSNs or tokens.
 - Confirm release workflow logs do not print DSN or token values.
 

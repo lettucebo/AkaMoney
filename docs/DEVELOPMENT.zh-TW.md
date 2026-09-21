@@ -156,13 +156,13 @@ D1 資料庫遷移 SQL 檔案位於 `src/backend/migrations/`。
   npx wrangler d1 migrations apply DB --local --config wrangler.local.toml
   ```
 
-- **正式環境執行資料庫遷移**：
+- **正式環境 D1 migration** 會由 release workflow 的受信任 `migrate-d1` gate 在任何服務部署前自動套用。下列指令只供已診斷的手動復原使用：
   ```bash
   cd src/backend
   npx wrangler d1 migrations apply DB --remote --config wrangler.toml
   ```
 
-  手動執行遠端指令前，請先填入已追蹤設定中空白的 `database_id`。Release workflow 會自動注入此值。
+  手動執行遠端指令前，請先填入已追蹤設定中空白的 `database_id`。Release workflow 會自動注入此值、檢查 journal／順序／破壞性 SQL policy、透過 Wrangler 套用，並驗證 pending 數為零。
 
 目前套件的 `db:*` scripts 使用資料庫名稱 `akamoney`，但 Worker 綁定的是
 `akamoney-clicks`。在 scripts 對齊之前，請使用上方以 `DB` binding 為目標的指令。

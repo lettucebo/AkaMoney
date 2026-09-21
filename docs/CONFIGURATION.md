@@ -96,6 +96,14 @@ Secrets are encrypted at rest and are not visible in `wrangler.toml` or logs.
 | `D1_ANALYTICS_API_TOKEN` | No | Cloudflare API token for D1 analytics — injected by the release workflow |
 | `SENTRY_AUTH_TOKEN` | Frontend source-map upload only | GitHub production environment secret used by the protected deploy job for `sentry-cli sourcemaps inject/upload`; never put this in Wrangler config |
 
+### Release workflow repository variable
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ALLOW_DESTRUCTIVE_D1_MIGRATIONS` | Empty | Exact comma-separated migration filenames that may contain `DROP TABLE`, `DROP COLUMN`, `DELETE FROM`, or `TRUNCATE` when the production database is not empty. The trusted `migrate-d1` guard consumes this repository variable before Wrangler applies pending migrations. A boolean, wildcard, or partial filename is not accepted. |
+
+Keep this value empty for ordinary releases. Set only the exact pending filename after reviewing the SQL and expected data impact; safe `DROP INDEX` statements do not need an exception.
+
 ### Error-response policy
 
 Backend and redirect 5xx responses are sanitized and must not include stack traces, raw exception details, tokens, or provider diagnostics. 4xx responses may keep safe validation details, such as invalid input messages, when they do not reveal secrets.

@@ -172,32 +172,29 @@ Wait for CI, CodeQL and GitGuardian to pass, then merge with `--merge` (no-ff) a
 gh pr merge <PR_NUMBER> --merge --delete-branch
 ```
 
-### Step 8: Check D1 Migration Status
+### Step 8: Review D1 Migration Policy
 
-**Before creating the GitHub Release**, confirm the production D1 state. The release workflow **never** applies migrations — `release.yml` only ensures the database exists and injects its id.
-
-Start with the credential-free pre-screen, which shows whether this release adds any migration:
+**Before creating the GitHub Release**, run the credential-free pre-screen to identify migration files introduced by this release:
 
 ```bash
 git diff --name-status $(git describe --tags --abbrev=0)..HEAD -- src/backend/migrations
 ```
 
-> This is only a **pre-screen**. An empty result proves this release adds nothing new; it cannot detect an older migration that was never applied to production. When in doubt, run the authoritative check below.
+The `migrate-d1` release job is authoritative: after the tag is created, it queries the production schema and Wrangler journal, runs the trusted `.release-policy/.github/scripts/check-d1-migrations.mjs`, applies approved pending files, and verifies that none remain **before** any service deploy starts. Do not manually apply migrations during the normal release path.
 
-The authoritative check queries the remote database:
+The guard fails closed when:
+
+- the `urls` table exists but the migration journal is empty;
+- a pending filename sorts before the latest applied filename;
+- a pending file contains `DROP TABLE`, `DROP COLUMN`, `DELETE FROM`, or `TRUNCATE` on a non-empty database without an exact filename opt-in.
+
+`DROP INDEX`, comments, string literals, and destructive bootstrap SQL on a genuinely empty database do not require an opt-in. If an intentional destructive migration is pending, show the user the exact filename and SQL impact, obtain explicit approval, then set the repository variable to the exact comma-separated filename list:
 
 ```bash
-cd src/backend
-npx --no-install wrangler d1 migrations list DB --remote
+gh variable set ALLOW_DESTRUCTIVE_D1_MIGRATIONS --body '0003_exact_filename.sql'
 ```
 
-- Address the D1 binding as `DB`, **not** a database name.
-- There is **no** `--env production`: neither `wrangler.toml` defines any `[env.*]` section.
-- The tracked `wrangler.toml` ships `database_id = ""`, so a remote command needs the id supplied first — use a local `wrangler.local.toml` (`--config wrangler.local.toml`) or inject `CLOUDFLARE_D1_DATABASE_ID`.
-
-> **Do not use the `db:*` scripts in `src/backend/package.json`.** They pass the database *name* `akamoney`, but `wrangler.toml` declares `database_name = "akamoney-clicks"` with binding `DB`. All three fail closed with `Couldn't find a D1 DB with the name or binding 'akamoney'` — `db:migrate:prod` and `db:shell` immediately, and `db:migrate` slightly later when it initialises the migrations table. They are simply broken, not a silent wrong-database risk, but they cannot be used for release verification.
-
-**If migrations are pending**, applying them to production is a **destructive, irreversible operation**. Show the user exactly what would run and **obtain explicit confirmation first**. Never drop or delete a database.
+Never use a boolean, wildcard, or partial filename. Do not bypass journal drift or out-of-order failures; reconcile the production state and rerun the release. The broken `db:*` scripts in `src/backend/package.json` remain unsuitable for verification because they address `akamoney` instead of the configured `DB` binding.
 
 ### Step 9: Create the GitHub Release
 
@@ -233,7 +230,7 @@ gh run watch <RUN_ID> --exit-status
 
 > **Expect exactly one run: `Release`.** A tag push does **not** trigger CI or CodeQL — `ci.yml` only listens to `push` on `main`/`master` and to `pull_request`, and CodeQL runs on a weekly schedule. Their absence on a tag is normal; **do not wait for runs that will never appear.**
 
-The three deploy jobs (`deploy-admin-api`, `deploy-redirect`, `deploy-frontend`) all declare `environment: production`, which has a **required reviewer**. They will pause in a `waiting` state until a human approves the deployment in the GitHub UI. **`waiting` is expected, not a failure.**
+The migration and deploy jobs declare `environment: production`, but the environment has **no required reviewer**. A valid release should proceed without human approval; an unexpected `waiting` state is not normal and must be investigated.
 
 If the run fails:
 
@@ -243,7 +240,7 @@ gh run rerun <RUN_ID> --failed
 gh run watch <RUN_ID> --exit-status
 ```
 
-**Partial deployment is possible**: the three deploy jobs share one approval but can fail individually, leaving production on mixed versions. To roll back or re-push a specific commit, use the manual path — `workflow_dispatch` from `main` with the exact prior SHA and `confirm_production` typed as `DEPLOY_PRODUCTION`.
+The `migrate-d1` gate must finish first, so a migration failure deploys no service. After it passes, the three deploy jobs can still fail individually and leave production on mixed application versions. To roll back or re-push a specific commit, use the manual path — `workflow_dispatch` from `main` with the exact prior SHA and `confirm_production` typed as `DEPLOY_PRODUCTION`.
 
 **Do not advance to cleanup until the run is green.** If a failure cannot be resolved, stop and report it rather than marking the release complete.
 
@@ -272,12 +269,13 @@ git worktree prune
 |----------|---------|---------|-----------|
 | `release.yml` → `prepare-release` | SemVer tag push, or `workflow_dispatch` from `main` with typed confirmation | Nothing — validates and pins the immutable mainline SHA | N/A |
 | `release.yml` → `build` | After validation | Nothing — builds the frontend and dry-runs both Workers | N/A |
-| `release.yml` → `deploy-admin-api` | After build, `environment: production` | Admin API Worker | **Manual** |
-| `release.yml` → `deploy-redirect` | After build, `environment: production` | Redirect Worker | **Manual** |
-| `release.yml` → `deploy-frontend` | After build, `environment: production` | Cloudflare Pages + Sentry source maps | N/A |
+| `release.yml` → `migrate-d1` | After validation and build, `environment: production` | Production D1 schema | **Automatic, guarded, verified before deploys** |
+| `release.yml` → `deploy-admin-api` | After successful migration gate, `environment: production` | Admin API Worker | Already complete |
+| `release.yml` → `deploy-redirect` | After successful migration gate, `environment: production` | Redirect Worker | Already complete |
+| `release.yml` → `deploy-frontend` | After successful migration gate, `environment: production` | Cloudflare Pages + Sentry source maps | N/A |
 | `ci.yml` | Push to `main`/`master`, and pull requests | Nothing — tests and builds only. **Not triggered by tags.** | N/A |
 
-⚠️ **D1 migrations are NEVER applied by CI/CD.** They must be run manually, and only after explicit user confirmation.
+⚠️ **Do not manually apply D1 migrations in the normal release flow.** The release gate applies them through Wrangler only after the trusted guard approves the production state and SQL policy.
 
 ## Related Files
 
@@ -286,6 +284,7 @@ git worktree prune
 | `CHANGELOG.md` / `CHANGELOG.zh-TW.md` | Bilingual changelog — the user-visible release artifact |
 | `.github/workflows/release.yml` | The production release pipeline |
 | `.github/scripts/resolve-release-ref.mjs` | Trusted resolver that validates the release ref against mainline |
+| `.github/scripts/check-d1-migrations.mjs` | Trusted production D1 journal/order/destructive-SQL guard |
 | `src/backend/migrations/*.sql` | D1 database migrations |
 | `docs/DEPLOYMENT.md` / `.zh-TW.md` | Trust boundary, environment policy, manual fallback procedures |
 | `docs/MONITORING.md` / `.zh-TW.md` | Sentry monitoring, source-map flow, privacy boundaries |

@@ -96,6 +96,14 @@ Secrets 靜態加密，不會在 `wrangler.toml` 或 logs 中顯示。
 | `D1_ANALYTICS_API_TOKEN` | 否 | D1 分析的 Cloudflare API token — 由發佈工作流程注入 |
 | `SENTRY_AUTH_TOKEN` | 僅前端 source-map upload | GitHub production environment secret，供受保護 deploy job 執行 `sentry-cli sourcemaps inject/upload`；絕不可放入 Wrangler config |
 
+### Release workflow repository variable
+
+| Variable | 預設值 | 說明 |
+|----------|--------|------|
+| `ALLOW_DESTRUCTIVE_D1_MIGRATIONS` | 空白 | 允許在非空正式資料庫執行 `DROP TABLE`、`DROP COLUMN`、`DELETE FROM` 或 `TRUNCATE` 的精確 migration 檔名，以逗號分隔。受信任的 `migrate-d1` guard 會在 Wrangler 套用 pending migrations 前讀取此 repository variable；布林值、萬用字元或部分檔名都不接受。 |
+
+一般 release 應維持空白。只有在審查 SQL 與預期資料影響後，才設定精確的 pending 檔名；安全的 `DROP INDEX` 不需要例外。
+
 ### 錯誤回應政策
 
 後端與重新導向的 5xx responses 會被 sanitize，且不得包含 stack traces、raw exception details、tokens 或供應商診斷。4xx responses 可以保留安全的驗證細節，例如不會揭露 secrets 的 invalid input messages。

@@ -104,6 +104,7 @@ D1 schema 只放在 `src/backend/migrations/`：
 `.github/scripts/`：
 
 - `resolve-release-ref.mjs` — 受信任的發布 ref 驗證器，只從 `main` 的檢出執行；將觸發事件轉換為不可變且已確認位於主線的 commit SHA（詳見 [部署指南](DEPLOYMENT.zh-TW.md)）
+- `check-d1-migrations.mjs` — 正式環境 D1 的受信任 guard，在 release migration 前檢查 journal drift、檔名順序與破壞性 SQL 的明確核准
 
 ## 相關文件
 

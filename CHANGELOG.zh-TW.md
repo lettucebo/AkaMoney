@@ -7,6 +7,15 @@ AkaMoney 專案的所有重要變更都將記錄在此檔案中。
 格式基於 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 此專案遵循 [語義化版本](https://semver.org/spec/v2.0.0.html)。
 
+## [尚未發布]
+
+### 基礎設施
+- 新增受信任的正式環境 D1 migration guard，遇到 migration journal drift、檔案順序倒插或未核准的破壞性 SQL 時會 fail closed。
+- 新增 `migrate-d1` release gate，在任何服務部署前自動套用並驗證 pending production migrations；同時移除 production environment 的必要審核者，讓有效 release 無需人工核准即可完成。
+
+### 文件
+- 更新中英雙語部署、設定、監控、專案結構與 release 指引，說明自動防護 migration 與仍存在的歷史 workflow 風險。
+
 ## [1.5.1] - 2026-09-15
 
 ### 新增

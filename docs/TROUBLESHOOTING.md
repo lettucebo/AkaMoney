@@ -89,12 +89,12 @@ AkaMoney consists of three distinct subsystems (Frontend, Admin API, and Redirec
 
 - **Symptom**: Everything works in local development, but production deployment fails with `D1_ERROR: no such table: urls`.
 - **Cause**: Local Miniflare D1 state (`.wrangler/state/v3/d1`) is completely isolated from Cloudflare Cloud D1. Local migrations do not alter production.
-- **Remedy**: Apply migrations to remote Cloudflare D1 before or during deployment:
+- **Remedy**: Use the release workflow, whose `migrate-d1` gate applies and verifies remote migrations before any service deploy. For diagnosed manual recovery only:
   ```bash
   cd src/backend
   npx wrangler d1 migrations apply DB --remote --config wrangler.toml
   ```
-  The tracked `wrangler.toml` has an empty `database_id`; populate it first, or use the release workflow, which injects the production ID.
+  The tracked `wrangler.toml` has an empty `database_id`; populate it first for a manual command. If `migrate-d1` failed on journal drift, out-of-order files, or destructive SQL policy, fix that reported condition rather than bypassing the guard.
 
 ---
 

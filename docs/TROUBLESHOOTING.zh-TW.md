@@ -89,12 +89,12 @@ AkaMoney 由三個獨立的子系統所組成（前端、管理 API 與重定向
 
 - **現象**：本地開發運作正常，但正式環境部署後呼叫 API 卻回傳 `D1_ERROR: no such table: urls`。
 - **原因**：本地 Miniflare D1 狀態（`.wrangler/state/v3/d1`）與 Cloudflare 雲端 D1 資料庫完全隔離。本地執行的遷移不會套用至線上。
-- **解決方案**：在部署前或部署時對線上 Cloudflare D1 執行遷移：
+- **解決方案**：使用 release workflow；其 `migrate-d1` gate 會在任何服務部署前自動套用並驗證遠端 migrations。下列指令只供已診斷的手動復原使用：
   ```bash
   cd src/backend
   npx wrangler d1 migrations apply DB --remote --config wrangler.toml
   ```
-  已追蹤的 `wrangler.toml` 中 `database_id` 是空值；請先填入，或使用會注入正式環境 ID 的 release workflow。
+  手動執行前必須先填入已追蹤 `wrangler.toml` 中的空白 `database_id`。若 `migrate-d1` 因 journal drift、檔案順序倒插或破壞性 SQL policy 失敗，應修正回報的狀態，不得繞過 guard。
 
 ---
 
