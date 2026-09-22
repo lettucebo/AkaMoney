@@ -7,6 +7,31 @@ AkaMoney 專案的所有重要變更都將記錄在此檔案中。
 格式基於 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 此專案遵循 [語義化版本](https://semver.org/spec/v2.0.0.html)。
 
+## [1.5.2] - 2026-09-22
+
+### 修正
+- 修正已過期的 Microsoft Entra session 在重新載入時陷入迴圈，而非導向登入頁的問題（#179）。
+- 修正同時發生的驗證失敗會觸發多次轉址的問題，無論由哪個呼叫端回報失敗，都只保留第一次轉址。
+- 修正過期的 silent token 結果會還原已失效 session，以及過期的 interaction-required 失敗會讓較新且已成功的登入 session 失效的問題。
+- 修正登入彈窗回傳不含 access token 的帳戶時，快取帳戶仍可能在之後重新載入時還原 session 的問題。
+- 修正轉址回呼失敗時只清除 access token 卻未記錄過期標記，導致快取帳戶在重新載入後仍顯示為有效的問題。
+
+### 變更
+- 登入頁改為說明 session 結束的原因（已過期、初始化失敗或偵測到轉址迴圈），且不與一般失敗訊息互相干擾。
+- 路由守衛與應用程式殼層改為要求已確認的 session，而非僅有快取帳戶。
+
+### 安全性
+- 升級管理 API 與重新導向 Worker 的 Hono，以消除依賴套件警示。
+- 新增 CI 守門機制：當依賴更新重新引入高風險漏洞，或不再符合根目錄的 Sharp 安全性 override 時即中斷建置。
+
+### 基礎設施
+- 在 workspace 資訊清單（manifest）、發布關卡與 Cloudflare Pages 部署步驟統一 pin 精確版本的 Wrangler `4.130.0`，並新增具測試覆蓋的漂移守門機制，於 pin 不一致時讓 CI 失敗。
+- 將 CI 與發布流程中的 checkout、setup-node、artifact 與 wrangler-action 步驟升級至目前的主要版本。
+- 新增 Dependabot 設定，包含依賴分組與忽略規則。
+
+### 文件
+- 在中英雙語的開發與疑難排解文件中，記錄統一後的 Wrangler pin 與 npm 11 override 警告。
+
 ## [1.5.1] - 2026-09-15
 
 ### 新增
