@@ -1,6 +1,6 @@
 {
   "name": "akamoney-redirect",
-  "version": "1.5.1",
+  "version": "1.5.2",
   "description": "AkaMoney URL Redirect Service - Cloudflare Workers",
   "type": "module",
   "main": "src/index.ts",

@@ -7,6 +7,31 @@ All notable changes to the AkaMoney project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.2] - 2026-09-22
+
+### Fixed
+- Fixed expired Microsoft Entra sessions looping on reload instead of landing on the login page (#179).
+- Fixed concurrent authentication failures triggering more than one redirect, so the first redirect is preserved no matter which caller reports the failure.
+- Fixed a stale silent-token result restoring an already-expired session, and a stale interaction-required failure expiring a session that a newer sign-in had already established.
+- Fixed a sign-in popup that returned an account without an access token leaving a cached account able to restore a session on a later reload.
+- Fixed a failed redirect callback clearing the access token without recording the expiry, so a cached account could still appear valid after a clean reload.
+
+### Changed
+- Changed the login page to explain why a session ended — expired, initialization failed, or a redirect loop was detected — without colliding with the generic failure message.
+- Changed route guards and the application shell to require a confirmed session instead of a cached account.
+
+### Security
+- Upgraded Hono for the Admin API and redirect Workers to clear dependency alerts.
+- Added a CI guard that fails the build when a dependency update reintroduces a high-severity vulnerability or stops satisfying the root Sharp security override.
+
+### Infrastructure
+- Pinned Wrangler to an exact `4.130.0` across the workspace manifests, the release gates, and the Cloudflare Pages deploy steps, and added a tested drift guard that fails CI when those pins diverge.
+- Upgraded the checkout, setup-node, artifact, and wrangler-action steps to their current majors in the CI and release workflows.
+- Added Dependabot configuration with dependency grouping and ignore rules.
+
+### Documentation
+- Documented the unified Wrangler pin and the npm 11 override warning in the bilingual development and troubleshooting documentation.
+
 ## [1.5.1] - 2026-09-15
 
 ### Added
